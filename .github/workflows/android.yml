@@ -30,8 +30,10 @@ jobs:
       - name: Set up Gradle and validate wrapper
         uses: gradle/actions/setup-gradle@v5
 
-      - name: Install Android SDK packages
-        run: sdkmanager "platforms;android-37.0" "build-tools;36.0.0" "platform-tools"
+      - name: Set up Android SDK explicitly
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platforms;android-37.0 build-tools;36.0.0 platform-tools'
 
       - name: Script tests
         run: |
