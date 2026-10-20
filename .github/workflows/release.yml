@@ -1,0 +1,165 @@
+name: Prepare signed beta release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag on main (e.g. v0.8.0-beta.1)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: official-release
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      commit: ${{ steps.source.outputs.commit }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate immutable source selection
+        id: source
+        env:
+          REQUESTED_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          source scripts/release-info.sh
+          test "$REQUESTED_TAG" = "$release_tag"
+          git check-ref-format "refs/tags/$REQUESTED_TAG"
+          commit=$(git rev-parse "refs/tags/$REQUESTED_TAG^{commit}")
+          test "$commit" = "$(git rev-parse HEAD)"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v5
+      - name: Install SDK
+        run: sdkmanager "platforms;android-37.0" "build-tools;36.0.0" "platform-tools"
+      - name: Verify without signing secrets
+        run: |
+          bash scripts/test-verification-parser.sh
+          bash scripts/test-release-tools.sh
+          ./gradlew --no-daemon --console=plain :app:testDebugUnitTest :app:lintDebug :app:lintRelease :app:assembleDebug :app:assembleDebugAndroidTest :app:assembleRelease
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-verification
+          path: |
+            app/build/reports/
+            app/build/test-results/
+          retention-days: 14
+
+  sign:
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.verify.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v5
+        with:
+          cache-read-only: true
+      - name: Install SDK
+        run: sdkmanager "platforms;android-37.0" "build-tools;36.0.0" "platform-tools"
+      - name: Build and verify signed APK
+        env:
+          KEYSTORE_BASE64: ${{ secrets.OM_KEYSTORE_BASE64 }}
+          OM_KEYSTORE_PASSWORD: ${{ secrets.OM_KEYSTORE_PASSWORD }}
+          OM_KEY_PASSWORD: ${{ secrets.OM_KEY_PASSWORD }}
+          OM_KEY_ALIAS: ${{ secrets.OM_KEY_ALIAS }}
+          OM_CERT_SHA256: ${{ vars.OM_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          umask 077
+          test -n "$KEYSTORE_BASE64"
+          export OM_KEYSTORE_PATH="$RUNNER_TEMP/openmetronome.p12"
+          trap 'rm -f -- "$OM_KEYSTORE_PATH"' EXIT
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$OM_KEYSTORE_PATH"
+          unset KEYSTORE_BASE64
+          ./gradlew --no-daemon --console=plain -PrequireReleaseSigning=true :app:assembleRelease
+          bash scripts/package-release.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: official-signed-apk
+          path: app/build/official-release/
+          if-no-files-found: error
+          retention-days: 14
+
+  smoke:
+    needs: [verify, sign]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.verify.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: official-signed-apk
+          path: release-assets
+      - name: Enable emulator acceleration on the disposable runner
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: default
+          arch: x86_64
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: ANDROID_SERIAL=emulator-5554 bash scripts/smoke-release.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-smoke-report
+          path: app/build/reports/release-smoke/
+          retention-days: 14
+
+  draft:
+    needs: [verify, sign, smoke]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.verify.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: official-signed-apk
+          path: release-assets
+      - name: Create draft only, never overwrite an existing release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          source scripts/release-info.sh
+          cd release-assets
+          sha256sum --check SHA256SUMS
+          gh release create "$release_tag" "$release_apk_name" SHA256SUMS SIGNING-CERT-SHA256.txt \
+            --verify-tag --draft --prerelease --title "OpenMetronome $release_version" \
+            --notes-file "../docs/releases/$release_version.md"

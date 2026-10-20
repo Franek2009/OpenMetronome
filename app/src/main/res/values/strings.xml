@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="app_name" translatable="false">OpenMetronome</string>
+  <string name="diagnostics_title">Informacje i diagnostyka</string>
+  <string name="diagnostics_open">Informacje</string>
+  <string name="copy_report">Kopiuj raport</string>
+  <string name="close_dialog">Zamknij</string>
+  <string name="tempo_value">%1$d BPM</string>
+  <string name="decrease_tempo">Zmniejsz tempo o 1 BPM</string>
+  <string name="increase_tempo">Zwiększ tempo o 1 BPM</string>
+  <string name="tempo_slider">Ustaw tempo</string>
+  <string name="tap_tempo">Tap tempo</string>
+  <string name="tap_tempo_hint">Stuknij co najmniej dwa razy w rytmie pulsu</string>
+  <string name="sound_title">Dźwięk</string>
+  <string name="app_volume">Głośność aplikacji: %1$d%%</string>
+  <string name="app_volume_slider">Ustaw głośność aplikacji</string>
+  <string name="sound_classic">Klasyczny</string>
+  <string name="sound_wood">Drewniany</string>
+  <string name="sound_short">Krótki</string>
+  <string name="sound_hint">Głośność zmienia się płynnie; barwa od następnego taktu. Przyciski telefonu regulują głośność systemową.</string>
+  <string name="time_signature_title">Metrum</string>
+  <string name="time_signature_value">%1$d/%2$d</string>
+  <string name="time_signature_accessibility">Metrum %1$d na %2$d</string>
+  <string name="start">Start</string>
+  <string name="stop">Stop</string>
+  <string name="starting">Uruchamianie…</string>
+  <string name="stopping">Zatrzymywanie…</string>
+  <string name="playing">Metronom gra</string>
+  <string name="retry">Spróbuj ponownie</string>
+  <string name="pending_change">Zmiana od następnego taktu</string>
+  <string name="foreground_notice">Metronom może grać przy zablokowanym ekranie. Zatrzymaj go tutaj lub z powiadomienia.</string>
+  <string name="tempo_quarter">BPM · ćwierćnuta</string>
+  <string name="tempo_eighth">BPM · ósemka</string>
+  <string name="audio_focus_denied">Nie można teraz uzyskać dostępu do dźwięku. Spróbuj ponownie.</string>
+  <string name="audio_initialization_failed">Nie udało się uruchomić wyjścia audio. Spróbuj ponownie.</string>
+  <string name="audio_device_lost">Utracono wyjście audio. Sprawdź połączenie i uruchom metronom ponownie.</string>
+  <string name="audio_playback_failed">Odtwarzanie zostało przerwane przez błąd audio. Spróbuj ponownie.</string>
+  <string name="offline_note">Bez reklam. Bez konta. Całkowicie offline.</string>
+</resources>
