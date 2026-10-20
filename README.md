@@ -6,10 +6,11 @@ Bez reklam, subskrypcji, kont i Google Play Services.
 
 ## Pobierz i zacznij ćwiczyć
 
-[Przejdź do wydań i pobierz APK](https://github.com/Franek2009/OpenMetronome/releases)
+[Pobierz APK — 0.8.0-beta.1](https://github.com/Franek2009/OpenMetronome/releases/download/v0.8.0-beta.1/OpenMetronome-0.8.0-beta.1.apk)
+
+[Opis wydania i sumy kontrolne](https://github.com/Franek2009/OpenMetronome/releases/tag/v0.8.0-beta.1)
 
 Wersja **0.8.0-beta.1** jest wydaniem testowym, nie ukończoną wersją 1.0.
-Jeśli na stronie nie ma jeszcze pliku APK, publikacja jest w przygotowaniu.
 Wymagany Android **8.0 lub nowszy**. Telefon i tablet są obsługiwane w pionie
 i poziomie.
 

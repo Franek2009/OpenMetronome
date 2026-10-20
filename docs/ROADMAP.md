@@ -96,7 +96,8 @@ draft prerelease. Bez sklepów, nowego silnika ani deklaracji M6/1.0.
 Lokalnie offline Lint debug/release 0/0; zdalnie brak błędów i po 3 ostrzeżenia
 o nowszych zależnościach. CI i proces wydawniczy zielone, podpisany APK przeszedł
 cichą próbę świeżego emulatora API 35 oraz ponowną instalację z zachowaniem BPM.
-Draft beta utworzony, pobrany i sprawdzony. Publikacja wymaga kopii klucza.
+Po potwierdzeniu kopii klucza przez użytkownika beta została opublikowana
+2026-10-20. Publiczny APK jest tym samym sprawdzonym plikiem z draftu.
 Stan: [raport 0.8](V0.8-VALIDATION.md).
 
 ## Urządzenia testowe

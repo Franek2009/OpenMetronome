@@ -2,7 +2,7 @@
 
 ## 0.8.0-beta.1
 
-Pierwsze przygotowywane publiczne wydanie testowe na GitHubie.
+Pierwsze publiczne wydanie testowe na GitHubie, opublikowane 2026-10-20.
 
 - Podpisane APK, sumy SHA-256 i ręcznie uruchamiany proces wydawniczy.
 - Krótszy pasek nawigacji bez nazwy aplikacji nad metronomem.

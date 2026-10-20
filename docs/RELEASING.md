@@ -22,6 +22,10 @@ uprawnienia i są ignorowane przez Git. Skrypt nigdy ich nie nadpisuje.
 **Oba pliki wymagają bezpiecznej kopii poza komputerem przed publikacją.**
 Nie wklejaj ich ani haseł do czatu, Issue, workflow lub publicznego repozytorium.
 Weryfikuj, że kopia pozwala otworzyć magazyn klucza.
+Sam magazyn jest chroniony losowym hasłem, ale store.password zawiera je
+wprost. Przejęcie obu plików pozwala podpisywać fałszywe aktualizacje.
+Kopię całego folderu przechowuj na bezpiecznym nośniku, najlepiej w szyfrowanym
+archiwum lub magazynie z osobnym hasłem, którego nie zapisujesz obok kopii.
 
 W GitHub Secrets ustaw `OM_KEYSTORE_BASE64` (base64 całego magazynu),
 `OM_KEYSTORE_PASSWORD`, `OM_KEY_PASSWORD` (przy PKCS12 to samo hasło) oraz
