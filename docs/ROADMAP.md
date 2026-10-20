@@ -106,8 +106,11 @@ Głośniej domyślnie bez osobnego trybu; szczyty PCM około 89% zakresu.
 Osiem własnych barw z wariantami akcentowanymi, bez cudzych sampli i migracji
 Room. 104 JVM PASS, lokalnie offline Lint debug/release 0/0, oba warianty
 i instrumentacja zbudowane. Poziom starych barw cyfrowo wzrósł o 10,177–14,065 dB;
-nie jest to pomiar fizycznego wyjścia. Nowa beta pozostaje draftem do ręcznego
-odsłuchu Lenovo podczas grania. [Raport 0.9](V0.9-VALIDATION.md).
+nie jest to pomiar fizycznego wyjścia. CI i proces wydania zielone, emulator
+zaliczył 30 cichych testów z 5 pominięciami audio oraz osobną próbę instalacji
+podpisanego APK. Nowa beta pozostaje niepublicznym draftem do ręcznego odsłuchu
+Lenovo podczas grania. Urządzeń fizycznych nie było podłączonych.
+[Raport 0.9](V0.9-VALIDATION.md).
 
 ## Urządzenia testowe
 

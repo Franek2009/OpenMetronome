@@ -14,7 +14,7 @@ Wersja **0.8.0-beta.1** jest wydaniem testowym, nie ukończoną wersją 1.0.
 Wymagany Android **8.0 lub nowszy**. Telefon i tablet są obsługiwane w pionie
 i poziomie.
 
-W przygotowaniu: **0.9.0-beta.1** — osiem brzmień i głośniejszy dźwięk
+Przygotowany draft: **0.9.0-beta.1** — osiem brzmień i głośniejszy dźwięk
 bez dodatkowego trybu. Po aktualizacji zacznij od niższej głośności.
 Ta wersja czeka na ręczny odsłuch; powyższy publiczny plik nadal dotyczy 0.8.
 [Weryfikacja 0.9](docs/V0.9-VALIDATION.md).
