@@ -2,6 +2,11 @@
 
 ## Panel ćwiczeń 0.7
 
+Od 0.8 pasek nie pokazuje nazwy aplikacji. `AppNavigation` zawiera trzy zakładki
+i Presety w FlowRow; duży tekst może zawinąć elementy zamiast je ucinać.
+Nazwa Androida i powiadomienia pozostaje OpenMetronome. Zmiana nie dotyka
+kontrolera, silnika, formatu ustawień ani danych.
+
 Ciemny motyw jest stały, również przy jasnym ustawieniu systemu. Trzy ekrany:
 Metronom, Statystyki, Ustawienia; Presety z paska. Start/Stop pozostaje poza
 przewijaniem. Od 0.7.1 czysta polityka `InstrumentLayout` wybiera telefon

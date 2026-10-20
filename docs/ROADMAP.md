@@ -87,6 +87,18 @@ i innych pominięć. Zrzuty ocenione w obu orientacjach. W kontynuacji nie
 uruchamiano audio ani wibracji. Historyczne krótkie audio i otwarte ograniczenia
 są oddzielone w [raporcie 0.7.1](V0.7.1-VALIDATION.md). Nie zamyka M6.
 
+## Pakiet 0.8 — publikacja beta
+
+Przygotowane publiczne źródła MIT na GitHubie, krótszy pasek bez nazwy,
+README dla użytkowników, stały klucz wydawniczy i ręczny proces tworzący
+draft prerelease. Bez sklepów, nowego silnika ani deklaracji M6/1.0.
+98 JVM i po 29 cichych testów Samsunga/Lenovo PASS, po 5 audio pominiętych.
+Lokalnie offline Lint debug/release 0/0; zdalnie brak błędów i po 3 ostrzeżenia
+o nowszych zależnościach. CI i proces wydawniczy zielone, podpisany APK przeszedł
+cichą próbę świeżego emulatora API 35 oraz ponowną instalację z zachowaniem BPM.
+Draft beta utworzony, pobrany i sprawdzony. Publikacja wymaga kopii klucza.
+Stan: [raport 0.8](V0.8-VALIDATION.md).
+
 ## Urządzenia testowe
 
 - Samsung SM-A145R, Android 15 / API 35: dotychczasowy telefon testowy.

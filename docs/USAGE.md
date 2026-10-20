@@ -18,7 +18,7 @@ Nieczytelna historyczna konfiguracja daje puste BPM/metrum; pozostała historia
 nadal jest eksportowana. Błąd zapisu może pozostawić niepełny plik wyjściowy,
 ale nie zmienia danych aplikacji. Bez PDF na tym etapie.
 
-Weryfikacja i ograniczenia: [raport 0.7](V0.7-VALIDATION.md).
+Weryfikacja i ograniczenia: [raport 0.8](V0.8-VALIDATION.md).
 
 Metronom odtwarza generowany strumień PCM. Ekran pozwala ustawić tempo **20–300 BPM**,
 metrum **2/4, 3/4, 4/4 lub 6/8** i akcent pierwszej miary. Domyślne ustawienia:
@@ -79,5 +79,5 @@ utratę czasu przy przerwaniu procesu; błędy dysku mogą uniemożliwić zapis.
 **To nie jest wydanie 1.0.** Test 30-minutowy został na życzenie użytkownika
 odłożony do własnego użytkowania — nie jest zaliczony, ale nie blokuje wersji dev.
 Odbiór sprzętowy nowych barw pozostaje osobny. Aktualne wyniki:
-[raport 0.6.1](V0.6.1-VALIDATION.md), [0.6](V0.6-VALIDATION.md)
-i [historia M2–M5](M2-M5-VALIDATION.md).
+[raport 0.8](V0.8-VALIDATION.md); wcześniejsze wyniki:
+[historia M2–M5](M2-M5-VALIDATION.md).
