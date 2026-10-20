@@ -173,15 +173,18 @@ class SilentFeaturesTest {
             slider.performScrollTo().performSemanticsAction(SemanticsActions.SetProgress) { it(percent.toFloat()) }
             compose.runOnIdle { assertEquals(percent, model.state.value.config.sound.volumePercent) }
         }
-        for ((label, sound) in listOf("Krótki" to ClickSound.SHORT, "Klasyczny" to ClickSound.CLASSIC, "Drewniany" to ClickSound.WOOD)) {
+        for ((label, sound) in listOf("Krótki" to ClickSound.SHORT, "Klasyczny" to ClickSound.CLASSIC,
+            "Drewniany" to ClickSound.WOOD, "Woodblock" to ClickSound.WOODBLOCK, "Rimshot" to ClickSound.RIMSHOT,
+            "Cowbell" to ClickSound.COWBELL, "Klaśnięcie" to ClickSound.CLAP, "Puls elektroniczny" to ClickSound.PULSE)) {
             compose.onNodeWithText(label).performScrollTo().performClick().assertIsSelected()
             compose.runOnIdle { assertEquals(sound, model.state.value.config.sound.clickSound) }
         }
         slider.performScrollTo().performSemanticsAction(SemanticsActions.SetProgress) { it(37f) }
+        captureUi("sound-controls")
         compose.activityRule.scenario.recreate()
-        compose.onNodeWithText("Drewniany").performScrollTo().assertIsSelected()
+        compose.onNodeWithText("Puls elektroniczny").performScrollTo().assertIsSelected()
         compose.runOnIdle {
-            assertEquals(SoundConfig(37, ClickSound.WOOD), model.state.value.config.sound)
+            assertEquals(SoundConfig(37, ClickSound.PULSE), model.state.value.config.sound)
             assertEquals(PlaybackStatus.STOPPED, model.state.value.audio.status)
         }
     }
@@ -346,7 +349,7 @@ class SilentFeaturesTest {
         if (InstrumentationRegistry.getArguments().getString("captureUi") != "true") return
         check(compose.activity.application is TestApplication)
         val bitmap = compose.onRoot().captureToImage().asAndroidBitmap()
-        java.io.File(compose.activity.cacheDir, "ui-v08-$name.png").outputStream().use {
+        java.io.File(compose.activity.cacheDir, "ui-v09-$name.png").outputStream().use {
             assertTrue(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it))
         }
     }

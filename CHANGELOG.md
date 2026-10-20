@@ -1,5 +1,14 @@
 # Zmiany
 
+## 0.9.0-beta.1 — draft do odsłuchu
+
+- Głośniej domyślnie: wykorzystanie około 89% zakresu PCM, bez dodatkowego trybu.
+  Istniejące barwy mają wyższy poziom także w starych presetach. Zacznij odsłuch
+  od niższej głośności, zwłaszcza jeśli dotąd była ustawiona na maksimum.
+- Pięć nowych własnych barw: Woodblock, Rimshot, Cowbell, Klaśnięcie, Puls elektroniczny.
+- Osiem barw z akcentami, zapis w ustawieniach i presetach bez migracji danych.
+- Bez zmian zegara i głośności systemowej; brak odsłuchu sprzętowego nowego banku.
+
 ## 0.8.0-beta.1
 
 Pierwsze publiczne wydanie testowe na GitHubie, opublikowane 2026-10-20.

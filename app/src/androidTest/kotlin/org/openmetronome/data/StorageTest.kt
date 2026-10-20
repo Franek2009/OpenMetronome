@@ -20,6 +20,28 @@ import org.openmetronome.audio.*
 /** No Activity, audio, vibrator, or access to the user's production database/preferences. */
 @RunWith(AndroidJUnit4::class)
 class StorageTest {
+    @Test fun allEightSoundsPersistInSettingsAndPresetsWithoutHardware() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, PracticeDatabase::class.java).build()
+        val file = File(context.cacheDir, "sound-bank-${UUID.randomUUID()}.preferences_pb")
+        suspend fun withStore(action: suspend (SettingsRepository) -> Unit) {
+            val owner = SupervisorJob()
+            val store = PreferenceDataStoreFactory.create(scope = CoroutineScope(owner + Dispatchers.IO)) { file }
+            try { action(SettingsRepository(store)) } finally { owner.cancelAndJoin() }
+        }
+        try {
+            for (sound in ClickSound.entries) {
+                val config = MetronomeConfig(sound = SoundConfig(37, sound))
+                withStore { it.save(config) }
+                withStore { assertEquals(config, it.load()) }
+                db.practice().savePreset(Preset(sound.name, "Fixture ${sound.name}", ConfigCodec.encode(config), 1, 1))
+            }
+            val restored = db.practice().presets().first().map { ConfigCodec.decode(it.config).sound }.toSet()
+            assertEquals(ClickSound.entries.map { SoundConfig(37, it) }.toSet(), restored)
+            assertEquals(8, restored.size)
+        } finally { db.close(); file.delete() } // Only this UUID-named test fixture.
+    }
+
     @Test fun exportReadsAllSessionsAndDoesNotMutateHistory() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = Room.inMemoryDatabaseBuilder(context, PracticeDatabase::class.java).build()

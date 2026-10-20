@@ -166,7 +166,19 @@ Kodek nadal zapisuje wersję 1 z opcjonalnymi nowymi polami; brak pól oznacza
 monotoniczne nanosekundy, a ViewModel przekazuje wynik jako zwykłą edycję BPM,
 bez odtwarzania. Nie jest to część zegara audio i nie jest utrwalany.
 
-Renderer przygotowuje na start bank zwykłych/akcentowanych próbek trzech barw.
+Od 0.9 renderer przygotowuje na start bank zwykłych/akcentowanych próbek ośmiu barw.
+ClickGenerator tworzy przebiegi Double i normalizuje je przed konwersją do PCM16
+do szczytu 29162 (około 0.89 pełnej skali). Nie podbijamy gotowego Short z
+przepełnieniem ani nie używamy clippingu jako wzmacniacza. Stare trzy identyfikatory
+barw zachowane; nie zachowujemy ich cichej amplitudy z 0.8. Długości dawnych
+klików i ich początki pozostają te same, nowe mają 12–35 ms, poniżej odstępu
+50 ms przy 300 BPM i czterech podziałach. Brak miksowania nakładających się głosów.
+Woodblock i rimshot łączą rezonanse z szumowym atakiem, cowbell używa
+nieharmonicznych sinusoid, clap trzech impulsów szumu, a pulse sumy nieparzystych
+harmonicznych ograniczonych poniżej 0.45 częstotliwości próbkowania. Lokalny
+xorshift i filtracja szumu nie konsumują Random z SilencePlanner.
+Wszystkie próbki są przygotowane poza pętlą renderowania. Szczyt cyfrowy nie
+jest pomiarem głośności akustycznej ani dowodem słyszalności przy instrumencie.
 Barwa podlega tej samej granicy taktu co rytm. Głośność jest niezależnym
 parametrem renderera: `VolumeEnvelope` zmienia gain liniowo przez około 5 ms
 liczone próbkami, także w ciszy. Kolejna edycja rozpoczyna przejście od bieżącej

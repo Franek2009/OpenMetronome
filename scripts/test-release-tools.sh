@@ -20,4 +20,8 @@ if ANDROID_SERIAL=physical-device bash scripts/smoke-release.sh > "$release_test
     echo 'FAIL: release smoke accepted a physical device' >&2; exit 1
 fi
 grep -q 'Refusing a physical device' "$release_test_dir/physical.log"
+if ANDROID_SERIAL=physical-device bash scripts/quiet-emulator.sh > "$release_test_dir/quiet-physical.log" 2>&1; then
+    echo 'FAIL: quiet emulator suite accepted a physical device' >&2; exit 1
+fi
+grep -q 'Refusing a physical device' "$release_test_dir/quiet-physical.log"
 echo 'Release tools: syntax, metadata, key overwrite, missing-SDK and physical-device guards PASS.'

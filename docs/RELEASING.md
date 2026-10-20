@@ -46,9 +46,16 @@ Klucz jest używany tylko w zadaniu podpisującym, nie w CI pull requestów.
 5. Workflow ponownie sprawdza projekt, podpisuje APK, odrzuca debug/obcy
    certyfikat i tworzy **draft prerelease**, nigdy nie publikuje samoczynnie.
    Ponowny przebieg nie nadpisuje istniejącego wydania.
-6. Osobne zadanie sprawdza podpisany APK na świeżym emulatorze API 35:
+6. Od 0.9 osobne zadanie quiet instaluje debug i instrumentację na świeżym
+   emulatorze API 35. Wykonuje pełny cichy zestaw z allowAudio=false oraz
+   allowHaptics=false; parser musi potwierdzić kompletność i brak innych
+   pominięć. Skrypt odmawia działania na fizycznym urządzeniu lub emulatorze
+   z istniejącą aplikacją. Ten emulator nie służy do testu release.
+   Kolejne osobne zadanie sprawdza podpisany APK na drugim świeżym emulatorze API 35:
    instalacja, zapis BPM i ponowna instalacja z zachowaniem ustawień, bez Start.
-   Nie otrzymuje klucza podpisu. Dopiero po tym powstaje draft.
+   Oba zadania emulatorów nie otrzymują klucza podpisu. Dopiero po ich
+   zaliczeniu powstaje draft. Dla 0.9 ręczny odsłuch jest dodatkową bramką
+   przed publikacją, niezależnie od wcześniej potwierdzonej kopii klucza.
 7. Pobierz pliki z draftu, sprawdź SHA256SUMS i podpis. Potwierdź kopię klucza.
    Dopiero wtedy opublikuj prerelease.
 

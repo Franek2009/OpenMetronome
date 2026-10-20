@@ -17,7 +17,12 @@
   <string name="sound_classic">Klasyczny</string>
   <string name="sound_wood">Drewniany</string>
   <string name="sound_short">Krótki</string>
-  <string name="sound_hint">Głośność zmienia się płynnie; barwa od następnego taktu. Przyciski telefonu regulują głośność systemową.</string>
+  <string name="sound_woodblock">Woodblock</string>
+  <string name="sound_rimshot">Rimshot</string>
+  <string name="sound_cowbell">Cowbell</string>
+  <string name="sound_clap">Klaśnięcie</string>
+  <string name="sound_pulse">Puls elektroniczny</string>
+  <string name="sound_hint">Od wersji 0.9 kliki są głośniejsze — zacznij odsłuch od niższej głośności. Głośność zmienia się płynnie; barwa od następnego taktu. Przyciski telefonu regulują głośność systemową. Wybór barwy nie uruchamia odtwarzania.</string>
   <string name="time_signature_title">Metrum</string>
   <string name="time_signature_value">%1$d/%2$d</string>
   <string name="time_signature_accessibility">Metrum %1$d na %2$d</string>

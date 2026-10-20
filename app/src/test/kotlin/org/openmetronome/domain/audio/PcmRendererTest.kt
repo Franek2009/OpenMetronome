@@ -65,7 +65,7 @@ class PcmRendererTest {
                 assertEquals(0, click.first().toInt())
                 assertEquals(0, click.last().toInt())
                 assertTrue(click.any { it != 0.toShort() })
-                assertTrue(click.all { abs(it.toInt()) <= Short.MAX_VALUE * 0.4 })
+                assertTrue(click.all { abs(it.toInt()) <= ClickGenerator.PEAK_SAMPLE })
             }
         }
     }

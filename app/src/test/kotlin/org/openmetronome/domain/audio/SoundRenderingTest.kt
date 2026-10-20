@@ -7,16 +7,16 @@ import org.openmetronome.audio.*
 import org.openmetronome.domain.model.*
 
 class SoundRenderingTest {
-    @Test fun `classic samples remain exactly equal to the original formula`() {
+    @Test fun `legacy voices gain at least ten digital decibels without moving their onset`() {
         for (rate in listOf(44100, 48000)) for (accent in listOf(false, true)) {
-            val length = rate / 100
-            val frequency = if (accent) 1800.0 else 1200.0
-            val original = ShortArray(length) { index ->
-                val envelope = min(1.0, index / (rate * 0.0005)) *
-                    min(1.0, (length - 1 - index) / (rate * 0.001)) * exp(-6.0 * index / length)
-                (Short.MAX_VALUE * 0.4 * envelope * sin(2 * PI * frequency * index / rate)).roundToInt().toShort()
+            for (sound in listOf(ClickSound.CLASSIC, ClickSound.WOOD, ClickSound.SHORT)) {
+                val original = LegacyClickFixture.generate(rate, accent, sound)
+                val louder = ClickGenerator.generate(rate, accent, sound)
+                assertEquals(original.size, louder.size)
+                assertEquals(original.indexOfFirst { it != 0.toShort() }, louder.indexOfFirst { it != 0.toShort() })
+                val gainDb = 10 * log10(louder.sumOf { it.toDouble() * it } / original.sumOf { it.toDouble() * it })
+                assertTrue("$sound $rate accent=$accent gain=$gainDb", gainDb >= 10.0)
             }
-            assertArrayEquals(original, ClickGenerator.generate(rate, accent, ClickSound.CLASSIC))
         }
     }
     @Test fun `all timbres and accents are deterministic distinct bounded and end at zero`() {
@@ -26,10 +26,11 @@ class SoundRenderingTest {
                 assertArrayEquals(pcm, ClickGenerator.generate(rate, accent, sound))
                 assertEquals(0, pcm.first().toInt()); assertEquals(0, pcm.last().toInt())
                 assertTrue(pcm.any { it != 0.toShort() })
-                assertTrue(pcm.all { abs(it.toInt()) <= Short.MAX_VALUE * 0.4 })
+                assertEquals(ClickGenerator.PEAK_SAMPLE, pcm.maxOf { abs(it.toInt()) })
+                assertTrue(pcm.all { abs(it.toInt()) <= ClickGenerator.PEAK_SAMPLE })
                 pcm.toList()
             } }
-            assertEquals(6, samples.toSet().size)
+            assertEquals(16, samples.toSet().size)
         }
     }
     @Test fun `fixed volume scales PCM exactly and zero does not stop the timeline`() {

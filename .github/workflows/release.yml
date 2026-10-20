@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing version tag on main (e.g. v0.8.0-beta.1)
+        description: Existing version tag on main (e.g. v0.9.0-beta.1)
         required: true
         type: string
 
@@ -61,6 +61,53 @@ jobs:
           path: |
             app/build/reports/
             app/build/test-results/
+          retention-days: 14
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: quiet-test-apks
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  quiet:
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.verify.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: quiet-test-apks
+          path: quiet-apks
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v4
+      - name: Enable emulator acceleration on the disposable runner
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: default
+          arch: x86_64
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: ANDROID_SERIAL=emulator-5554 bash scripts/quiet-emulator.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: quiet-emulator-report
+          path: app/build/reports/quiet-emulator/
           retention-days: 14
 
   sign:
@@ -146,7 +193,7 @@ jobs:
           retention-days: 14
 
   draft:
-    needs: [verify, sign, smoke]
+    needs: [verify, quiet, sign, smoke]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:

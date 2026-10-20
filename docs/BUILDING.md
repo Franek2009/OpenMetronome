@@ -191,7 +191,9 @@ i izolowanej aplikacji testowej. Przy ręcznym `am instrument` używaj komponent
 
 Zwykłe GitHub Actions wykonuje testy JVM, skryptów, Lint debug/release oraz
 kompilację debug, instrumentacji i niepodpisanego release. Debug APK i raporty
-są zachowywane przez 14 dni. Ten workflow nie uruchamia emulatora.
+są zachowywane przez 14 dni. Od 0.9 na gałęzi main workflow uruchamia także
+pełny cichy zestaw na świeżym emulatorze API 35, z osobnym raportem pominięć.
+Nie uruchamia audio i nie korzysta z fizycznych urządzeń.
 Osobny ręczny proces wydawniczy podpisuje APK i wykonuje cichą próbę na świeżym
 emulatorze przed utworzeniem draftu. [Wydawanie](RELEASING.md).
 

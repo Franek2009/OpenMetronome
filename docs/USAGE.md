@@ -43,13 +43,17 @@ Nie jest zapisywany w logu ani wysyłany automatycznie; „Kopiuj raport” kopi
 go do systemowego schowka na wyraźne żądanie użytkownika. Dane to migawka
 renderera, nie pomiar rzeczywistego wyjścia głośnika.
 
-Sekcja „Dźwięk” daje niezależną głośność aplikacji 0–100% oraz barwy
-„Klasyczny”, „Drewniany” i „Krótki”. Przyciski telefonu nadal regulują
+Sekcja „Dźwięk” daje niezależną głośność aplikacji 0–100%. W 0.9 dostępne są
+„Klasyczny”, „Drewniany”, „Krótki”, „Woodblock”, „Rimshot”, „Cowbell”,
+„Klaśnięcie” i „Puls elektroniczny”. Publiczna 0.8 ma tylko pierwsze trzy.
+Przyciski telefonu nadal regulują
 systemowe multimedia. Zmiana głośności dotyczy kolejnych renderowanych próbek,
 z przejściem około 5 ms; wcześniej zbuforowane audio nie jest cofane.
 Barwa zmienia się od następnego jeszcze niewyrenderowanego taktu.
-0% nie zatrzymuje zegara, treningu ani zapisu sesji. Domyślne 100% i klasyczna
-barwa zachowują dotychczasowy PCM. Dźwięki są syntetyczne, bez plików zewnętrznych.
+0% nie zatrzymuje zegara, treningu ani zapisu sesji. Od 0.9 kliki są głośniejsze
+domyślnie, także w istniejących presetach: nie ma osobnego trybu wzmocnienia.
+Zacznij pierwszy odsłuch od niższej głośności. Wybór barwy przy zatrzymanym
+metronomie nie uruchamia dźwięku. Dźwięki są syntetyczne, bez plików zewnętrznych.
 Głośność i barwa są zapisywane również w presetach; stare konfiguracje
 otrzymują wartości domyślne, bez migracji lub kasowania bazy.
 

@@ -28,10 +28,15 @@ fun SoundControls(config: MetronomeConfig, onChange: (MetronomeConfig) -> Unit, 
             ClickSound.entries.forEach { sound ->
                 FilterChip(config.sound.clickSound == sound, {
                     onChange(config.copy(sound = config.sound.copy(clickSound = sound)))
-                }, label = { Text(stringResource(when (sound) {
+                }, modifier = Modifier.sizeIn(minHeight = 48.dp), label = { Text(stringResource(when (sound) {
                     ClickSound.CLASSIC -> R.string.sound_classic
                     ClickSound.WOOD -> R.string.sound_wood
                     ClickSound.SHORT -> R.string.sound_short
+                    ClickSound.WOODBLOCK -> R.string.sound_woodblock
+                    ClickSound.RIMSHOT -> R.string.sound_rimshot
+                    ClickSound.COWBELL -> R.string.sound_cowbell
+                    ClickSound.CLAP -> R.string.sound_clap
+                    ClickSound.PULSE -> R.string.sound_pulse
                 })) })
             }
         }

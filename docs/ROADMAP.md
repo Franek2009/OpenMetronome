@@ -100,6 +100,15 @@ Po potwierdzeniu kopii klucza przez użytkownika beta została opublikowana
 2026-10-20. Publiczny APK jest tym samym sprawdzonym plikiem z draftu.
 Stan: [raport 0.8](V0.8-VALIDATION.md).
 
+## Pakiet 0.9 — głośność i barwy, draft do odsłuchu
+
+Głośniej domyślnie bez osobnego trybu; szczyty PCM około 89% zakresu.
+Osiem własnych barw z wariantami akcentowanymi, bez cudzych sampli i migracji
+Room. 104 JVM PASS, lokalnie offline Lint debug/release 0/0, oba warianty
+i instrumentacja zbudowane. Poziom starych barw cyfrowo wzrósł o 10,177–14,065 dB;
+nie jest to pomiar fizycznego wyjścia. Nowa beta pozostaje draftem do ręcznego
+odsłuchu Lenovo podczas grania. [Raport 0.9](V0.9-VALIDATION.md).
+
 ## Urządzenia testowe
 
 - Samsung SM-A145R, Android 15 / API 35: dotychczasowy telefon testowy.
