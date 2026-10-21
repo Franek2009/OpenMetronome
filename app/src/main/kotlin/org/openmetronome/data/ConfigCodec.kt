@@ -15,6 +15,7 @@ object ConfigCodec {
             "step" to ramp.step, "barsPerStep" to ramp.barsPerStep,
             "subdivision" to rhythm.subdivision.name, "accents" to rhythm.accents.joinToString(",") { it.name },
             "volumePercent" to sound.volumePercent, "clickSound" to sound.clickSound.name,
+            "customSampleId" to (sound.customSampleId ?: ""),
             "beatAccents" to beatAccents.joinToString(",") { it.name },
         ).entries.joinToString("\n") { "${it.key}=${it.value}" }
     }
@@ -38,7 +39,8 @@ object ConfigCodec {
             ramp = TempoRamp(flag("ramp", false), number("start", 60), number("target", 120), number("step", 5), number("barsPerStep", 4)),
             rhythm = RhythmConfig(values["subdivision"]?.let(Subdivision::valueOf) ?: Subdivision.SINGLE,
                 values["accents"]?.takeIf { it.isNotEmpty() }?.split(',')?.map(ClickAccent::valueOf) ?: emptyList()),
-            sound = SoundConfig(number("volumePercent", 100), values["clickSound"]?.let(ClickSound::valueOf) ?: ClickSound.CLASSIC),
+            sound = SoundConfig(number("volumePercent", 100), values["clickSound"]?.let(ClickSound::valueOf) ?: ClickSound.CLASSIC,
+                values["customSampleId"]?.takeIf { it.isNotEmpty() }),
             beatAccents = values["beatAccents"]?.takeIf { it.isNotEmpty() }?.split(',')?.map(ClickAccent::valueOf) ?: emptyList(),
         )
     }

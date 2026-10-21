@@ -46,6 +46,12 @@ renderera, nie pomiar rzeczywistego wyjścia głośnika.
 Sekcja „Dźwięk” daje niezależną głośność aplikacji 0–100%. W 0.9 dostępne są
 „Klasyczny”, „Drewniany”, „Krótki”, „Woodblock”, „Rimshot”, „Cowbell”,
 „Klaśnięcie” i „Puls elektroniczny”. Publiczna 0.8 ma tylko pierwsze trzy.
+W rozwojowej 0.12 jeden wybór „Brzmienie” zawiera Pełny, Niski, Jasny,
+Wysoki, Krótki i Długi oraz własne sample. Dawne numery i eksperymenty
+zniknęły z listy; wcześniejsze konfiguracje nadal zachowują swoje brzmienia
+archiwalne. Nowe ustawienia używają Pełnego (dawne 06).
+„Importuj sample” przygotowuje WAV/MP3/OGG jako klik do 40 ms, bez odsłuchu.
+Import wymaga zatrzymania metronomu. [Import i biblioteka](CUSTOM-SAMPLES.md).
 Przyciski telefonu nadal regulują
 systemowe multimedia. Zmiana głośności dotyczy kolejnych renderowanych próbek,
 z przejściem około 5 ms; wcześniej zbuforowane audio nie jest cofane.
@@ -53,9 +59,11 @@ Barwa zmienia się od następnego jeszcze niewyrenderowanego taktu.
 0% nie zatrzymuje zegara, treningu ani zapisu sesji. Od 0.9 kliki są głośniejsze
 domyślnie, także w istniejących presetach: nie ma osobnego trybu wzmocnienia.
 Zacznij pierwszy odsłuch od niższej głośności. Wybór barwy przy zatrzymanym
-metronomie nie uruchamia dźwięku. Dźwięki są syntetyczne, bez plików zewnętrznych.
+metronomie nie uruchamia dźwięku. Barwy wbudowane są syntetyczne; własne pliki
+są kopiowane do prywatnej biblioteki aplikacji.
 Głośność i barwa są zapisywane również w presetach; stare konfiguracje
-otrzymują wartości domyślne, bez migracji lub kasowania bazy.
+otrzymują swoje wcześniejsze wartości domyślne. W 0.12 migracja Room 1→2
+dodaje metadane sampli bez kasowania dotychczasowych tabel.
 
 Właścicielem sesji jest usługa `mediaPlayback`: Home, obrót i blokada nie
 powinny przerywać ćwiczenia. Zatrzymanie z aplikacji lub powiadomienia kończy

@@ -30,7 +30,7 @@ class SoundRenderingTest {
                 assertTrue(pcm.all { abs(it.toInt()) <= ClickGenerator.PEAK_SAMPLE })
                 pcm.toList()
             } }
-            assertEquals(16, samples.toSet().size)
+            assertEquals(86, samples.toSet().size)
         }
     }
     @Test fun `fixed volume scales PCM exactly and zero does not stop the timeline`() {
@@ -62,7 +62,7 @@ class SoundRenderingTest {
         assertEquals(0.0, descending.last(), 0.0)
     }
     @Test fun `volume applies now while timbre waits for bar without cutting the current click`() {
-        val initial = MetronomeConfig(tempo = Tempo(300))
+        val initial = MetronomeConfig(tempo = Tempo(300), sound = SoundConfig(clickSound = ClickSound.CLASSIC))
         val changed = initial.copy(sound = SoundConfig(100, ClickSound.WOOD))
         val renderer = PcmRenderer(48000, initial)
         renderer.render(ShortArray(100), requested = initial)

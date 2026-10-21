@@ -37,12 +37,13 @@ import org.openmetronome.domain.model.MetronomeConfig
 fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, notificationPermission: (() -> Unit)? = null) {
     val state by model.state.collectAsStateWithLifecycle()
     val error by data.error.collectAsStateWithLifecycle()
+    val sampleWorking by data.sampleWorking.collectAsStateWithLifecycle()
     var page by rememberSaveable { mutableStateOf("Metronom") }
     var report by rememberSaveable { mutableStateOf<String?>(null) }
     BackHandler(enabled = page != "Metronom" && report == null) { page = "Metronom" }
     val context = LocalContext.current
     val diagnosticsTitle = stringResource(R.string.diagnostics_title)
-    Scaffold(modifier = Modifier.imePadding(), bottomBar = { PlaybackControls(state, model::start, model::stop) }) { padding ->
+    Scaffold(modifier = Modifier.imePadding(), bottomBar = { PlaybackControls(state, model::start, model::stop, startEnabled = !sampleWorking) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             AppNavigation(page) { page = it }
             error?.let { message ->
@@ -53,7 +54,7 @@ fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, notificationPermi
                 when (page) {
                     "Presety" -> PresetsScreen(data, model)
                     "Statystyki" -> StatisticsScreen(data)
-                    "Ustawienia" -> SettingsScreen(state.config, model::setConfig, notificationPermission) {
+                    "Ustawienia" -> SettingsScreen(model, data, notificationPermission) {
                         @Suppress("DEPRECATION")
                         val info = context.packageManager.getPackageInfo(context.packageName, 0)
                         @Suppress("DEPRECATION")
@@ -193,12 +194,17 @@ private fun StatisticsScreen(data: AppData) {
 }
 
 @Composable
-private fun SettingsScreen(config: MetronomeConfig, onChange: (MetronomeConfig) -> Unit,
+private fun SettingsScreen(model: MetronomeViewModel, data: AppData,
     notificationPermission: (() -> Unit)?, diagnostics: () -> Unit) {
+    val state by model.state.collectAsStateWithLifecycle()
+    val config = state.config
+    val onChange = model::setConfig
+    val samples by data.samples.items.collectAsStateWithLifecycle()
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("Ustawienia", style = MaterialTheme.typography.headlineMedium)
-        SoundControls(config, onChange)
+        SoundControls(config, onChange, customSamples = samples)
+        SampleLibraryControls(model, data)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Wizualny puls", Modifier.weight(1f))
             Switch(config.visualPulse, { onChange(config.copy(visualPulse = it)) },

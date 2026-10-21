@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:locale="pl">
   <string name="app_name" translatable="false">OpenMetronome</string>
   <string name="diagnostics_title">Informacje i diagnostyka</string>
   <string name="diagnostics_open">Informacje</string>
@@ -12,6 +12,14 @@
   <string name="tap_tempo">Tap tempo</string>
   <string name="tap_tempo_hint">Stuknij co najmniej dwa razy w rytmie pulsu</string>
   <string name="sound_title">Dźwięk</string>
+  <string name="sound_curated_full">Pełny</string>
+  <string name="sound_curated_low">Niski</string>
+  <string name="sound_curated_bright">Jasny</string>
+  <string name="sound_curated_high">Wysoki</string>
+  <string name="sound_curated_short">Krótki</string>
+  <string name="sound_curated_long">Długi</string>
+  <string name="sample_unavailable">Brak lub uszkodzony sample. Wybierz dostępne brzmienie.</string>
+  <string name="sample_library_busy">Biblioteka sampli jest przygotowywana. Spróbuj ponownie po zakończeniu operacji.</string>
   <string name="app_volume">Głośność aplikacji: %1$d%%</string>
   <string name="app_volume_slider">Ustaw głośność aplikacji</string>
   <string name="sound_classic">Klasyczny</string>
@@ -22,6 +30,37 @@
   <string name="sound_cowbell">Cowbell</string>
   <string name="sound_clap">Klaśnięcie</string>
   <string name="sound_pulse">Puls elektroniczny</string>
+  <string name="selected_sound">Brzmienie: %1$s</string>
+  <string name="sound_close">Zamknij</string>
+  <string name="sound_electro_low">01 — Elektroniczny niski</string>
+  <string name="sound_electro_mid">02 — Elektroniczny średni</string>
+  <string name="sound_electro_high">03 — Elektroniczny wysoki</string>
+  <string name="sound_electro_dual">04 — Elektroniczny dwutonowy</string>
+  <string name="sound_impulse_short">05 — Impuls krótki</string>
+  <string name="sound_impulse_bright">07 — Impuls jasny</string>
+  <string name="sound_impulse_rough">08 — Impuls chropowaty</string>
+  <string name="sound_wood_dry">09 — Drewno suche</string>
+  <string name="sound_claves">10 — Klawesy</string>
+  <string name="sound_wood_resonant">11 — Drewno rezonujące</string>
+  <string name="sound_wood_hard">12 — Drewno twarde</string>
+  <string name="sound_metal_bell">13 — Metal dzwonek</string>
+  <string name="sound_metal_anvil">14 — Metal kowadełko</string>
+  <string name="sound_metal_ping">15 — Metal ping</string>
+  <string name="sound_metal_dry">16 — Metal suchy</string>
+  <string name="sound_noise_crack">17 — Trzask</string>
+  <string name="sound_noise_brush">18 — Szczotka</string>
+  <string name="sound_noise_rim">19 — Obręcz</string>
+  <string name="sound_noise_wide">20 — Atak szerokopasmowy</string>
+  <string name="sound_full_low_900">22 — Pełny niski 900 Hz</string>
+  <string name="sound_full_high_1400">24 — Pełny wyższy 1400 Hz</string>
+  <string name="sound_full_tight">27 — Pełny zwarty</string>
+  <string name="sound_full_long">28 — Pełny długi</string>
+  <string name="sound_full_soft">30 — Pełny łagodny</string>
+  <string name="sound_full_bright">31 — Pełny jasny</string>
+  <string name="sound_full_round">32 — Pełny zaokrąglony</string>
+  <string name="sound_full_dense">33 — Pełny nasycony</string>
+  <string name="sound_full_low_dense">34 — Pełny niski i gęsty</string>
+  <string name="sound_full_high_tight">35 — Pełny wyższy i zwarty</string>
   <string name="sound_hint">Od wersji 0.9 kliki są głośniejsze — zacznij odsłuch od niższej głośności. Głośność zmienia się płynnie; barwa od następnego taktu. Przyciski telefonu regulują głośność systemową. Wybór barwy nie uruchamia odtwarzania.</string>
   <string name="time_signature_title">Metrum</string>
   <string name="time_signature_value">%1$d/%2$d</string>

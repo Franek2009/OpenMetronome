@@ -14,8 +14,8 @@ android {
         applicationId = "org.openmetronome"
         minSdk = 26
         targetSdk = 37
-        versionCode = 9
-        versionName = "0.9.0-beta.1"
+        versionCode = 12
+        versionName = "0.12.0-beta.1"
         testInstrumentationRunner = "org.openmetronome.OpenMetronomeTestRunner"
     }
 
@@ -58,6 +58,9 @@ android {
 }
 
 dependencies {
+    // Room's migration helper is compiled against 1.8.1. Android test runtime
+    // follows the app runtime; keep both aligned instead of downgrading it to 1.7.3.
+    implementation(platform(libs.kotlinx.serialization.bom))
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.datastore)
     ksp(libs.androidx.room.compiler)

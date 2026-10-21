@@ -19,8 +19,16 @@ data class PracticeDay(val sessionId: String, val date: String, val durationMs: 
 data class DayTotal(val date: String, val durationMs: Long)
 data class PracticeTotal(val sessions: Long, val durationMs: Long)
 
+@Entity(tableName = "custom_samples")
+data class CustomSampleRecord(@PrimaryKey val id: String, val name: String, val createdAt: Long)
+
 @Dao
 abstract class PracticeDao {
+    @Query("SELECT * FROM custom_samples ORDER BY createdAt, id") abstract suspend fun allSamples(): List<CustomSampleRecord>
+    @Insert abstract suspend fun insertSample(sample: CustomSampleRecord)
+    @Query("UPDATE custom_samples SET name = :name WHERE id = :id") abstract suspend fun renameSample(id: String, name: String)
+    @Query("DELETE FROM custom_samples WHERE id = :id") abstract suspend fun deleteSample(id: String)
+    @Query("SELECT * FROM presets") abstract suspend fun allPresets(): List<Preset>
     @Query("SELECT * FROM presets ORDER BY updatedAt DESC") abstract fun presets(): Flow<List<Preset>>
     @Upsert abstract suspend fun savePreset(preset: Preset)
     @Query("DELETE FROM presets WHERE id = :id") abstract suspend fun deletePreset(id: String)
@@ -39,5 +47,14 @@ abstract class PracticeDao {
     }
 }
 
-@Database(entities = [Preset::class, PracticeSession::class, PracticeDay::class], version = 1, exportSchema = true)
-abstract class PracticeDatabase : RoomDatabase() { abstract fun practice(): PracticeDao }
+@Database(entities = [Preset::class, PracticeSession::class, PracticeDay::class, CustomSampleRecord::class], version = 2, exportSchema = true)
+abstract class PracticeDatabase : RoomDatabase() {
+    abstract fun practice(): PracticeDao
+    companion object {
+        val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `custom_samples` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+            }
+        }
+    }
+}

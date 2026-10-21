@@ -14,8 +14,9 @@ class PcmAudioEngine(
     private val focus: AudioFocusGate,
     private val configureThread: () -> Unit = {},
     private val log: (String, Throwable?) -> Unit = { _, _ -> },
+    private val sampleBanks: SampleBankSource = SampleBankSource { SampleBankLease(emptyMap()) },
 ) : AudioEngine {
-    private class Session(val id: Long) {
+    private class Session(val id: Long, val bank: SampleBankLease) {
         val cancelled = AtomicBoolean(false)
         var sink: PcmSink? = null // guarded by lock
     }
@@ -34,7 +35,12 @@ class PcmAudioEngine(
     override fun start(config: MetronomeConfig) = synchronized(lock) {
         if (closed || session != null) return@synchronized
         requested.set(config)
-        val next = Session(++sequence)
+        val bank = try { sampleBanks.acquire() } catch (error: Exception) {
+            mutableState.value = AudioEngineState(PlaybackStatus.ERROR,
+                failure = (error as? AudioEngineException)?.reason ?: AudioFailure.SAMPLE_UNAVAILABLE)
+            return@synchronized
+        }
+        val next = Session(++sequence, bank)
         session = next
         mutableState.value = AudioEngineState(PlaybackStatus.STARTING)
         worker.execute { runSession(next, config) }
@@ -69,7 +75,7 @@ class PcmAudioEngine(
             synchronized(lock) { if (!target.cancelled.get()) target.sink = sink }
             if (target.cancelled.get()) return
             val pulses = ArrayDeque<PlaybackPulse>()
-            val renderer = PcmRenderer(sink.sampleRate, initialConfig, onPulse = { beat, silent ->
+            val renderer = PcmRenderer(sink.sampleRate, initialConfig, customSamples = target.bank.samples, onPulse = { beat, silent ->
                 pulses.addLast(PlaybackPulse(beat.frame, beat.barIndex, beat.beatInBar, silent))
             })
             val block = ShortArray(sink.blockFrames)
@@ -124,7 +130,8 @@ class PcmAudioEngine(
             diagnostics = snapshot()
         } catch (error: Exception) {
             if (!target.cancelled.get()) {
-                failure = (error as? AudioEngineException)?.reason ?: AudioFailure.UNEXPECTED
+                failure = if (error is org.openmetronome.domain.audio.MissingSampleException) AudioFailure.SAMPLE_UNAVAILABLE
+                    else (error as? AudioEngineException)?.reason ?: AudioFailure.UNEXPECTED
                 log("audio session failed: $failure", error)
             }
         } finally {
@@ -134,6 +141,7 @@ class PcmAudioEngine(
             runCatching { sink?.flush() }.onFailure { log("cleanup flush failed", it) }
             runCatching { sink?.close() }.onFailure { log("release failed", it) }
             runCatching { focusLease?.close() }.onFailure { log("focus release failed", it) }
+            runCatching { target.bank.close() }.onFailure { log("sample bank release failed", it) }
             synchronized(lock) {
                 if (session === target) {
                     session = null

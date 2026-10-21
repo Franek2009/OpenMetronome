@@ -117,6 +117,9 @@ class MetronomeService : Service() {
             val token = intent.getLongExtra("request", -1)
             playRequest = scope.launch {
                 settingsReady.await()
+                try { (application as OpenMetronomeApplication).data.ready.await() }
+                catch (cancelled: CancellationException) { throw cancelled }
+                catch (_: Exception) { controller.reportFailure(AudioFailure.SAMPLE_UNAVAILABLE); endForeground(); return@launch }
                 finishing?.join()
                 if (foreground && requests.accepts(token)) {
                     controller.start()

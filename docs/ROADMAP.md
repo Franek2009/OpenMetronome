@@ -109,8 +109,47 @@ i instrumentacja zbudowane. Poziom starych barw cyfrowo wzrósł o 10,177–14,0
 nie jest to pomiar fizycznego wyjścia. CI i proces wydania zielone, emulator
 zaliczył 30 cichych testów z 5 pominięciami audio oraz osobną próbę instalacji
 podpisanego APK. Nowa beta pozostaje niepublicznym draftem do ręcznego odsłuchu
-Lenovo podczas grania. Urządzeń fizycznych nie było podłączonych.
+Lenovo podczas grania. Po podłączeniu zaktualizowano oba urządzenia do 0.9:
+Samsung zaliczył 30 cichych testów, Lenovo początkowo 29 z jednym błędem
+asercji wyboru metrum. Osobna powtórka przypadku oraz pełna powtórka Lenovo
+(30 PASS) przeszły bez zmian w kodzie. Na każdym pominięto 5 prób audio;
+przyczyna sporadycznego błędu Lenovo pozostaje do wyjaśnienia.
 [Raport 0.9](V0.9-VALIDATION.md).
+
+## Pakiet 0.10 — laboratorium 20 nowych barw
+
+20 numerowanych barw eksperymentalnych (28 łącznie), niezależna synteza,
+przewijany wybór bez automatycznego odsłuchu. Dotychczasowy bank zachowany;
+domyślny dźwięk i scheduler bez zmian. Bez publikacji nowego wydania.
+108 JVM PASS, Lint debug/release bez uwag. Samsung: 31 cichych PASS i 5
+pominięć audio. APK zaktualizowano także na Lenovo, lecz raport cichych
+testów pozostaje nieodebrany z powodu zrywania USB; nie liczymy go jako PASS.
+Selekcja zwycięzców dopiero po ręcznym odsłuchu użytkownika podczas grania.
+[Katalog](SOUND-LAB.md), [weryfikacja](V0.10-VALIDATION.md).
+
+## Pakiet 0.11 — rodzina wybranego 06
+
+Użytkownik wybrał 06 jako bazę następnej serii. Dodano 15 krewnych o numerach
+21–35, oddzielny wybór ze wzorcem 06 oraz eksport porównawczy PCM.
+Oryginalny 06 i wcześniejsze numery niezmienione; bez usuwania presetów
+i publikacji wydania. Selekcja nowych wariantów po odsłuchu użytkownika.
+110 JVM PASS, Lint debug/release bez uwag. Samsung zaktualizowany do 0.11:
+32 ciche PASS, 5 pominięć audio, bez innych pominięć/błędów. Lenovo nie było
+podłączone; jego aktualizacja i weryfikacja 0.11 pozostają otwarte.
+[Raport](V0.11-VALIDATION.md), [katalog](SOUND-LAB.md).
+
+## Pakiet 0.12 — bank docelowy i własne sample
+
+Wybrane sześć barw rodziny 06 pod zwykłymi nazwami zamiast list eksperymentalnych.
+Własna biblioteka WAV/MP3/OGG: przygotowanie kliku do 40 ms, akcent, zapis
+lokalny, nazwy i chronione usuwanie. Stare identyfikatory i presety zachowane;
+Room 1→2 dodaje tylko metadane sampli. Domyślnie Pełny dla nowych ustawień.
+119 JVM PASS, Lint debug/release bez uwag. Samsung: 38 cichych PASS i 6
+pominiętych prób audio; osobno 4 krótkie testy audio PASS (27,790 s), bez
+wibracji. Migracja Android Room, kodeki i UI zaliczone na Samsungu.
+Lenovo: brak pełnego odbioru po utracie USB; nie deklarujemy jego PASS.
+Pakiet przygotowany do podpisania i publikacji beta po bramkach CI.
+[Instrukcja](CUSTOM-SAMPLES.md), [weryfikacja](V0.12-VALIDATION.md).
 
 ## Urządzenia testowe
 

@@ -20,7 +20,7 @@ import org.openmetronome.audio.*
 /** No Activity, audio, vibrator, or access to the user's production database/preferences. */
 @RunWith(AndroidJUnit4::class)
 class StorageTest {
-    @Test fun allEightSoundsPersistInSettingsAndPresetsWithoutHardware() = runBlocking {
+    @Test fun allFortyThreeSoundsPersistInSettingsAndPresetsWithoutHardware() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = Room.inMemoryDatabaseBuilder(context, PracticeDatabase::class.java).build()
         val file = File(context.cacheDir, "sound-bank-${UUID.randomUUID()}.preferences_pb")
@@ -38,7 +38,7 @@ class StorageTest {
             }
             val restored = db.practice().presets().first().map { ConfigCodec.decode(it.config).sound }.toSet()
             assertEquals(ClickSound.entries.map { SoundConfig(37, it) }.toSet(), restored)
-            assertEquals(8, restored.size)
+            assertEquals(43, restored.size)
         } finally { db.close(); file.delete() } // Only this UUID-named test fixture.
     }
 

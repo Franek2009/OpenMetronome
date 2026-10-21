@@ -42,6 +42,7 @@ class SilentFeaturesTest {
         runBlocking(Dispatchers.IO) {
             data.ready.await()
             data.database.clearAllTables()
+            data.samples.load()
         }
         data.error.value = null
         compose.runOnIdle { model.setConfig(MetronomeConfig()) }
@@ -173,18 +174,19 @@ class SilentFeaturesTest {
             slider.performScrollTo().performSemanticsAction(SemanticsActions.SetProgress) { it(percent.toFloat()) }
             compose.runOnIdle { assertEquals(percent, model.state.value.config.sound.volumePercent) }
         }
-        for ((label, sound) in listOf("Krótki" to ClickSound.SHORT, "Klasyczny" to ClickSound.CLASSIC,
-            "Drewniany" to ClickSound.WOOD, "Woodblock" to ClickSound.WOODBLOCK, "Rimshot" to ClickSound.RIMSHOT,
-            "Cowbell" to ClickSound.COWBELL, "Klaśnięcie" to ClickSound.CLAP, "Puls elektroniczny" to ClickSound.PULSE)) {
-            compose.onNodeWithText(label).performScrollTo().performClick().assertIsSelected()
+        for (sound in ClickSound.visible) {
+            compose.onNodeWithContentDescription("Wybierz brzmienie").performScrollTo().performClick()
+            val label = compose.activity.getString(sound.labelResource())
+            compose.onNode(hasScrollAction() and hasAnyAncestor(isDialog())).performScrollToNode(hasText(label))
+            compose.onNodeWithText(label).performClick()
             compose.runOnIdle { assertEquals(sound, model.state.value.config.sound.clickSound) }
         }
         slider.performScrollTo().performSemanticsAction(SemanticsActions.SetProgress) { it(37f) }
         captureUi("sound-controls")
         compose.activityRule.scenario.recreate()
-        compose.onNodeWithText("Puls elektroniczny").performScrollTo().assertIsSelected()
+        compose.onNodeWithText("Brzmienie: Długi").performScrollTo().assertIsDisplayed()
         compose.runOnIdle {
-            assertEquals(SoundConfig(37, ClickSound.PULSE), model.state.value.config.sound)
+            assertEquals(SoundConfig(37, ClickSound.FULL_HELD), model.state.value.config.sound)
             assertEquals(PlaybackStatus.STOPPED, model.state.value.audio.status)
         }
     }
@@ -219,6 +221,21 @@ class SilentFeaturesTest {
         compose.runOnIdle { assertEquals(PlaybackStatus.STOPPED, model.state.value.audio.status) }
     }
 
+    @Test fun archivedSoundRemainsUsableButIsNotInTheCuratedPicker() {
+        page("Ustawienia")
+        compose.runOnIdle { model.setConfig(model.state.value.config.copy(sound = SoundConfig(37, ClickSound.CLASSIC))) }
+        compose.onNodeWithText("Brzmienie: Archiwalne: Klasyczny").performScrollTo().assertIsDisplayed()
+        compose.activityRule.scenario.recreate()
+        compose.onNodeWithContentDescription("Wybierz brzmienie").performScrollTo().performClick()
+        compose.onNodeWithText("Klasyczny").assertDoesNotExist()
+        captureUi("sound-picker")
+        compose.onNodeWithText(compose.activity.getString(R.string.sound_close)).performClick()
+        compose.runOnIdle {
+            assertEquals(ClickSound.CLASSIC, model.state.value.config.sound.clickSound)
+            assertEquals(PlaybackStatus.STOPPED, model.state.value.audio.status)
+        }
+    }
+
     @Test fun diagnosticsOpensAndClosesWithoutStartingPlayback() {
         page("Ustawienia")
         compose.onNodeWithText("Informacje").performScrollTo().assertIsDisplayed().performClick()
@@ -228,6 +245,68 @@ class SilentFeaturesTest {
         compose.onNodeWithText("Zamknij").performClick()
         compose.onNodeWithText("Kopiuj raport").assertDoesNotExist()
         compose.runOnIdle { assertEquals(PlaybackStatus.STOPPED, model.state.value.audio.status) }
+    }
+
+    @Test fun importedSampleCanBeSelectedRenamedAndDeletedWithoutHardware() {
+        page("Ustawienia")
+        val file = java.io.File(compose.activity.cacheDir, "picker-${java.util.UUID.randomUUID()}.wav")
+        val pcm = org.openmetronome.domain.audio.SamplePcm.prepare(
+            org.openmetronome.domain.audio.SamplePcm.Audio(48000, DoubleArray(4800) { kotlin.math.sin(2 * Math.PI * 1000 * it / 48000) })).pcm
+        file.writeBytes(org.openmetronome.domain.audio.SamplePcm.encodeCanonical(pcm))
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val filter = android.content.IntentFilter(android.content.Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(android.content.Intent.CATEGORY_OPENABLE); addDataType("*/*")
+        }
+        val monitor = android.app.Instrumentation.ActivityMonitor(filter,
+            android.app.Instrumentation.ActivityResult(android.app.Activity.RESULT_OK, android.content.Intent().setData(android.net.Uri.fromFile(file))), true)
+        instrumentation.addMonitor(monitor)
+        try {
+            compose.onNodeWithText("Importuj sample").performScrollTo().performClick()
+            compose.waitUntil(10000) { model.state.value.config.sound.customSampleId != null && !data.sampleWorking.value }
+            assertEquals(1, monitor.hits)
+        } finally { instrumentation.removeMonitor(monitor); file.delete() }
+        val id = model.state.value.config.sound.customSampleId!!
+        val name = data.samples.items.value.single().name
+        compose.activityRule.scenario.recreate()
+        compose.onNodeWithText("Brzmienie: $name").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithContentDescription("Zmień nazwę sampla $name").performScrollTo().performClick()
+        compose.onNode(hasSetTextAction() and hasAnyAncestor(isDialog())).performTextReplacement("Moje kliknięcie")
+        compose.onNodeWithText("Zapisz").performClick()
+        compose.waitUntil(10000) { data.samples.items.value.any { it.name == "Moje kliknięcie" } && !data.sampleWorking.value }
+        compose.onNodeWithContentDescription("Usuń sample Moje kliknięcie").performScrollTo().performClick()
+        compose.onNodeWithText("Anuluj").performClick()
+        compose.runOnIdle { assertEquals(id, model.state.value.config.sound.customSampleId) }
+        captureUi("sample-library")
+        compose.onNodeWithContentDescription("Usuń sample Moje kliknięcie").performScrollTo().performClick()
+        compose.onNode(hasText("Usuń") and hasAnyAncestor(isDialog())).performClick()
+        compose.waitUntil(10000) { model.state.value.config.sound.customSampleId == null && data.samples.items.value.isEmpty() && !data.sampleWorking.value }
+        compose.runOnIdle {
+            assertEquals(ClickSound.IMPULSE_FULL, model.state.value.config.sound.clickSound)
+            assertEquals(PlaybackStatus.STOPPED, model.state.value.audio.status)
+        }
+    }
+
+    @Test fun cancelledDocumentPickerDoesNotChangeSettingsOrLibrary() {
+        page("Ustawienia")
+        val before = model.state.value.config
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val filter = android.content.IntentFilter(android.content.Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(android.content.Intent.CATEGORY_OPENABLE); addDataType("*/*")
+        }
+        val monitor = android.app.Instrumentation.ActivityMonitor(filter,
+            android.app.Instrumentation.ActivityResult(android.app.Activity.RESULT_CANCELED, null), true)
+        instrumentation.addMonitor(monitor)
+        try {
+            compose.onNodeWithText("Importuj sample").performScrollTo().performClick()
+            compose.waitForIdle()
+            assertEquals(1, monitor.hits)
+            compose.runOnIdle {
+                assertEquals(before, model.state.value.config)
+                assertTrue(data.samples.items.value.isEmpty())
+                assertFalse(data.sampleWorking.value)
+                assertEquals(PlaybackStatus.STOPPED, model.state.value.audio.status)
+            }
+        } finally { instrumentation.removeMonitor(monitor) }
     }
 
     @Test fun tapButtonDoesNotAutoplayAndFirstTapAfterNavigationKeepsTempo() {
@@ -349,7 +428,7 @@ class SilentFeaturesTest {
         if (InstrumentationRegistry.getArguments().getString("captureUi") != "true") return
         check(compose.activity.application is TestApplication)
         val bitmap = compose.onRoot().captureToImage().asAndroidBitmap()
-        java.io.File(compose.activity.cacheDir, "ui-v09-$name.png").outputStream().use {
+        java.io.File(compose.activity.cacheDir, "ui-v012-$name.png").outputStream().use {
             assertTrue(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it))
         }
     }

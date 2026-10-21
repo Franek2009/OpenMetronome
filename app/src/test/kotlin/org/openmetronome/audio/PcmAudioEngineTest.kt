@@ -41,6 +41,37 @@ class PcmAudioEngineTest {
         withTimeout(5000) { engine.state.first { it.status == status } }
     }
 
+    @Test fun `busy sample library does not acquire focus or construct an audio sink`() {
+        val touched = AtomicInteger()
+        val engine = PcmAudioEngine({ touched.incrementAndGet(); Sink() }, { touched.incrementAndGet(); AutoCloseable {} },
+            sampleBanks = SampleBankSource { throw AudioEngineException(AudioFailure.LIBRARY_BUSY) })
+        try {
+            engine.start(MetronomeConfig())
+            assertEquals(AudioFailure.LIBRARY_BUSY, await(engine, PlaybackStatus.ERROR).failure)
+            assertEquals(0, touched.get())
+        } finally { engine.close() }
+    }
+
+    @Test fun `sample lease is released exactly once after track cleanup and on failure`() {
+        val released = AtomicInteger()
+        val sink = Sink()
+        val engine = PcmAudioEngine({ sink }, { AutoCloseable {} }, sampleBanks = SampleBankSource {
+            SampleBankLease(emptyMap()) { assertTrue(sink.released.get()); released.incrementAndGet() }
+        })
+        try {
+            engine.start(MetronomeConfig()); await(engine, PlaybackStatus.PLAYING)
+            engine.stop(); await(engine, PlaybackStatus.STOPPED)
+            assertEquals(1, released.get())
+        } finally { engine.close() }
+        val failure = PcmAudioEngine({ Sink() }, { null }, sampleBanks = SampleBankSource {
+            SampleBankLease(emptyMap()) { released.incrementAndGet() }
+        })
+        try {
+            failure.start(MetronomeConfig()); await(failure, PlaybackStatus.ERROR)
+            assertEquals(2, released.get())
+        } finally { failure.close() }
+    }
+
     @Test fun `partial writes preserve offsets and sample order`() {
         val written = mutableListOf<Short>()
         val sink = object : Sink() {

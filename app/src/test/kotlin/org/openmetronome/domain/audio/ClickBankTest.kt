@@ -23,9 +23,11 @@ class ClickBankTest {
         }
     }
 
-    @Test fun `new voices differ in waveform shape not only overall gain`() {
+    @Test fun `first audition voices differ in waveform shape not only overall gain`() {
         val rate = 48000
-        val bank = ClickSound.entries.map { sound ->
+        // Family 06 deliberately contains close variations; it has its own shape-distance regression.
+        val sounds = ClickSound.standard + ClickSound.firstAudition
+        val bank = sounds.map { sound ->
             val pcm = ClickGenerator.generate(rate, false, sound)
             DoubleArray(rate * 40 / 1000) { pcm.getOrElse(it) { 0 }.toDouble() }
         }
@@ -33,7 +35,7 @@ class ClickBankTest {
             val a = bank[i]; val b = bank[j]
             val correlation = a.indices.sumOf { a[it] * b[it] } /
                 sqrt(a.sumOf { it * it } * b.sumOf { it * it })
-            assertTrue("${ClickSound.entries[i]} vs ${ClickSound.entries[j]}", abs(correlation) < .95)
+            assertTrue("${sounds[i]} vs ${sounds[j]}", abs(correlation) < .95)
         }
     }
 
@@ -74,8 +76,8 @@ class ClickBankTest {
     }
 
     @Test fun `export comparison banks and numerical report without playing audio`() {
-        val directory = File("build/reports/audio/v09").also { it.mkdirs() }
-        val report = StringBuilder("rate,sound,accent,durationMs,peak,rmsDbfs,legacyGainDb\n")
+        val directory = File("build/reports/audio/v012").also { it.mkdirs() }
+        val report = StringBuilder("rate,sound,accent,durationMs,peak,rmsDbfs,legacyGainDb,auditionNumber,energyDbfsSeconds,crestDb,energyVs06Db\n")
         for (rate in listOf(44100, 48000)) {
             val bank = mutableListOf<ShortArray>()
             val comparison = mutableListOf<ShortArray>()
@@ -88,10 +90,21 @@ class ClickBankTest {
                     comparison += old; comparison += pcm
                     (10 * log10(energy / old.sumOf { it.toDouble() * it })).toString()
                 } else ""
-                report.append("$rate,$sound,$accent,${pcm.size * 1000.0 / rate},${pcm.maxOf { abs(it.toInt()) }},${10 * log10(energy / pcm.size / Short.MAX_VALUE.toDouble().pow(2))},$legacyGain\n")
+                val rmsDb = 10 * log10(energy / pcm.size / Short.MAX_VALUE.toDouble().pow(2))
+                val energyDb = 10 * log10(energy / rate / Short.MAX_VALUE.toDouble().pow(2))
+                val crestDb = 20 * log10(ClickGenerator.PEAK_SAMPLE / sqrt(energy / pcm.size))
+                val referenceEnergy = ClickGenerator.generate(rate, accent, ClickSound.IMPULSE_FULL).sumOf { it.toDouble() * it }
+                report.append("$rate,$sound,$accent,${pcm.size * 1000.0 / rate},${pcm.maxOf { abs(it.toInt()) }},$rmsDb,$legacyGain,${sound.auditionNumber ?: ""},$energyDb,$crestDb,${10 * log10(energy / referenceEnergy)}\n")
             }
             writeBank(File(directory, "bank-$rate.wav"), rate, bank)
             writeBank(File(directory, "legacy-then-new-$rate.wav"), rate, comparison)
+            val family = (listOf(ClickSound.IMPULSE_FULL) + ClickSound.fullImpulseVariants).flatMap { sound ->
+                listOf(false, true).map { ClickGenerator.generate(rate, it, sound) }
+            }
+            writeBank(File(directory, "impulse-family-$rate.wav"), rate, family)
+            writeBank(File(directory, "curated-$rate.wav"), rate, ClickSound.visible.flatMap { sound ->
+                listOf(false, true).map { ClickGenerator.generate(rate, it, sound) }
+            })
         }
         File(directory, "levels.csv").writeText(report.toString())
     }

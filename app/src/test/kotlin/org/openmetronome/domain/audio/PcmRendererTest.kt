@@ -19,8 +19,8 @@ class PcmRendererTest {
             val count = rate * 60
             val actual = render(rate, count, 997, config)
             val expected = ShortArray(count)
-            val regular = ClickGenerator.generate(rate, false)
-            val accented = ClickGenerator.generate(rate, true)
+            val regular = ClickGenerator.generate(rate, false, config.sound.clickSound)
+            val accented = ClickGenerator.generate(rate, true, config.sound.clickSound)
             var slot = 0L
             while (true) {
                 val onset = slot * rate * 60 / (bpm * 3)
@@ -80,7 +80,7 @@ class PcmRendererTest {
         renderer.render(ShortArray(boundary - 10000), requested = requested)
         assertEquals(initial, renderer.activeConfig)
         val nextBeatOffset = rate * 60 / 137
-        val click = ClickGenerator.generate(rate, false)
+        val click = ClickGenerator.generate(rate, false, requested.sound.clickSound)
         val pcm = ShortArray(nextBeatOffset + click.size)
         renderer.render(pcm, requested = requested)
         assertEquals(requested, renderer.activeConfig)
@@ -92,15 +92,17 @@ class PcmRendererTest {
     @Test fun `PCM onsets match closed form and test WAV is exported`() {
         val rate = 48000
         val bpm = 137
-        val pcm = render(rate, rate * 10, 257, MetronomeConfig(tempo = Tempo(bpm)))
+        val config = MetronomeConfig(tempo = Tempo(bpm))
+        val pcm = render(rate, rate * 10, 257, config)
+        val tail = ClickGenerator.generate(rate, false, config.sound.clickSound).size
         // A click starts with a zero sample; its first non-zero PCM sample follows one frame later.
         var beat = 0L
         while (true) {
             val start = beat * rate * 60 / bpm
-            if (start + rate / 100 >= pcm.size) break
+            if (start + tail >= pcm.size) break
             assertEquals(0, pcm[start.toInt()].toInt())
             assertNotEquals(0, pcm[start.toInt() + 1].toInt())
-            assertTrue((start.toInt() + rate / 100 until minOf(pcm.size, ((beat + 1) * rate * 60 / bpm).toInt()))
+            assertTrue((start.toInt() + tail until minOf(pcm.size, ((beat + 1) * rate * 60 / bpm).toInt()))
                 .all { pcm[it] == 0.toShort() })
             beat++
         }

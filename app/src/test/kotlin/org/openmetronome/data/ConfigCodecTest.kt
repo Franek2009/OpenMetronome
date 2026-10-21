@@ -6,17 +6,17 @@ import org.openmetronome.domain.model.*
 
 class ConfigCodecTest {
     @Test fun `version one legacy sound IDs and volume remain readable without migration`() {
-        for (sound in listOf(ClickSound.CLASSIC, ClickSound.WOOD, ClickSound.SHORT)) {
+        for (sound in ClickSound.standard) {
             val payload = "version=1\nvolumePercent=73\nclickSound=${sound.name}"
             assertEquals(SoundConfig(73, sound), ConfigCodec.decode(payload).sound)
         }
-        assertEquals(8, ClickSound.entries.size)
+        assertEquals(43, ClickSound.entries.size)
     }
 
     @Test fun `old payloads retain classic full volume and extended fields round trip`() {
         val old = "version=1\nbpm=87\nmeter=SIX_EIGHT\nprobability=51"
         val restored = ConfigCodec.decode(old)
-        assertEquals(SoundConfig(), restored.sound)
+        assertEquals(SoundConfig(clickSound = ClickSound.CLASSIC), restored.sound)
         assertEquals(87, restored.tempo.bpm)
         for (sound in ClickSound.entries) for (percent in listOf(0, 37, 100)) {
             val config = restored.copy(sound = SoundConfig(percent, sound))
@@ -39,6 +39,6 @@ class ConfigCodecTest {
         for (payload in listOf("version=2", "version=1\nbpm=301", "version=1\naccent=yes", "version=1\nmeter=BAD", "version=1\naccents=MUTE,MUTE")) {
             assertThrows(IllegalArgumentException::class.java) { ConfigCodec.decode(payload) }
         }
-        assertEquals(MetronomeConfig(), ConfigCodec.decode("version=1"))
+        assertEquals(MetronomeConfig(sound = SoundConfig(clickSound = ClickSound.CLASSIC)), ConfigCodec.decode("version=1"))
     }
 }

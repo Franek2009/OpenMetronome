@@ -16,6 +16,7 @@ object ClickGenerator {
             ClickSound.RIMSHOT -> 12
             ClickSound.COWBELL -> 35
             ClickSound.CLAP -> 30
+            else -> return ExperimentalClickGenerator.generate(sampleRate, accented, sound)
         }
         val length = (sampleRate.toLong() * milliseconds / 1000).toInt()
         val noise = ClickNoise(sampleRate, accented)

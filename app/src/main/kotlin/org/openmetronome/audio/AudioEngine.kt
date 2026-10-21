@@ -4,7 +4,7 @@ import kotlinx.coroutines.flow.StateFlow
 import org.openmetronome.domain.model.MetronomeConfig
 
 enum class PlaybackStatus { STOPPED, STARTING, PLAYING, STOPPING, ERROR }
-enum class AudioFailure { FOCUS_DENIED, INITIALIZATION, WRITE_FAILED, DEVICE_LOST, UNEXPECTED }
+enum class AudioFailure { FOCUS_DENIED, INITIALIZATION, WRITE_FAILED, DEVICE_LOST, UNEXPECTED, SAMPLE_UNAVAILABLE, LIBRARY_BUSY }
 
 data class AudioDiagnostics(
     val sampleRate: Int,

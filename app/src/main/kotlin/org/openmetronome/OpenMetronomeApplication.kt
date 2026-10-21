@@ -26,6 +26,7 @@ open class OpenMetronomeApplication : Application() {
                 if (error == null) Log.i("OpenMetronomeAudio", message)
                 else Log.e("OpenMetronomeAudio", message, error)
             },
+            sampleBanks = data.samples,
         )
     }
 

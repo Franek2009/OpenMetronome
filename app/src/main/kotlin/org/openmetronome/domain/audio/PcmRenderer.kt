@@ -10,6 +10,7 @@ import org.openmetronome.domain.model.RhythmConfig
 /** Continuous PCM. Decisions are per main pulse, never per buffer or subdivision. */
 class PcmRenderer(
     sampleRate: Int, config: MetronomeConfig, random: Random = Random(System.nanoTime()),
+    customSamples: Map<String, ShortArray> = emptyMap(),
     private val onPulse: (BeatEvent, Boolean) -> Unit = { _, _ -> },
 ) {
     private val training = TrainingController(sampleRate)
@@ -17,9 +18,15 @@ class PcmRenderer(
     private val clicks = ClickSound.entries.associateWith { sound ->
         ClickGenerator.generate(sampleRate, false, sound) to ClickGenerator.generate(sampleRate, true, sound)
     }
+    private val customClicks = customSamples.mapValues { (_, pcm) ->
+        SamplePcm.click(pcm, sampleRate, false) to SamplePcm.click(pcm, sampleRate, true)
+    }
+    private fun bank(config: MetronomeConfig): Pair<ShortArray, ShortArray> =
+        config.sound.customSampleId?.let { id -> customClicks[id] ?: throw MissingSampleException() }
+            ?: clicks.getValue(config.sound.clickSound)
     private val volume = VolumeEnvelope(sampleRate, config.sound.volumePercent)
     private val silence = SilencePlanner(random)
-    private var click = clicks.getValue(config.sound.clickSound).first
+    private var click = bank(config).first
     private var clickOffset = click.size
     private var slots = LongArray(0)
     private var slot = 0
@@ -52,7 +59,7 @@ class PcmRenderer(
             }
             if (slot < slots.size && renderedFrames == slots[slot]) {
                 val accent = rhythm.accentAt(slot)
-                val bank = clicks.getValue(scheduler.activeConfig.sound.clickSound)
+                val bank = bank(scheduler.activeConfig)
                 click = if (accent == ClickAccent.ACCENT || (slot == 0 && pulseAccent)) bank.second else bank.first
                 clickOffset = if (pulseSilent || accent == ClickAccent.MUTE) click.size else 0
                 slot++
@@ -64,3 +71,5 @@ class PcmRenderer(
         }
     }
 }
+
+class MissingSampleException : IllegalStateException("Brak wybranego sampla. Wybierz dostępne brzmienie.")

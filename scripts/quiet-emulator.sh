@@ -14,6 +14,6 @@ mkdir -p "$quiet_report"
 "${quiet_adb[@]}" shell am instrument -w -r -e allowAudio false -e allowHaptics false -e captureUi true \
     org.openmetronome.test/org.openmetronome.OpenMetronomeTestRunner | tee "$quiet_report/instrumentation.log"
 awk -f scripts/instrumentation-summary.awk "$quiet_report/instrumentation.log" | tee "$quiet_report/summary.txt"
-for quiet_capture in initial landscape sound-controls; do
-    "${quiet_adb[@]}" exec-out run-as org.openmetronome cat "cache/ui-v09-$quiet_capture.png" > "$quiet_report/$quiet_capture.png"
+for quiet_capture in initial landscape sound-controls sound-picker sample-library; do
+    "${quiet_adb[@]}" exec-out run-as org.openmetronome cat "cache/ui-v012-$quiet_capture.png" > "$quiet_report/$quiet_capture.png"
 done

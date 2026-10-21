@@ -1,5 +1,34 @@
 # Architektura OpenMetronome — M2–M5
 
+## Biblioteka brzmień 0.12
+
+`ClickSound.visible` wskazuje sześć wyselekcjonowanych profili, ale stare enumy
+i generatory pozostają do odczytu istniejących konfiguracji. Nowe ustawienia
+używają Pełnego; dekoder konfiguracji v1 bez `clickSound` zachowuje Klasyczny.
+Opcjonalny `SoundConfig.customSampleId` wskazuje sample zamiast wbudowanego
+profilu. Brak pliku jest błędem, nie powodem cichego podstawienia innej barwy.
+
+`AndroidSampleDecoder` czyta dokument i dekoduje MP3/Vorbis/Opus przez
+MediaExtractor/MediaCodec; WAV parsuje czysta JVM. Nie używa odtwarzacza.
+`SamplePcm` przygotowuje mono do 40 ms, wygładzenie, normalizację i filtrowany
+resampling; akcent ma wysokość ×1.22. Kopia PCM16/48 kHz trafia do prywatnego
+pliku UUID. Room 2 przechowuje metadane; jawna migracja 1→2 dodaje tylko tabelę.
+
+`CustomSampleRepository` ładuje pliki na IO, a `SampleBankSource` wydaje
+sesji pamięciowy `SampleBankLease`. Wspólna blokada wyklucza edycję biblioteki
+podczas sesji, także przy wyścigu z komendą Start. Lease jest zwalniany po
+zamknięciu toru audio i focus. `PcmRenderer` otrzymuje snapshot sampli i przed
+graniem przygotowuje bank dla częstotliwości urządzenia; w pętli próbek nie ma
+plików, dekoderów, resamplingu ani zmiennego repozytorium. Scheduler nie zmienia
+się, a wybór własnego sampla wchodzi na granicy taktu jak wbudowana barwa.
+
+Zapis presetu i sprawdzenie jego odwołania do sampla są jedną transakcją,
+tak jak sprawdzenie odwołań i usunięcie metadanych sampla. Import nie nadpisuje
+plików: końcowy rename nowego UUID i publikacja metadanych są chronione przed
+anulowaniem; przerwanie procesu może pozostawić wyłącznie osieroconą kopię.
+Testy mają izolowaną bazę oraz katalog UUID w cache, nie bibliotekę użytkownika.
+[Obsługa i ograniczenia](CUSTOM-SAMPLES.md), [wyniki](V0.12-VALIDATION.md).
+
 ## Panel ćwiczeń 0.7
 
 Od 0.8 pasek nie pokazuje nazwy aplikacji. `AppNavigation` zawiera trzy zakładki

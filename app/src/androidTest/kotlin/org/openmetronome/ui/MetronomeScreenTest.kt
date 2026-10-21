@@ -184,6 +184,51 @@ class MetronomeScreenTest {
         compose.waitUntil(10000) { model.state.value.audio.status == PlaybackStatus.STOPPED }
     }
 
+    @Test
+    @RequiresAudio
+    fun importedSampleAndCuratedSoundsPlayAndReleaseLibrary() {
+        val app = compose.activity.application as org.openmetronome.TestApplication
+        val data = app.data
+        val model = ViewModelProvider(compose.activity)[MetronomeViewModel::class.java]
+        val id = kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.IO) {
+            data.ready.await()
+            val bytes = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+                .context.assets.open("samples/tone.mp3").use { it.readBytes() }
+            data.samples.importSample("Audio test fixture") {
+                org.openmetronome.platform.audio.AndroidSampleDecoder(compose.activity).decodeBytes(bytes)
+            }.first
+        }
+        try {
+            val config = MetronomeConfig(tempo = Tempo(300), timeSignature = TimeSignature.TWO_FOUR,
+                beatAccents = listOf(ClickAccent.ACCENT, ClickAccent.NORMAL),
+                sound = SoundConfig(50, ClickSound.IMPULSE_FULL, id))
+            compose.runOnIdle { model.setConfig(config) }
+            compose.onNodeWithText(text(R.string.start)).performClick()
+            compose.waitUntil(10000) {
+                model.state.value.audio.let {
+                    it.status == PlaybackStatus.PLAYING && it.appliedConfig == config &&
+                        (it.diagnostics?.framesPlayed ?: 0) >= (it.diagnostics?.sampleRate ?: 48000) * 2L
+                }
+            }
+            for (sound in ClickSound.visible) {
+                val next = config.copy(sound = SoundConfig(50, sound))
+                compose.runOnIdle { model.setConfig(next) }
+                compose.waitUntil(10000) { model.state.value.audio.appliedConfig == next }
+                val before = model.state.value.audio.diagnostics!!.framesPlayed
+                val rate = model.state.value.audio.diagnostics!!.sampleRate
+                compose.waitUntil(10000) { (model.state.value.audio.diagnostics?.framesPlayed ?: 0) >= before + rate / 2 }
+            }
+            compose.runOnIdle { org.junit.Assert.assertEquals(0, model.state.value.audio.diagnostics!!.underruns) }
+        } finally {
+            model.stop()
+            compose.waitUntil(10000) {
+                model.state.value.audio.status == PlaybackStatus.STOPPED || model.state.value.audio.status == PlaybackStatus.ERROR
+            }
+            kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.IO) { data.samples.delete(id) }
+            compose.runOnIdle { model.setConfig(MetronomeConfig()) }
+        }
+    }
+
     private fun setSlider(value: Float) {
         compose.onNodeWithContentDescription(text(R.string.tempo_slider))
             .performScrollTo()

@@ -14,14 +14,14 @@ import org.openmetronome.audio.*
 
 /** Outside scrolling settings; the same actions remain available on every tab. */
 @Composable
-fun PlaybackControls(state: MetronomeState, onStart: () -> Unit, onStop: () -> Unit) {
+fun PlaybackControls(state: MetronomeState, onStart: () -> Unit, onStop: () -> Unit, startEnabled: Boolean = true) {
     Surface(tonalElevation = 3.dp) {
         BoxWithConstraints {
         val expanded = maxWidth >= 600.dp && maxHeight >= 600.dp
         Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Button(onClick = if (state.keepsScreenOn) onStop else onStart,
-                enabled = state.audio.status != PlaybackStatus.STOPPING,
+                enabled = state.audio.status != PlaybackStatus.STOPPING && (state.keepsScreenOn || startEnabled),
                 modifier = Modifier.widthIn(max = if (expanded) 900.dp else 560.dp).fillMaxWidth()
                     .sizeIn(minHeight = if (expanded) 64.dp else 56.dp)) {
                 Text(stringResource(when (state.audio.status) {
@@ -36,6 +36,8 @@ fun PlaybackControls(state: MetronomeState, onStart: () -> Unit, onStop: () -> U
                     AudioFailure.FOCUS_DENIED -> R.string.audio_focus_denied
                     AudioFailure.INITIALIZATION -> R.string.audio_initialization_failed
                     AudioFailure.DEVICE_LOST -> R.string.audio_device_lost
+                    AudioFailure.SAMPLE_UNAVAILABLE -> R.string.sample_unavailable
+                    AudioFailure.LIBRARY_BUSY -> R.string.sample_library_busy
                     else -> R.string.audio_playback_failed
                 }
                 state.hasPendingChanges -> R.string.pending_change
