@@ -46,7 +46,7 @@ renderera, nie pomiar rzeczywistego wyjścia głośnika.
 Sekcja „Dźwięk” daje niezależną głośność aplikacji 0–100%. W 0.9 dostępne są
 „Klasyczny”, „Drewniany”, „Krótki”, „Woodblock”, „Rimshot”, „Cowbell”,
 „Klaśnięcie” i „Puls elektroniczny”. Publiczna 0.8 ma tylko pierwsze trzy.
-W rozwojowej 0.12 jeden wybór „Brzmienie” zawiera Pełny, Niski, Jasny,
+W wersji 0.12 jeden wybór „Brzmienie” zawiera Pełny, Niski, Jasny,
 Wysoki, Krótki i Długi oraz własne sample. Dawne numery i eksperymenty
 zniknęły z listy; wcześniejsze konfiguracje nadal zachowują swoje brzmienia
 archiwalne. Nowe ustawienia używają Pełnego (dawne 06).

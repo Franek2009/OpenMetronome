@@ -1,7 +1,7 @@
 # Wydawanie OpenMetronome
 
 Kanał początkowy: publiczny GitHub Releases. Format instalacyjny Androida:
-APK, nie AppImage. Wydanie 0.8.0-beta.1 jest prerelease, nie deklaracją M6/1.0.
+APK, nie AppImage. Aktualne wydanie 0.12.0-beta.1 jest prerelease, nie deklaracją M6/1.0.
 
 ## Tożsamość i klucz
 

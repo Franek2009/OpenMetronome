@@ -148,7 +148,8 @@ Room 1→2 dodaje tylko metadane sampli. Domyślnie Pełny dla nowych ustawień.
 pominiętych prób audio; osobno 4 krótkie testy audio PASS (27,790 s), bez
 wibracji. Migracja Android Room, kodeki i UI zaliczone na Samsungu.
 Lenovo: brak pełnego odbioru po utracie USB; nie deklarujemy jego PASS.
-Pakiet przygotowany do podpisania i publikacji beta po bramkach CI.
+Opublikowano [betę 0.12](https://github.com/Franek2009/OpenMetronome/releases/tag/v0.12.0-beta.1)
+po zaliczeniu CI, obu emulatorów, podpisu oraz kontroli pobranych plików.
 [Instrukcja](CUSTOM-SAMPLES.md), [weryfikacja](V0.12-VALIDATION.md).
 
 ## Urządzenia testowe

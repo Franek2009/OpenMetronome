@@ -1,5 +1,10 @@
 # Cicha stabilizacja M2–M5
 
+Aktualizacja 0.12: domyślny przebieg pozostaje cichy. Cztery krótkie testy
+audio i dwa 30-minutowe są pomijane bez zgody. Zgoda użytkownika z 2026-10-21
+objęła wyłącznie opisany w [raporcie 0.12](V0.12-VALIDATION.md) krótki przebieg
+Samsunga, nie kolejne sesje. Wibracje nadal zablokowane.
+
 ## Zgoda i stan odbioru
 
 Aktualizacja 0.7.1: po wznowieniu 2026-10-20 obowiązują ponownie przekazane
@@ -57,7 +62,7 @@ ANDROID_SERIAL=NUMER_SAMSUNGA ./gradlew :app:connectedDebugAndroidTest
 ```
 
 Bez parametrów audio cały zestaw jest cichy. Sprawdź liczbę pominiętych testów:
-trzy krótkie testy audio i dwa długie muszą być pominięte. Zablokowany ekran
+cztery krótkie testy audio i dwa długie muszą być pominięte. Zablokowany ekran
 pomija dodatkowo testy UI. Testy zabezpieczeń i danych nie wymagają ekranu.
 Nie stosuj `pm clear` ani reinstalacji przez odinstalowanie.
 
