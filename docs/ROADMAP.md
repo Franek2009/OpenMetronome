@@ -160,9 +160,12 @@ pominięć audio oraz CI, emulator i smoke podpisanego wydania. Instrumentacja
 fizycznych urządzeń używała osobnej kopii validation z powodu innego podpisu
 instalacji debug. [Raport 0.13](V0.13-VALIDATION.md).
 
-0.13.0-beta.2 przygotowuje zabezpieczenie eksportu i cofanie obsługiwanych
-błędów przywracania, pełną weryfikację trwałości oraz systemowego pickera.
-Bramki i rzeczywisty stan: [raport beta.2](V0.13-BETA2-VALIDATION.md).
+0.13.0-beta.2 opublikowano 2026-10-30: zabezpieczenie eksportu i cofanie
+obsługiwanych błędów przywracania, testy trwałości i systemowego pickera.
+131 JVM, Samsung i lokalny/emulator wydawniczy po 53 ciche PASS i 6 pominięć
+audio, CI, podpis i smoke PASS. Odbiór Lenovo pominięto na polecenie użytkownika;
+wcześniejsza nieudana instrumentacja tabletu nie jest PASS.
+[Raport beta.2](V0.13-BETA2-VALIDATION.md).
 To nie zamyka odbioru audio, M6 ani gotowości 1.0; brak gwarancji odzyskiwania
 po przerwaniu procesu lub utracie zasilania.
 
