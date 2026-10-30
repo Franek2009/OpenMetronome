@@ -6,17 +6,18 @@ Bez reklam, subskrypcji, kont i Google Play Services.
 
 ## Pobierz i zacznij ćwiczyć
 
-[Pobierz APK — 0.13.0-beta.1](https://github.com/Franek2009/OpenMetronome/releases/download/v0.13.0-beta.1/OpenMetronome-0.13.0-beta.1.apk)
+[Pobierz APK — 0.13.0-beta.2](https://github.com/Franek2009/OpenMetronome/releases/download/v0.13.0-beta.2/OpenMetronome-0.13.0-beta.2.apk)
 
-[Opis wydania i sumy kontrolne](https://github.com/Franek2009/OpenMetronome/releases/tag/v0.13.0-beta.1)
+[Opis wydania i sumy kontrolne](https://github.com/Franek2009/OpenMetronome/releases/tag/v0.13.0-beta.2)
 
-Wersja **0.13.0-beta.1** jest wydaniem testowym, nie ukończoną wersją 1.0.
+Wersja **0.13.0-beta.2** jest wydaniem testowym, nie ukończoną wersją 1.0.
 Wymagany Android **8.0 lub nowszy**. Telefon i tablet są obsługiwane w pionie
 i poziomie.
 
-**0.13.0-beta.1** dodaje wykresy statystyk, serie dni ćwiczeń i pełną
-kopię zapasową `.ombak` z możliwością przywrócenia ustawień, presetów,
-historii oraz własnych sampli. Eksport CSV pozostaje raportem do analizy.
+**0.13.0-beta.2** zabezpiecza eksport i przywracanie kopii `.ombak`:
+spójne zapisy, cofanie obsługiwanych błędów i zachowanie potwierdzenia po obrocie.
+Kopia obejmuje ustawienia, presety, historię oraz własne sample. Dostępne są też
+wykresy statystyk i serie dni ćwiczeń; CSV pozostaje raportem do analizy.
 [Obsługa statystyk i kopii](docs/USAGE.md).
 
 Nadal dostępne są wybrane brzmienia i import WAV/MP3/OGG z wersji 0.12.
@@ -66,7 +67,7 @@ reklam ani komunikacji z naszym serwerem. Eksport uruchamiasz samodzielnie.
 
 Podstawowy dźwięk został sprawdzony przez użytkownika. Długie sesje i precyzja
 rzeczywistego wyjścia audio nie mają jeszcze pełnego odbioru sprzętowego;
-nie deklarujemy zakończenia stabilizacji. [Wyniki testów](docs/V0.13-VALIDATION.md).
+nie deklarujemy zakończenia stabilizacji. [Wyniki testów](docs/V0.13-BETA2-VALIDATION.md).
 
 Znalazłeś problem? [Zgłoś go na GitHubie](https://github.com/Franek2009/OpenMetronome/issues),
 podając wersję aplikacji, model urządzenia, wersję Androida i kroki odtworzenia.
