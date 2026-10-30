@@ -64,7 +64,9 @@ class SilentFeaturesTest {
         compose.runOnIdle { assertEquals(2, model.state.value.config.silence.audibleBars) }
         field("Takty słyszalne", "64")
         compose.onNodeWithContentDescription("Zwiększ: Takty słyszalne").assertIsNotEnabled()
-        compose.onNodeWithContentDescription("Zmniejsz: Takty słyszalne").performClick()
+        compose.onNodeWithContentDescription("Zmniejsz: Takty słyszalne")
+            .performScrollTo().assertIsDisplayed().performClick()
+        compose.waitUntil(10000) { model.state.value.config.silence.audibleBars == 63 }
         field("Takty ciszy", "1")
         toggle("Progresja wyciszeń")
         field("Wzrost o p.p.", "25")
@@ -446,6 +448,11 @@ class SilentFeaturesTest {
                     .hideSoftInputFromWindow(view.windowToken, 0)
                 view.clearFocus()
             }
+        }
+        // Compose idleness does not wait for the platform IME closing animation.
+        compose.waitUntil(10000) {
+            ViewCompat.getRootWindowInsets(compose.activity.window.decorView)
+                ?.isVisible(WindowInsetsCompat.Type.ime()) != true
         }
     }
     private fun click(label: String) = compose.onNodeWithText(label).performScrollTo().performClick()
