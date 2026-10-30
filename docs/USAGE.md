@@ -18,6 +18,11 @@ Nieczytelna historyczna konfiguracja daje puste BPM/metrum; pozostała historia
 nadal jest eksportowana. Błąd zapisu może pozostawić niepełny plik wyjściowy,
 ale nie zmienia danych aplikacji. Bez PDF na tym etapie.
 
+Statystyki → Kopia zapasowa zapisuje wersjonowany plik `.ombak` z ustawieniami,
+presetami, historią i własnymi samplami. „Przywróć kopię” najpierw sprawdza cały
+plik, a po potwierdzeniu zastępuje bieżące dane. Przed przywracaniem warto
+zapisać aktualną kopię; metronom musi być zatrzymany.
+
 Weryfikacja i ograniczenia: [raport 0.8](V0.8-VALIDATION.md).
 
 Metronom odtwarza generowany strumień PCM. Ekran pozwala ustawić tempo **20–300 BPM**,
@@ -84,7 +89,8 @@ rzeczywistej synchronizacji audio/wibracji wymaga pomiaru urządzeniowego.
 
 DataStore przechowuje ostatnie ustawienia. Ekran „Presety” zapisuje, wczytuje,
 zmienia nazwy i usuwa konfiguracje (po potwierdzeniu). „Statystyki” pokazują
-czas, liczbę sesji, historię i zestawienia dzienne/tygodniowe. Dane są lokalne
+karty podsumowania, serie ćwiczeń, wykres 7/30 dni lub 12 tygodni, historię
+i zestawienia tygodniowe. Dane są lokalne
 w Room; planowana cisza liczy się jako ćwiczenie. Checkpoint co 5 s ogranicza
 utratę czasu przy przerwaniu procesu; błędy dysku mogą uniemożliwić zapis.
 

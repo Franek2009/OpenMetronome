@@ -118,4 +118,53 @@ class CustomSampleRepository(private val db: PracticeDatabase, private val direc
             file(id).delete()
         }
     }
+
+    suspend fun backupFiles(records: List<CustomSampleRecord>): Map<String, ByteArray> = edit {
+        records.associate { record -> record.id to file(record.id).readBytes() }
+    }
+
+    /** Called only after the complete archive has been parsed and validated. */
+    suspend fun replaceFromBackup(snapshot: BackupSnapshot, replaceDatabase: suspend () -> Unit) = edit {
+        check(loaded)
+        val prepared = snapshot.samples.associate { record ->
+            val bytes = requireNotNull(snapshot.sampleFiles[record.id])
+            val audio = SamplePcm.decodeWav(bytes)
+            val pcm = ShortArray(audio.mono.size) { (audio.mono[it] * 32768).toInt().toShort() }
+            require(bytes.contentEquals(SamplePcm.encodeCanonical(pcm)))
+            record.id to pcm
+        }
+        val staging = File(directory.parentFile, "sample-restore-${UUID.randomUUID()}")
+        val rollback = File(directory.parentFile, "sample-rollback-${UUID.randomUUID()}")
+        var filesTouched = false
+        var databaseReplaced = false
+        try {
+            staging.mkdirs()
+            snapshot.sampleFiles.forEach { (id, bytes) -> File(staging, "$id.wav").writeBytes(bytes) }
+            rollback.mkdirs()
+            directory.listFiles()?.filter { it.extension == "wav" }?.forEach { it.copyTo(File(rollback, it.name)) }
+            withContext(NonCancellable) {
+                directory.mkdirs()
+                filesTouched = true
+                snapshot.samples.forEach { record ->
+                    Files.move(File(staging, "${record.id}.wav").toPath(), file(record.id).toPath(), StandardCopyOption.REPLACE_EXISTING)
+                }
+                replaceDatabase()
+                databaseReplaced = true
+                directory.listFiles()?.filter { it.extension == "wav" && it.nameWithoutExtension !in prepared }?.forEach(File::delete)
+                synchronized(gate) {
+                    bank = prepared
+                    mutableItems.value = snapshot.samples.map { CustomSampleItem(it.id, it.name, true) }
+                }
+            }
+        } catch (error: Exception) {
+            if (filesTouched && !databaseReplaced) {
+                directory.listFiles()?.filter { it.extension == "wav" }?.forEach(File::delete)
+                rollback.listFiles()?.forEach { it.copyTo(File(directory, it.name), overwrite = true) }
+            }
+            throw error
+        } finally {
+            staging.listFiles()?.forEach(File::delete); staging.delete()
+            rollback.listFiles()?.forEach(File::delete); rollback.delete()
+        }
+    }
 }

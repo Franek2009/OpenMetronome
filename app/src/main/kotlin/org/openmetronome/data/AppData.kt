@@ -13,6 +13,7 @@ import kotlinx.coroutines.channels.Channel
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import java.io.File
 import java.io.OutputStream
+import java.io.InputStream
 import org.openmetronome.domain.model.MetronomeConfig
 
 private val Context.settingsStore by preferencesDataStore("metronome-settings")
@@ -29,6 +30,8 @@ class AppData(context: Context, isolatedTestStorage: Boolean = false) {
     val error = MutableStateFlow<String?>(null)
     val exporting = MutableStateFlow(false)
     val exportNotice = MutableStateFlow<String?>(null)
+    val backupWorking = MutableStateFlow(false)
+    val backupNotice = MutableStateFlow<String?>(null)
     val sampleWorking = MutableStateFlow(false)
     val sampleNotice = MutableStateFlow<String?>(null)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -128,6 +131,51 @@ class AppData(context: Context, isolatedTestStorage: Boolean = false) {
             } finally {
                 exporting.value = false
             }
+        }
+    }
+
+    fun exportBackup(openOutput: () -> OutputStream) {
+        if (!backupWorking.compareAndSet(false, true)) return
+        backupNotice.value = null
+        scope.launch {
+            try {
+                ready.await()
+                val sampleRecords = dao.allSamples()
+                val snapshot = BackupSnapshot(ConfigCodec.encode(settings.load()), dao.allPresets(),
+                    dao.sessionsForExport(), dao.allPracticeDays(), sampleRecords, samples.backupFiles(sampleRecords))
+                openOutput().use { BackupArchive.write(snapshot, it) }
+                backupNotice.value = "Kopia zapasowa została zapisana."
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { backupNotice.value = "Nie udało się zapisać kopii zapasowej." }
+            finally { backupWorking.value = false }
+        }
+    }
+
+    fun importBackup(openInput: () -> InputStream, applied: (MetronomeConfig) -> Unit) {
+        if (!backupWorking.compareAndSet(false, true)) return
+        backupNotice.value = null
+        scope.launch {
+            var replaced = false
+            try {
+                ready.await()
+                val snapshot = openInput().use(BackupArchive::read)
+                val config = ConfigCodec.decode(snapshot.settings)
+                samples.replaceFromBackup(snapshot) {
+                    database.withTransaction {
+                        dao.deleteAllPracticeDays(); dao.deleteAllSessions(); dao.deleteAllPresets(); dao.deleteAllSamples()
+                        dao.insertSamples(snapshot.samples); dao.insertPresets(snapshot.presets)
+                        dao.insertSessions(snapshot.sessions); dao.insertPracticeDays(snapshot.days)
+                    }
+                }
+                replaced = true
+                settings.save(config)
+                withContext(Dispatchers.Main) { applied(config) }
+                backupNotice.value = "Kopia została przywrócona: ${snapshot.sessions.size} sesji, ${snapshot.presets.size} presetów."
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { backupNotice.value = if (replaced)
+                "Dane przywrócono, ale nie udało się zastosować wszystkich ustawień. Uruchom aplikację ponownie."
+                else "Nie udało się przywrócić kopii. Bieżące dane pozostają bez zmian." }
+            finally { backupWorking.value = false }
         }
     }
 }

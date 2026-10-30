@@ -1,5 +1,13 @@
 # Zmiany
 
+## Następne wydanie
+
+- Nowy ekran statystyk: karty podsumowania, aktualna i najdłuższa seria,
+  średnia sesja, rekord dzienny oraz wykresy 7 dni, 30 dni i 12 tygodni.
+- Pełna, wersjonowana kopia `.ombak` obejmująca ustawienia, presety, historię
+  oraz własne sample; walidacja i potwierdzenie przed przywróceniem.
+- Dotychczasowy eksport CSV pozostaje dostępny jako czytelny raport historii.
+
 ## 0.9.0-beta.1 — draft do odsłuchu
 
 - Głośniej domyślnie: wykorzystanie około 89% zakresu PCM, bez dodatkowego trybu.

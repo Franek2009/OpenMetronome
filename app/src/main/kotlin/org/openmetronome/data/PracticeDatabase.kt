@@ -34,12 +34,21 @@ abstract class PracticeDao {
     @Query("DELETE FROM presets WHERE id = :id") abstract suspend fun deletePreset(id: String)
     @Query("SELECT * FROM practice_sessions ORDER BY startedAt DESC LIMIT 100") abstract fun sessions(): Flow<List<PracticeSession>>
     @Query("SELECT * FROM practice_sessions ORDER BY startedAt ASC, id ASC") abstract suspend fun sessionsForExport(): List<PracticeSession>
+    @Query("SELECT * FROM practice_days ORDER BY sessionId, date") abstract suspend fun allPracticeDays(): List<PracticeDay>
     @Query("SELECT COUNT(*) AS sessions, COALESCE(SUM(durationMs), 0) AS durationMs FROM practice_sessions") abstract fun total(): Flow<PracticeTotal>
     @Query("SELECT date, SUM(durationMs) AS durationMs FROM practice_days GROUP BY date ORDER BY date DESC") abstract fun days(): Flow<List<DayTotal>>
     @Upsert abstract suspend fun saveSession(session: PracticeSession)
     @Insert(onConflict = OnConflictStrategy.REPLACE) abstract suspend fun saveDays(days: List<PracticeDay>)
     @Query("DELETE FROM practice_days WHERE sessionId = :id") abstract suspend fun clearDays(id: String)
     @Query("UPDATE practice_sessions SET finished = 1, interrupted = 1 WHERE finished = 0") abstract suspend fun recoverInterrupted()
+    @Insert(onConflict = OnConflictStrategy.REPLACE) abstract suspend fun insertPresets(items: List<Preset>)
+    @Insert(onConflict = OnConflictStrategy.REPLACE) abstract suspend fun insertSessions(items: List<PracticeSession>)
+    @Insert(onConflict = OnConflictStrategy.REPLACE) abstract suspend fun insertPracticeDays(items: List<PracticeDay>)
+    @Insert(onConflict = OnConflictStrategy.REPLACE) abstract suspend fun insertSamples(items: List<CustomSampleRecord>)
+    @Query("DELETE FROM practice_days") abstract suspend fun deleteAllPracticeDays()
+    @Query("DELETE FROM practice_sessions") abstract suspend fun deleteAllSessions()
+    @Query("DELETE FROM presets") abstract suspend fun deleteAllPresets()
+    @Query("DELETE FROM custom_samples") abstract suspend fun deleteAllSamples()
     @Transaction open suspend fun checkpoint(session: PracticeSession, days: List<PracticeDay>) {
         saveSession(session)
         clearDays(session.id)

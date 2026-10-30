@@ -39,10 +39,11 @@ nie usuwaj aplikacji, jeśli zależy Ci na jej danych — [szczegóły](docs/REL
 - Sześć wybranych brzmień kliku oraz import własnych sampli,
   regulacja głośności, wizualny puls i opcjonalne wibracje.
 - Odtwarzanie w tle oraz zatrzymywanie z powiadomienia.
-- Presety, lokalna historia ćwiczeń, statystyki i eksport do CSV.
+- Presety, lokalna historia ćwiczeń, serie i wykresy statystyk, eksport do CSV oraz
+  pełna kopia zapasowa ustawień, historii i własnych sampli.
 
 W 6/8 BPM oznacza **ósemki — sześć głównych pulsów na takt**.
-CSV to eksport historii, nie kopia zapasowa do przywracania danych.
+CSV to eksport historii do analizy; do przywracania danych służy kopia `.ombak`.
 [Więcej o ustawieniach i treningu](docs/USAGE.md).
 
 ## Jak wygląda?

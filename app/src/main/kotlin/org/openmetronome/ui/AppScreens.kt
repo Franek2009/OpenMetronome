@@ -26,6 +26,9 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.text.font.FontWeight
+import android.net.Uri
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
@@ -53,7 +56,7 @@ fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, notificationPermi
             Box(Modifier.weight(1f)) {
                 when (page) {
                     "Presety" -> PresetsScreen(data, model)
-                    "Statystyki" -> StatisticsScreen(data)
+                    "Statystyki" -> StatisticsScreen(data, model)
                     "Ustawienia" -> SettingsScreen(model, data, notificationPermission) {
                         @Suppress("DEPRECATION")
                         val info = context.packageManager.getPackageInfo(context.packageName, 0)
@@ -156,40 +159,135 @@ private fun PresetsScreen(data: AppData, model: MetronomeViewModel) {
 }
 
 @Composable
-private fun StatisticsScreen(data: AppData) {
+private fun StatisticsScreen(data: AppData, model: MetronomeViewModel) {
     val exporting by data.exporting.collectAsStateWithLifecycle()
     val notice by data.exportNotice.collectAsStateWithLifecycle()
+    val backupWorking by data.backupWorking.collectAsStateWithLifecycle()
+    val backupNotice by data.backupNotice.collectAsStateWithLifecycle()
     val resolver = LocalContext.current.contentResolver
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         if (uri != null) data.exportCsv { checkNotNull(resolver.openOutputStream(uri, "wt")) { "Cannot open document" } }
     }
+    val backupExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
+        if (uri != null) data.exportBackup { checkNotNull(resolver.openOutputStream(uri, "wt")) }
+    }
+    var pendingImport by remember { mutableStateOf<Uri?>(null) }
+    val backupImport = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> pendingImport = uri }
     val sessions by data.sessions.collectAsStateWithLifecycle(initialValue = emptyList())
     val total by data.total.collectAsStateWithLifecycle(initialValue = PracticeTotal(0, 0))
     val days by data.days.collectAsStateWithLifecycle(initialValue = emptyList())
     val weeks = remember(days) { days.groupBy { LocalDate.parse(it.date).with(java.time.temporal.TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)) }
         .mapValues { (_, entries) -> entries.sumOf { it.durationMs } }.toSortedMap(compareByDescending { it }) }
-    fun duration(ms: Long) = "${ms / 3600000} h ${(ms / 60000) % 60} min ${(ms / 1000) % 60} s"
+    fun duration(ms: Long): String = when {
+        ms >= 3_600_000 -> "${ms / 3_600_000} h ${(ms / 60_000) % 60} min"
+        ms >= 60_000 -> "${ms / 60_000} min ${(ms / 1000) % 60} s"
+        else -> "${ms / 1000} s"
+    }
+    fun dayCount(value: Int) = if (value == 1) "1 dzień" else "$value dni"
+    val today = LocalDate.now()
+    val summary = remember(days, total, today) { PracticeStats.summary(days, total, today) }
+    var periodName by rememberSaveable { mutableStateOf(StatisticsPeriod.DAYS_7.name) }
+    val period = StatisticsPeriod.valueOf(periodName)
+    val chart = remember(days, period, today) { PracticeStats.chart(days, period, today) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Statystyki", style = MaterialTheme.typography.headlineMedium)
-        OutlinedButton({ export.launch("OpenMetronome-sesje-${LocalDate.now()}.csv") }, enabled = !exporting) {
-            Text(if (exporting) "Zapisywanie CSV…" else "Eksportuj CSV")
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            SummaryCard("Łącznie", duration(total.durationMs), Modifier.weight(1f))
+            SummaryCard("Sesje", total.sessions.toString(), Modifier.weight(1f))
         }
-        notice?.let { Text(it) }
-        Text("CSV zawiera wszystkie sesje, także trwającą według ostatniego zapisu. To nie jest kopia do importu.",
-            style = MaterialTheme.typography.bodySmall)
-        Text("Sesje: ${total.sessions}")
-        Text("Czas ćwiczenia: ${duration(total.durationMs)}")
-        Text("Dziennie", style = MaterialTheme.typography.titleLarge)
-        days.take(14).forEach { Text("${it.date}: ${duration(it.durationMs)}") }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            SummaryCard("Aktualna seria", dayCount(summary.currentStreak), Modifier.weight(1f))
+            SummaryCard("Najdłuższa", dayCount(summary.longestStreak), Modifier.weight(1f))
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            SummaryCard("Średnia sesja", duration(summary.averageSessionMs), Modifier.weight(1f))
+            SummaryCard("Najlepszy dzień", summary.bestDay?.let { duration(it.durationMs) } ?: "—", Modifier.weight(1f),
+                summary.bestDay?.date)
+        }
+        Text("Aktywność", style = MaterialTheme.typography.titleLarge)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(StatisticsPeriod.DAYS_7 to "7 dni", StatisticsPeriod.DAYS_30 to "30 dni",
+                StatisticsPeriod.WEEKS_12 to "12 tygodni").forEach { (target, label) ->
+                FilterChip(selected = period == target, onClick = { periodName = target.name }, label = { Text(label) })
+            }
+        }
+        PracticeBarChart(chart, if (period == StatisticsPeriod.WEEKS_12) "min/tydzień" else "min/dzień")
         Text("Tygodniowo (od poniedziałku)", style = MaterialTheme.typography.titleLarge)
-        weeks.entries.take(12).forEach { Text("${it.key}: ${duration(it.value)}") }
+        weeks.entries.take(8).forEach { (week, value) ->
+            Card(Modifier.fillMaxWidth()) { Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Od $week", color = MaterialTheme.colorScheme.onSurfaceVariant); Text(duration(value), fontWeight = FontWeight.SemiBold)
+            } }
+        }
         Text("Historia — ostatnie 100 sesji", style = MaterialTheme.typography.titleLarge)
         sessions.forEach { session ->
             val date = Instant.ofEpochMilli(session.startedAt).atZone(ZoneId.of(session.zoneId)).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
-            Text("$date · ${duration(session.durationMs)} · ${when { session.interrupted -> "przerwana"; session.finished -> "zakończona"; else -> "w toku" }}")
+            Card(Modifier.fillMaxWidth()) { Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) { Text(date, style = MaterialTheme.typography.titleSmall); Text(when {
+                    session.interrupted -> "Przerwana"; session.finished -> "Zakończona"; else -> "W toku"
+                }, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) }
+                Text(duration(session.durationMs), fontWeight = FontWeight.SemiBold)
+            } }
         }
         if (total.sessions == 0L) Text("Rozpocznij ćwiczenie, aby zapisać pierwszą sesję.")
+        HorizontalDivider(Modifier.padding(vertical = 4.dp))
+        Text("Dane", style = MaterialTheme.typography.titleLarge)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton({ export.launch("OpenMetronome-sesje-${LocalDate.now()}.csv") }, enabled = !exporting && !backupWorking) {
+                Text(if (exporting) "Zapisywanie…" else "Eksportuj CSV")
+            }
+            OutlinedButton({ backupExport.launch("OpenMetronome-${LocalDate.now()}.ombak") }, enabled = !backupWorking && !exporting) {
+                Text(if (backupWorking) "Przetwarzanie…" else "Kopia zapasowa")
+            }
+            OutlinedButton({ backupImport.launch(arrayOf("application/octet-stream", "application/zip", "*/*")) }, enabled = !backupWorking && !exporting) {
+                Text("Przywróć kopię")
+            }
+        }
+        notice?.let { Text(it) }; backupNotice?.let { Text(it) }
+        Text("CSV służy do analizy historii. Kopia .ombak zawiera ustawienia, presety, historię i własne sample.", style = MaterialTheme.typography.bodySmall)
         Text("Planowana cisza jest częścią ćwiczenia. Zapis co 5 s; przy awarii ostatnie sekundy mogą nie zostać zapisane.")
+    }
+    pendingImport?.let { uri ->
+        AlertDialog(onDismissRequest = { pendingImport = null }, title = { Text("Przywrócić kopię?") },
+            text = { Text("Bieżące ustawienia, presety, historia i własne sample zostaną zastąpione zawartością kopii. Najpierw warto zapisać obecną kopię.") },
+            confirmButton = { TextButton({
+                pendingImport = null; model.stop()
+                data.importBackup({ checkNotNull(resolver.openInputStream(uri)) }, model::setConfig)
+            }) { Text("Przywróć") } }, dismissButton = { TextButton({ pendingImport = null }) { Text("Anuluj") } })
+    }
+}
+
+@Composable
+private fun SummaryCard(label: String, value: String, modifier: Modifier = Modifier, detail: String? = null) {
+    Card(modifier) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelLarge)
+        Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        detail?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) }
+    } }
+}
+
+@Composable
+private fun PracticeBarChart(bars: List<PracticeChartBar>, unit: String) {
+    val max = bars.maxOfOrNull { it.durationMs }?.coerceAtLeast(1) ?: 1
+    val primary = MaterialTheme.colorScheme.primary
+    val quiet = MaterialTheme.colorScheme.surfaceVariant
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Canvas(Modifier.fillMaxWidth().height(150.dp).semantics { contentDescription =
+            bars.joinToString(", ") { "${it.label}: ${it.durationMs / 60000} minut" } }) {
+            val gap = if (bars.size > 20) 2.dp.toPx() else 4.dp.toPx()
+            val width = (size.width - gap * (bars.size - 1)) / bars.size
+            bars.forEachIndexed { index, bar ->
+                val fraction = bar.durationMs.toFloat() / max.toFloat()
+                val height = if (bar.durationMs == 0L) 3.dp.toPx() else (size.height * fraction).coerceAtLeast(6.dp.toPx())
+                drawRoundRect(if (bar.durationMs == 0L) quiet else primary,
+                    topLeft = androidx.compose.ui.geometry.Offset(index * (width + gap), size.height - height),
+                    size = androidx.compose.ui.geometry.Size(width, height), cornerRadius = CornerRadius(4.dp.toPx()))
+            }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(bars.firstOrNull()?.label.orEmpty(), style = MaterialTheme.typography.labelSmall)
+            Text(unit, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(bars.lastOrNull()?.label.orEmpty(), style = MaterialTheme.typography.labelSmall)
+        }
     }
 }
 

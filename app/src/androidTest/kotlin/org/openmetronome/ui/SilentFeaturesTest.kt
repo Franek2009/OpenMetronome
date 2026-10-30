@@ -331,12 +331,12 @@ class SilentFeaturesTest {
                 listOf(PracticeDay("fixture", "1970-01-01", 125000)))
         }
         page("Statystyki")
-        compose.waitUntil(10000) { compose.onAllNodesWithText("Sesje: 1").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("Czas ćwiczenia: 0 h 2 min 5 s").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("1970-01-01: 0 h 2 min 5 s").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("1969-12-29: 0 h 2 min 5 s").performScrollTo().assertIsDisplayed()
+        compose.waitUntil(10000) { compose.onAllNodesWithText("Sesje").fetchSemanticsNodes().isNotEmpty() }
+        compose.onAllNodesWithText("2 min 5 s")[0].performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Od 1969-12-29").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("7 dni").performScrollTo().assertIsDisplayed()
         compose.activityRule.scenario.recreate()
-        compose.onNodeWithText("Sesje: 1").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Sesje").performScrollTo().assertIsDisplayed()
         page("Metronom")
         compose.runOnIdle { assertEquals(PlaybackStatus.STOPPED, model.state.value.audio.status) }
         assertEquals(PracticeTotal(1, 125000), runBlocking { data.dao.total().first() })
