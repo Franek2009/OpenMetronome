@@ -92,6 +92,8 @@ class BackupStorageTest {
             val recovery = dir.listFiles()!!.single { it.name.startsWith("backup-recovery-") }
             same(a, recovery.inputStream().use(BackupArchive::read))
             assertFalse(data.reservePlayback())
+            data.exportBackup { throw AssertionError("Recovery must block export") }
+            assertTrue(data.backupNotice.value!!.contains("Dane mogą być niepełne"))
             var edited = false; data.editConfiguration { edited = true }; assertFalse(edited)
         }
     }
@@ -131,13 +133,16 @@ class BackupStorageTest {
             data.saveSettings(MetronomeConfig(tempo = Tempo(83)))
             data.savePreset("Queued", MetronomeConfig())
             val output = ByteArrayOutputStream(); data.exportBackup { output }
+            var secondOpened = false
+            try {
             assertTrue(data.backupWorking.value)
             assertFalse(data.reservePlayback())
             var edited = false; data.editConfiguration { edited = true }; assertFalse(edited)
             data.saveSettings(MetronomeConfig(tempo = Tempo(200)))
             data.savePreset("Rejected", MetronomeConfig())
-            var secondOpened = false; data.exportBackup { secondOpened = true; ByteArrayOutputStream() }
-            release.complete(Unit); data.awaitWrites()
+            data.exportBackup { secondOpened = true; ByteArrayOutputStream() }
+            } finally { release.complete(Unit) }
+            data.awaitWrites()
             assertFalse(secondOpened)
             val restored = BackupArchive.read(ByteArrayInputStream(output.toByteArray()))
             assertEquals(83, ConfigCodec.decode(restored.settings).tempo.bpm)
@@ -158,6 +163,27 @@ class BackupStorageTest {
             assertFalse(data.backupWorking.value)
             assertTrue(data.backupNotice.value!!.contains("anulowana"))
             same(a, exported(data))
+        }
+    }
+
+    @Test fun applyingRestoredUiConfigurationDoesNotAdmitEditsFromOtherThreads(): Unit = runBlocking {
+        fixture { data, _ ->
+            val entered = java.util.concurrent.CountDownLatch(1)
+            val release = java.util.concurrent.CountDownLatch(1)
+            val incoming = sample("A", 91)
+            data.importBackup({ ByteArrayInputStream(bytes(incoming)) }) {
+                entered.countDown()
+                check(release.await(5, java.util.concurrent.TimeUnit.SECONDS))
+            }
+            try {
+                assertTrue(entered.await(5, java.util.concurrent.TimeUnit.SECONDS))
+                var edited = false
+                data.editConfiguration { edited = true }
+                assertFalse(edited)
+                assertFalse(data.reservePlayback())
+            } finally { release.countDown() }
+            data.awaitWrites()
+            same(incoming, exported(data))
         }
     }
 

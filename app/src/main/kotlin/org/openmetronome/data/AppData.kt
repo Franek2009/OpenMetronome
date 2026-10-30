@@ -17,6 +17,7 @@ import java.io.InputStream
 import org.openmetronome.domain.model.MetronomeConfig
 
 private val Context.settingsStore by preferencesDataStore("metronome-settings")
+private const val BACKUP_RECOVERY_NOTICE = "Nie udało się cofnąć wszystkich zmian. Dane mogą być niepełne. Zachowano pliki odzyskiwania; nie wykonuj kolejnych zmian."
 
 class SettingsRepository(private val store: DataStore<Preferences>) {
     constructor(context: Context) : this(context.settingsStore)
@@ -36,12 +37,11 @@ class AppData private constructor(context: Context, isolatedTestStorage: Boolean
     internal var backupFault: (BackupStage) -> Unit = {}
     private var settingsWriteFailed = false
     private val actions = Channel<suspend () -> Unit>(Channel.UNLIMITED)
-    internal var applyingBackup = false
-        private set
+    private val applyingBackup = ThreadLocal<Boolean>()
 
     /** Synchronous admission keeps Start/config edits ordered against backup reservation. */
     fun editConfiguration(action: () -> Unit) = synchronized(admission) {
-        if ((!backupWorking.value && !recoveryRequired.value) || applyingBackup) action()
+        if ((!backupWorking.value && !recoveryRequired.value) || applyingBackup.get() == true) action()
     }
     fun reservePlayback(): Boolean = synchronized(admission) {
         if (backupWorking.value || recoveryRequired.value || sampleWorking.value || playbackBusy.value) false
@@ -59,7 +59,8 @@ class AppData private constructor(context: Context, isolatedTestStorage: Boolean
     internal suspend fun closeTestStorage() {
         check(isTestStorage)
         if (!scope.isActive) return
-        awaitWrites(); scope.cancel(); scope.coroutineContext[Job]!!.join(); database.close()
+        try { withTimeout(10000) { awaitWrites() } }
+        finally { scope.cancel(); scope.coroutineContext[Job]!!.join(); database.close() }
     }
     private val isTestStorage = isolatedTestStorage
 
@@ -111,7 +112,7 @@ class AppData private constructor(context: Context, isolatedTestStorage: Boolean
             try { ready.await(); action() }
             catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) { error.value = "Nie udało się zapisać danych. Spróbuj ponownie." }
-        }) error.value = "Poczekaj na zakończenie kopii zapasowej."
+        }) error.value = if (recoveryRequired.value) BACKUP_RECOVERY_NOTICE else "Poczekaj na zakończenie kopii zapasowej."
     }
     fun savePreset(name: String, config: MetronomeConfig, existing: Preset? = null) = operation {
         require(name.trim().isNotEmpty() && name.trim().length <= 120)
@@ -182,7 +183,12 @@ class AppData private constructor(context: Context, isolatedTestStorage: Boolean
 
     private fun backup(failureNotice: String = "Nie udało się przywrócić kopii. Bieżące dane pozostają bez zmian.", action: suspend () -> Unit) {
         synchronized(admission) {
-            if (playbackBusy.value || sampleWorking.value || recoveryRequired.value || exporting.value || backupWorking.value) {
+            if (recoveryRequired.value) {
+                backupNotice.value = BACKUP_RECOVERY_NOTICE
+                error.value = BACKUP_RECOVERY_NOTICE
+                return
+            }
+            if (playbackBusy.value || sampleWorking.value || exporting.value || backupWorking.value) {
                 backupNotice.value = "Zatrzymaj metronom i poczekaj na zakończenie zapisu oraz innych operacji."
                 return
             }
@@ -192,7 +198,7 @@ class AppData private constructor(context: Context, isolatedTestStorage: Boolean
                 try { ready.await(); check(!settingsWriteFailed); action() }
                 catch (_: BackupRecoveryException) {
                     recoveryRequired.value = true
-                    backupNotice.value = "Nie udało się cofnąć wszystkich zmian. Dane mogą być niepełne. Zachowano pliki odzyskiwania; nie wykonuj kolejnych zmian."
+                    backupNotice.value = BACKUP_RECOVERY_NOTICE
                     error.value = backupNotice.value
                 }
                 catch (cancelled: CancellationException) {
@@ -272,8 +278,8 @@ class AppData private constructor(context: Context, isolatedTestStorage: Boolean
     private val contextDirectory = testDirectory ?: if (isolatedTestStorage) context.cacheDir else context.filesDir
     private suspend fun applyConfiguration(config: MetronomeConfig, applied: (MetronomeConfig) -> Unit) {
         withContext(Dispatchers.Main) {
-            applyingBackup = true
-            try { applied(config) } finally { applyingBackup = false }
+            applyingBackup.set(true)
+            try { applied(config) } finally { applyingBackup.remove() }
         }
     }
 }
