@@ -26,7 +26,43 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
 }
 
 /** Process-scoped repositories; service and UI share storage, never an audio worker. */
-class AppData(context: Context, isolatedTestStorage: Boolean = false) {
+class AppData private constructor(context: Context, isolatedTestStorage: Boolean, testDirectory: File?) {
+    constructor(context: Context, isolatedTestStorage: Boolean = false) : this(context, isolatedTestStorage, null)
+    internal constructor(context: Context, testDirectory: File) : this(context, true, testDirectory)
+
+    private val admission = Any()
+    val playbackBusy = MutableStateFlow(false)
+    val recoveryRequired = MutableStateFlow(false)
+    internal var backupFault: (BackupStage) -> Unit = {}
+    private var settingsWriteFailed = false
+    private val actions = Channel<suspend () -> Unit>(Channel.UNLIMITED)
+    internal var applyingBackup = false
+        private set
+
+    /** Synchronous admission keeps Start/config edits ordered against backup reservation. */
+    fun editConfiguration(action: () -> Unit) = synchronized(admission) {
+        if ((!backupWorking.value && !recoveryRequired.value) || applyingBackup) action()
+    }
+    fun reservePlayback(): Boolean = synchronized(admission) {
+        if (backupWorking.value || recoveryRequired.value || sampleWorking.value || playbackBusy.value) false
+        else { playbackBusy.value = true; true }
+    }
+    fun playbackFinished() = synchronized(admission) { playbackBusy.value = false }
+    private fun submit(action: suspend () -> Unit): Boolean = synchronized(admission) {
+        if (backupWorking.value || recoveryRequired.value) false else actions.trySend(action).isSuccess
+    }
+    internal suspend fun awaitWrites() {
+        val done = CompletableDeferred<Unit>()
+        check(actions.trySend { done.complete(Unit) }.isSuccess)
+        done.await()
+    }
+    internal suspend fun closeTestStorage() {
+        check(isTestStorage)
+        if (!scope.isActive) return
+        awaitWrites(); scope.cancel(); scope.coroutineContext[Job]!!.join(); database.close()
+    }
+    private val isTestStorage = isolatedTestStorage
+
     val error = MutableStateFlow<String?>(null)
     val exporting = MutableStateFlow(false)
     val exportNotice = MutableStateFlow<String?>(null)
@@ -36,14 +72,15 @@ class AppData(context: Context, isolatedTestStorage: Boolean = false) {
     val sampleNotice = MutableStateFlow<String?>(null)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     val settings = if (isolatedTestStorage) SettingsRepository(PreferenceDataStoreFactory.create(scope = scope) {
-        File(context.cacheDir, "instrumentation-${UUID.randomUUID()}.preferences_pb")
+        if (testDirectory != null) File(testDirectory, "settings.preferences_pb") else File(context.cacheDir, "instrumentation-${UUID.randomUUID()}.preferences_pb")
     }) else SettingsRepository(context.applicationContext)
-    val database = if (isolatedTestStorage) Room.inMemoryDatabaseBuilder(context.applicationContext, PracticeDatabase::class.java).build()
+    val database = if (testDirectory != null) Room.databaseBuilder(context, PracticeDatabase::class.java,
+        File(testDirectory, "practice.db").absolutePath).addMigrations(PracticeDatabase.MIGRATION_1_2).build()
+        else if (isolatedTestStorage) Room.inMemoryDatabaseBuilder(context.applicationContext, PracticeDatabase::class.java).build()
         else Room.databaseBuilder(context.applicationContext, PracticeDatabase::class.java, "openmetronome.db")
             .addMigrations(PracticeDatabase.MIGRATION_1_2).build()
     val samples = CustomSampleRepository(database, if (isolatedTestStorage)
-        File(context.cacheDir, "sample-library-${UUID.randomUUID()}") else File(context.filesDir, "custom-samples"))
-    private val settingUpdates = Channel<MetronomeConfig>(Channel.CONFLATED)
+        if (testDirectory != null) File(testDirectory, "samples") else File(context.cacheDir, "sample-library-${UUID.randomUUID()}") else File(context.filesDir, "custom-samples"))
     val dao = database.practice()
     val ready = CompletableDeferred<Unit>()
     val presets = dao.presets().catch { error.value = "Nie udało się odczytać presetów"; emit(emptyList()) }
@@ -52,10 +89,9 @@ class AppData(context: Context, isolatedTestStorage: Boolean = false) {
     val total = dao.total().catch { error.value = "Nie udało się odczytać statystyk"; emit(PracticeTotal(0, 0)) }
     init {
         scope.launch {
-            for (config in settingUpdates) {
-                try { settings.save(config) }
-                catch (cancelled: CancellationException) { throw cancelled }
-                catch (_: Exception) { error.value = "Nie udało się zapisać ustawień" }
+            for (action in actions) {
+                try { action() }
+                catch (cancelled: CancellationException) { currentCoroutineContext().ensureActive() }
             }
         }
         scope.launch {
@@ -63,13 +99,19 @@ class AppData(context: Context, isolatedTestStorage: Boolean = false) {
             catch (e: Exception) { ready.completeExceptionally(e); error.value = "Błąd otwarcia bazy. Dane nie zostały usunięte." }
         }
     }
-    fun saveSettings(config: MetronomeConfig) { settingUpdates.trySend(config) }
+    fun saveSettings(config: MetronomeConfig) {
+        submit {
+            try { settings.save(config); settingsWriteFailed = false }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { settingsWriteFailed = true; error.value = "Nie udało się zapisać ustawień" }
+        }
+    }
     fun operation(action: suspend () -> Unit) {
-        scope.launch {
+        if (!submit {
             try { ready.await(); action() }
             catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) { error.value = "Nie udało się zapisać danych. Spróbuj ponownie." }
-        }
+        }) error.value = "Poczekaj na zakończenie kopii zapasowej."
     }
     fun savePreset(name: String, config: MetronomeConfig, existing: Preset? = null) = operation {
         require(name.trim().isNotEmpty() && name.trim().length <= 120)
@@ -88,17 +130,19 @@ class AppData(context: Context, isolatedTestStorage: Boolean = false) {
     fun deletePreset(preset: Preset) = operation { dao.deletePreset(preset.id) }
 
     private fun sampleOperation(action: suspend () -> Unit) {
-        if (!sampleWorking.compareAndSet(false, true)) return
-        sampleNotice.value = null
-        scope.launch {
-            try { ready.await(); action() }
-            catch (cancelled: CancellationException) { throw cancelled }
-            catch (e: Exception) {
-                error.value = if (e.message == null || e.message == "Failed requirement." || e.message == "Check failed.")
-                    "Nieobsługiwany lub uszkodzony sample. Wybierz WAV, MP3 lub OGG."
-                    else e.message
+        synchronized(admission) {
+            if (backupWorking.value || recoveryRequired.value || !sampleWorking.compareAndSet(false, true)) return
+            sampleNotice.value = null
+            actions.trySend {
+                try { ready.await(); action() }
+                catch (cancelled: CancellationException) { throw cancelled }
+                catch (e: Exception) {
+                    error.value = if (e.message == null || e.message == "Failed requirement." || e.message == "Check failed.")
+                        "Nieobsługiwany lub uszkodzony sample. Wybierz WAV, MP3 lub OGG."
+                        else e.message
+                }
+                finally { sampleWorking.value = false }
             }
-            finally { sampleWorking.value = false }
         }
     }
 
@@ -116,66 +160,122 @@ class AppData(context: Context, isolatedTestStorage: Boolean = false) {
 
     /** Process-owned IO job survives screen changes. Only writes the document chosen by the user. */
     fun exportCsv(openOutput: () -> OutputStream) {
-        if (!exporting.compareAndSet(false, true)) return
-        exportNotice.value = null
-        scope.launch {
-            try {
-                ready.await()
-                val snapshot = dao.sessionsForExport()
-                openOutput().bufferedWriter(Charsets.UTF_8).use { SessionCsv.write(snapshot, it) }
-                exportNotice.value = "Zapisano CSV. Liczba sesji: ${snapshot.size}."
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (_: Exception) {
-                exportNotice.value = "Nie udało się zapisać CSV. Plik może być niepełny; dane aplikacji nie zostały zmienione."
-            } finally {
-                exporting.value = false
+        synchronized(admission) {
+            if (backupWorking.value || recoveryRequired.value || !exporting.compareAndSet(false, true)) return
+            exportNotice.value = null
+            actions.trySend {
+                try {
+                    ready.await()
+                    val snapshot = dao.sessionsForExport()
+                    openOutput().bufferedWriter(Charsets.UTF_8).use { SessionCsv.write(snapshot, it) }
+                    exportNotice.value = "Zapisano CSV. Liczba sesji: ${snapshot.size}."
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    exportNotice.value = "Nie udało się zapisać CSV. Plik może być niepełny; dane aplikacji nie zostały zmienione."
+                } finally {
+                    exporting.value = false
+                }
             }
         }
     }
 
-    fun exportBackup(openOutput: () -> OutputStream) {
-        if (!backupWorking.compareAndSet(false, true)) return
-        backupNotice.value = null
-        scope.launch {
-            try {
-                ready.await()
-                val sampleRecords = dao.allSamples()
-                val snapshot = BackupSnapshot(ConfigCodec.encode(settings.load()), dao.allPresets(),
-                    dao.sessionsForExport(), dao.allPracticeDays(), sampleRecords, samples.backupFiles(sampleRecords))
-                openOutput().use { BackupArchive.write(snapshot, it) }
-                backupNotice.value = "Kopia zapasowa została zapisana."
-            } catch (cancelled: CancellationException) { throw cancelled }
-            catch (_: Exception) { backupNotice.value = "Nie udało się zapisać kopii zapasowej." }
-            finally { backupWorking.value = false }
+    private fun backup(failureNotice: String = "Nie udało się przywrócić kopii. Bieżące dane pozostają bez zmian.", action: suspend () -> Unit) {
+        synchronized(admission) {
+            if (playbackBusy.value || sampleWorking.value || recoveryRequired.value || exporting.value || backupWorking.value) {
+                backupNotice.value = "Zatrzymaj metronom i poczekaj na zakończenie zapisu oraz innych operacji."
+                return
+            }
+            backupWorking.value = true
+            backupNotice.value = null
+            actions.trySend {
+                try { ready.await(); check(!settingsWriteFailed); action() }
+                catch (_: BackupRecoveryException) {
+                    recoveryRequired.value = true
+                    backupNotice.value = "Nie udało się cofnąć wszystkich zmian. Dane mogą być niepełne. Zachowano pliki odzyskiwania; nie wykonuj kolejnych zmian."
+                    error.value = backupNotice.value
+                }
+                catch (cancelled: CancellationException) {
+                    backupNotice.value = "Operacja kopii zapasowej została anulowana."
+                    throw cancelled
+                }
+                catch (_: Exception) { backupNotice.value = failureNotice }
+                finally { backupWorking.value = false }
+            }
         }
     }
 
-    fun importBackup(openInput: () -> InputStream, applied: (MetronomeConfig) -> Unit) {
-        if (!backupWorking.compareAndSet(false, true)) return
-        backupNotice.value = null
-        scope.launch {
-            var replaced = false
+    private suspend fun snapshot(access: CustomSampleRepository.BackupAccess): BackupSnapshot {
+        val records = dao.allSamples()
+        return BackupSnapshot(ConfigCodec.encode(settings.load()), dao.allPresets(), dao.sessionsForExport(),
+            dao.allPracticeDays(), records, access.files(records))
+    }
+
+    fun exportBackup(openOutput: () -> OutputStream) = backup("Nie udało się zapisać kopii zapasowej. Plik może być niepełny; dane aplikacji nie zostały zmienione.") {
+        try {
+            samples.backup {
+                val snapshot = database.withTransaction { snapshot(this) }
+                // Prepare and validate before touching the user's destination document.
+                val bytes = java.io.ByteArrayOutputStream().also { BackupArchive.write(snapshot, it) }.toByteArray()
+                openOutput().use { it.write(bytes) }
+            }
+            backupNotice.value = "Kopia zapasowa została zapisana."
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) {
+            backupNotice.value = "Nie udało się zapisać kopii zapasowej. Plik może być niepełny; dane aplikacji nie zostały zmienione."
+        }
+    }
+
+    fun importBackup(openInput: () -> InputStream, applied: (MetronomeConfig) -> Unit) = backup {
+        val incoming = openInput().use(BackupArchive::read)
+        val config = ConfigCodec.decode(incoming.settings)
+        samples.backup {
+            val previous = database.withTransaction { snapshot(this) }
+            val oldConfig = ConfigCodec.decode(previous.settings)
+            val recovery = File(contextDirectory, "backup-recovery-${UUID.randomUUID()}.ombak")
+            java.io.FileOutputStream(recovery).use { output ->
+                BackupArchive.write(previous, output); output.fd.sync()
+            }
+            var keepRecovery = false
             try {
-                ready.await()
-                val snapshot = openInput().use(BackupArchive::read)
-                val config = ConfigCodec.decode(snapshot.settings)
-                samples.replaceFromBackup(snapshot) {
-                    database.withTransaction {
-                        dao.deleteAllPracticeDays(); dao.deleteAllSessions(); dao.deleteAllPresets(); dao.deleteAllSamples()
-                        dao.insertSamples(snapshot.samples); dao.insertPresets(snapshot.presets)
-                        dao.insertSessions(snapshot.sessions); dao.insertPracticeDays(snapshot.days)
+                replace(incoming, backupFault) {
+                    withContext(NonCancellable) {
+                        try {
+                            database.withTransaction {
+                                dao.deleteAllPracticeDays(); dao.deleteAllSessions(); dao.deleteAllPresets(); dao.deleteAllSamples()
+                                dao.insertSamples(incoming.samples); dao.insertPresets(incoming.presets)
+                                dao.insertSessions(incoming.sessions); dao.insertPracticeDays(incoming.days)
+                                backupFault(BackupStage.DATABASE)
+                                backupFault(BackupStage.SETTINGS)
+                                settings.save(config)
+                                applyConfiguration(config, applied)
+                            }
+                        } catch (error: Exception) {
+                            try {
+                                backupFault(BackupStage.ROLLBACK_SETTINGS)
+                                settings.save(oldConfig)
+                                applyConfiguration(oldConfig, applied)
+                            } catch (rollback: Exception) {
+                                error.addSuppressed(rollback)
+                                throw BackupRecoveryException(error)
+                            }
+                            throw error
+                        }
                     }
                 }
-                replaced = true
-                settings.save(config)
-                withContext(Dispatchers.Main) { applied(config) }
-                backupNotice.value = "Kopia została przywrócona: ${snapshot.sessions.size} sesji, ${snapshot.presets.size} presetów."
-            } catch (cancelled: CancellationException) { throw cancelled }
-            catch (_: Exception) { backupNotice.value = if (replaced)
-                "Dane przywrócono, ale nie udało się zastosować wszystkich ustawień. Uruchom aplikację ponownie."
-                else "Nie udało się przywrócić kopii. Bieżące dane pozostają bez zmian." }
-            finally { backupWorking.value = false }
+            } catch (error: BackupRecoveryException) { keepRecovery = true; throw error }
+            finally { if (!keepRecovery) recovery.delete() }
+        }
+        backupNotice.value = "Kopia została przywrócona: ${incoming.sessions.size} sesji, ${incoming.presets.size} presetów."
+    }
+
+    private val contextDirectory = testDirectory ?: if (isolatedTestStorage) context.cacheDir else context.filesDir
+    private suspend fun applyConfiguration(config: MetronomeConfig, applied: (MetronomeConfig) -> Unit) {
+        withContext(Dispatchers.Main) {
+            applyingBackup = true
+            try { applied(config) } finally { applyingBackup = false }
         }
     }
 }
+
+internal enum class BackupStage { FILES, DATABASE, SETTINGS, ROLLBACK_FILES, ROLLBACK_SETTINGS }

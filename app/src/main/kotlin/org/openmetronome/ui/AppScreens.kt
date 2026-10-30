@@ -28,7 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.text.font.FontWeight
-import android.net.Uri
+import androidx.core.net.toUri
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
@@ -41,12 +41,14 @@ fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, notificationPermi
     val state by model.state.collectAsStateWithLifecycle()
     val error by data.error.collectAsStateWithLifecycle()
     val sampleWorking by data.sampleWorking.collectAsStateWithLifecycle()
+    val backupWorking by data.backupWorking.collectAsStateWithLifecycle()
+    val recoveryRequired by data.recoveryRequired.collectAsStateWithLifecycle()
     var page by rememberSaveable { mutableStateOf("Metronom") }
     var report by rememberSaveable { mutableStateOf<String?>(null) }
     BackHandler(enabled = page != "Metronom" && report == null) { page = "Metronom" }
     val context = LocalContext.current
     val diagnosticsTitle = stringResource(R.string.diagnostics_title)
-    Scaffold(modifier = Modifier.imePadding(), bottomBar = { PlaybackControls(state, model::start, model::stop, startEnabled = !sampleWorking) }) { padding ->
+    Scaffold(modifier = Modifier.imePadding(), bottomBar = { PlaybackControls(state, model::start, model::stop, startEnabled = !sampleWorking && !backupWorking && !recoveryRequired) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             AppNavigation(page) { page = it }
             error?.let { message ->
@@ -164,6 +166,12 @@ private fun StatisticsScreen(data: AppData, model: MetronomeViewModel) {
     val notice by data.exportNotice.collectAsStateWithLifecycle()
     val backupWorking by data.backupWorking.collectAsStateWithLifecycle()
     val backupNotice by data.backupNotice.collectAsStateWithLifecycle()
+    val playbackBusy by data.playbackBusy.collectAsStateWithLifecycle()
+    val sampleWorking by data.sampleWorking.collectAsStateWithLifecycle()
+    val recoveryRequired by data.recoveryRequired.collectAsStateWithLifecycle()
+    val audioState by model.state.collectAsStateWithLifecycle()
+    val backupEnabled = !backupWorking && !exporting && !playbackBusy && !sampleWorking &&
+        !recoveryRequired && audioState.audio.status in listOf(org.openmetronome.audio.PlaybackStatus.STOPPED, org.openmetronome.audio.PlaybackStatus.ERROR)
     val resolver = LocalContext.current.contentResolver
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         if (uri != null) data.exportCsv { checkNotNull(resolver.openOutputStream(uri, "wt")) { "Cannot open document" } }
@@ -171,8 +179,8 @@ private fun StatisticsScreen(data: AppData, model: MetronomeViewModel) {
     val backupExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         if (uri != null) data.exportBackup { checkNotNull(resolver.openOutputStream(uri, "wt")) }
     }
-    var pendingImport by remember { mutableStateOf<Uri?>(null) }
-    val backupImport = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> pendingImport = uri }
+    var pendingImportPath by rememberSaveable { mutableStateOf<String?>(null) }
+    val backupImport = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> pendingImportPath = uri?.toString() }
     val sessions by data.sessions.collectAsStateWithLifecycle(initialValue = emptyList())
     val total by data.total.collectAsStateWithLifecycle(initialValue = PracticeTotal(0, 0))
     val days by data.days.collectAsStateWithLifecycle(initialValue = emptyList())
@@ -235,24 +243,26 @@ private fun StatisticsScreen(data: AppData, model: MetronomeViewModel) {
             OutlinedButton({ export.launch("OpenMetronome-sesje-${LocalDate.now()}.csv") }, enabled = !exporting && !backupWorking) {
                 Text(if (exporting) "Zapisywanie…" else "Eksportuj CSV")
             }
-            OutlinedButton({ backupExport.launch("OpenMetronome-${LocalDate.now()}.ombak") }, enabled = !backupWorking && !exporting) {
+            OutlinedButton({ backupExport.launch("OpenMetronome-${LocalDate.now()}.ombak") }, enabled = backupEnabled) {
                 Text(if (backupWorking) "Przetwarzanie…" else "Kopia zapasowa")
             }
-            OutlinedButton({ backupImport.launch(arrayOf("application/octet-stream", "application/zip", "*/*")) }, enabled = !backupWorking && !exporting) {
+            OutlinedButton({ backupImport.launch(arrayOf("application/octet-stream", "application/zip", "*/*")) }, enabled = backupEnabled) {
                 Text("Przywróć kopię")
             }
         }
+        if (!backupEnabled && !backupWorking && !recoveryRequired) Text("Zatrzymaj metronom i poczekaj na zakończenie zapisu oraz innych operacji, aby użyć kopii zapasowej.")
         notice?.let { Text(it) }; backupNotice?.let { Text(it) }
         Text("CSV służy do analizy historii. Kopia .ombak zawiera ustawienia, presety, historię i własne sample.", style = MaterialTheme.typography.bodySmall)
         Text("Planowana cisza jest częścią ćwiczenia. Zapis co 5 s; przy awarii ostatnie sekundy mogą nie zostać zapisane.")
     }
-    pendingImport?.let { uri ->
-        AlertDialog(onDismissRequest = { pendingImport = null }, title = { Text("Przywrócić kopię?") },
+    pendingImportPath?.let { path ->
+        val uri = path.toUri()
+        AlertDialog(onDismissRequest = { pendingImportPath = null }, title = { Text("Przywrócić kopię?") },
             text = { Text("Bieżące ustawienia, presety, historia i własne sample zostaną zastąpione zawartością kopii. Najpierw warto zapisać obecną kopię.") },
             confirmButton = { TextButton({
-                pendingImport = null; model.stop()
+                pendingImportPath = null
                 data.importBackup({ checkNotNull(resolver.openInputStream(uri)) }, model::setConfig)
-            }) { Text("Przywróć") } }, dismissButton = { TextButton({ pendingImport = null }) { Text("Anuluj") } })
+            }, enabled = backupEnabled) { Text("Przywróć") } }, dismissButton = { TextButton({ pendingImportPath = null }) { Text("Anuluj") } })
     }
 }
 

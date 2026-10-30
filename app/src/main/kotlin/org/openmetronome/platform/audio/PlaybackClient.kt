@@ -13,12 +13,13 @@ import org.openmetronome.domain.model.MetronomeConfig
 /** Bound while the screen's ViewModel lives; unbinding never stops a started session. */
 class PlaybackClient(context: Context) : MetronomePort {
     private val context = context.applicationContext
+    private val data = (this.context as org.openmetronome.OpenMetronomeApplication).data
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val mutableState = MutableStateFlow(MetronomeState())
     override val state = mutableState.asStateFlow()
     private var controller: MetronomeController? = null
     private var stopRemote: (() -> Unit)? = null
-    private var startRemote: (() -> Unit)? = null
+    private var startRemote: (() -> Boolean)? = null
     private var collector: Job? = null
     private var pendingStart = false
     private var waitingForEngine = false
@@ -52,13 +53,18 @@ class PlaybackClient(context: Context) : MetronomePort {
     private val bound = this.context.bindService(Intent(this.context, MetronomeService::class.java), connection, Context.BIND_AUTO_CREATE)
 
     override fun editConfig(transform: (MetronomeConfig) -> MetronomeConfig) {
-        if (closed) return
-        edited = true
-        mutableState.update { it.copy(config = transform(it.config)) }
-        controller?.editConfig { mutableState.value.config }
+        data.editConfiguration {
+            if (!closed) {
+                edited = true
+                mutableState.update { it.copy(config = transform(it.config)) }
+                controller?.editConfig { mutableState.value.config }
+                // Enqueue synchronously before a following backup can reserve admission.
+                data.saveSettings(mutableState.value.config)
+            }
+        }
     }
     override fun start() {
-        if (closed || mutableState.value.keepsScreenOn) return
+        if (closed || mutableState.value.keepsScreenOn || data.backupWorking.value || data.recoveryRequired.value) return
         waitingForEngine = true
         mutableState.update { it.copy(audio = AudioEngineState(PlaybackStatus.STARTING)) }
         pendingStart = controller == null
@@ -68,7 +74,7 @@ class PlaybackClient(context: Context) : MetronomePort {
         }
         dispatchStart()
     }
-    private fun dispatchStart() { try { startRemote?.invoke() ?: fail() } catch (_: RuntimeException) { fail() } }
+    private fun dispatchStart() { try { if (startRemote?.invoke() != true) fail() } catch (_: RuntimeException) { fail() } }
     private fun fail() {
         pendingStart = false
         waitingForEngine = false

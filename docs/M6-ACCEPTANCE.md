@@ -1,5 +1,18 @@
 # M6 — odbiór sprzętowy
 
+## Aktualizacja 0.13 — 2026-10-30
+
+0.13.0-beta.1: Samsung i Lenovo zaliczyły po 38 cichych testów; na każdym
+6 prób audio pominiętych, zero innych pominięć i błędów. To zamyka wcześniejszy
+brak pełnego cichego raportu Lenovo dla bieżącej wersji, nie historycznych
+przebiegów. Osobna kopia validation nie zastępowała instalacji użytkownika.
+Oficjalny podpisany APK zaliczył na emulatorze instalację i ponowną instalację
+z zachowaniem ustawień. Odbiór audio i długie sesje pozostają otwarte.
+[Raport 0.13](V0.13-VALIDATION.md). Stan beta.2 z zabezpieczeniami backupu:
+[oddzielny raport](V0.13-BETA2-VALIDATION.md).
+
+Poniżej zachowano historyczne wyniki i nadal otwarte kryteria sprzętowe.
+
 ## Stan i granice
 
 Zatwierdzono przygotowanie odbioru, bez nowych funkcji, NDK i publikacji 1.0.
@@ -56,8 +69,9 @@ ani słuchawek jako obejścia. Do tego czasu checklistę sprzętową pozostawić
 - [ ] Długa próba: PLAYING przez cały okres, rosnący playback head, zero
   underrunów, brak samoczynnego wybudzenia, zatrzymanie i końcowy zapis sesji.
   Czas zapisu porównać z odtworzonymi ramkami, nie z liczbą wyprodukowanych próbek.
-- [ ] Lenovo TB-X505F bez Google Play Services: cichy zestaw, krótki odsłuch
-  i podstawowe sterowanie/tło po podłączeniu oraz odpowiedniej zgodzie.
+- [x] Lenovo TB-X505F bez Google Play Services: cichy zestaw 0.13.0-beta.1,
+  38 PASS, 6 audio pominiętych, zero innych pominięć i błędów.
+- [ ] Lenovo: krótki odsłuch i podstawowe sterowanie/tło po odpowiedniej zgodzie.
 - [ ] Osobny odbiór wibracji po zgodzie; brak tej zgody nie blokuje prób audio.
 
 ## Przygotowane polecenia — wyłącznie po odpowiedniej zgodzie

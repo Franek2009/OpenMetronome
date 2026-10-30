@@ -1,5 +1,35 @@
 # Architektura OpenMetronome — M2–M5
 
+## Backup 0.13.0-beta.2
+
+AppData serializuje przyjmowane zapisy ustawień, presetów, biblioteki oraz
+operacje backupu w kolejce procesowej. Rezerwacja backupu i Start jest
+synchronizowana; rezerwacja odtwarzania pozostaje zajęta do końcowego zapisu
+SessionRecorder. PlaybackClient przyjmuje konfigurację i zleca jej zapis
+synchronicznie względem rezerwacji backupu. Zmiany podczas backupu są odrzucane.
+Biblioteka utrzymuje tę samą blokadę edycji/lease przez całą operację backupu.
+
+Eksport pobiera migawkę Room w transakcji po wcześniejszych zapisach preferencji,
+zapisuje `.ombak` v1 w pamięci i waliduje przed otwarciem dokumentu docelowego.
+Importer i loader sampli dzielą walidację kanonicznego PCM. Limity obowiązują
+w obu kierunkach, w tym rozmiar skompresowany i po rozpakowaniu, liczba wpisów
+oraz kompletność kontenera ZIP.
+
+Import najpierw sprawdza archiwum i zachowuje prywatną kopię poprzednich danych.
+Nowy katalog sampli jest przygotowywany obok dotychczasowego. Atomic rename
+zachowuje stary katalog, następnie transakcja Room obejmuje zmianę rekordów,
+zapis DataStore oraz zastosowanie konfiguracji. Obsługiwany błąd cofa transakcję,
+ustawienia, konfigurację i katalog; faza podmiany/cofania nie jest anulowalna.
+To koordynacja odrębnych magazynów, a nie trwała wspólna transakcja systemowa.
+Awaria cofania zachowuje materiały odzyskiwania, komunikuje niepełny stan
+i blokuje mutacje/Start w procesie. Zabicie procesu i utrata zasilania nie mają
+jeszcze dziennika odzyskiwania ani gwarancji automatycznej naprawy.
+
+Testowy DocumentsProvider jest dostępny wyłącznie w debug i chroniony
+MANAGE_DOCUMENTS; obsługuje jedynie dwa syntetyczne pliki z własnego cache.
+Release nie zawiera tego providera. Testy plikowe używają katalogów UUID,
+własnej bazy Room i preferencji, zamykanych przed ponownym otwarciem.
+
 ## Biblioteka brzmień 0.12
 
 `ClickSound.visible` wskazuje sześć wyselekcjonowanych profili, ale stare enumy

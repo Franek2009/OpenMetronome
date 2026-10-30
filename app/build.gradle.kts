@@ -14,8 +14,8 @@ android {
         applicationId = "org.openmetronome"
         minSdk = 26
         targetSdk = 37
-        versionCode = 13
-        versionName = "0.13.0-beta.1"
+        versionCode = 14
+        versionName = "0.13.0-beta.2"
         testInstrumentationRunner = "org.openmetronome.OpenMetronomeTestRunner"
     }
 

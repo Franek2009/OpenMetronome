@@ -1,5 +1,17 @@
 # Zmiany
 
+## 0.13.0-beta.2
+
+- Backup wymaga ręcznego Stop i zakończenia zapisu sesji; blokuje równoczesny
+  Start i zmiany danych, a eksport obejmuje wcześniejsze zapisy ustawień.
+- Przywracanie cofa obsługiwane błędy bazy, ustawień i plików. Awaria cofnięcia
+  zachowuje materiały odzyskiwania i jawnie ostrzega o niepełnym stanie.
+- Wspólna walidacja sampli, kompletności ZIP i limitów eksportu/importu;
+  zachowana zgodność `.ombak` v1. Obrót zachowuje potwierdzenie przywracania.
+- Testy integracyjne trwałości, błędów i współbieżności oraz testy systemowego
+  pickera na syntetycznym dostawcy dokumentów. Uzupełniona polityka prywatności.
+- Bez gwarancji odzyskiwania po zabiciu procesu lub utracie zasilania.
+
 ## 0.13.0-beta.1
 
 - Nowy ekran statystyk: karty podsumowania, aktualna i najdłuższa seria,

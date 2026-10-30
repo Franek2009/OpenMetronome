@@ -6,6 +6,20 @@ import kotlin.math.*
 
 /** Pure JVM preparation. No decoder, filesystem, Android types, or playback. */
 object SamplePcm {
+    /** Exact private-library WAV invariants, shared by loading and backup validation. */
+    fun decodeCanonical(bytes: ByteArray): ShortArray {
+        require(bytes.size in 46..(44 + MAX_FRAMES * 2))
+        val audio = decodeWav(bytes)
+        require(audio.rate == RATE && audio.mono.size in 48..MAX_FRAMES)
+        val pcm = ShortArray(audio.mono.size) { (audio.mono[it] * 32768).toInt().toShort() }
+        require(pcm.first() == 0.toShort() && pcm.last() == 0.toShort())
+        require(pcm.any { it != 0.toShort() })
+        require(pcm.all { kotlin.math.abs(it.toInt()) <= ClickGenerator.PEAK_SAMPLE })
+        require(kotlin.math.abs(pcm.map { it.toDouble() }.average()) < 655)
+        require(bytes.contentEquals(encodeCanonical(pcm)))
+        return pcm
+    }
+
     const val RATE = 48000
     const val MAX_BYTES = 10 * 1024 * 1024
     const val MAX_SECONDS = 10

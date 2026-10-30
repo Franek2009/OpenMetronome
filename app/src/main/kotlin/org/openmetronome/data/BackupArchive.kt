@@ -26,9 +26,28 @@ object BackupArchive {
     private const val MAX_ITEMS = 100_000
 
     fun write(snapshot: BackupSnapshot, output: OutputStream) {
+        val encoded = ByteArrayOutputStream()
+        encode(snapshot, encoded)
+        val bytes = encoded.toByteArray()
+        read(ByteArrayInputStream(bytes)) // Export must satisfy exactly the same limits as import.
+        output.write(bytes)
+    }
+
+    private fun encode(snapshot: BackupSnapshot, output: OutputStream) {
+        var total = 0
         ZipOutputStream(BufferedOutputStream(output)).use { zip ->
+            val bounded = object : OutputStream() {
+                override fun write(value: Int) {
+                    require(++total <= MAX_ARCHIVE_BYTES); zip.write(value)
+                }
+                override fun write(bytes: ByteArray, offset: Int, length: Int) {
+                    require(length <= MAX_ARCHIVE_BYTES - total); total += length
+                    zip.write(bytes, offset, length)
+                }
+                override fun flush() = zip.flush()
+            }
             zip.putNextEntry(ZipEntry(METADATA))
-            DataOutputStream(zip).apply {
+            DataOutputStream(bounded).apply {
                 writeInt(VERSION); writeString(snapshot.settings)
                 writeList(snapshot.presets) { item ->
                     writeString(item.id); writeString(item.name); writeString(item.config)
@@ -50,18 +69,43 @@ object BackupArchive {
             zip.closeEntry()
             snapshot.samples.forEach { sample ->
                 val bytes = requireNotNull(snapshot.sampleFiles[sample.id])
-                zip.putNextEntry(ZipEntry("samples/${sample.id}.wav")); zip.write(bytes); zip.closeEntry()
+                zip.putNextEntry(ZipEntry("samples/${sample.id}.wav")); bounded.write(bytes); zip.closeEntry()
             }
         }
     }
 
     fun read(input: InputStream): BackupSnapshot {
+        // ZipInputStream alone accepts a missing central directory. Require the complete
+        // envelope produced by v1, and bound compressed data as well as inflated entries.
+        val raw = ByteArrayOutputStream()
+        input.use { source ->
+            val buffer = ByteArray(8192)
+            while (true) {
+                val count = source.read(buffer)
+                if (count < 0) break
+                require(raw.size() + count <= MAX_ARCHIVE_BYTES + 1024 * 1024)
+                raw.write(buffer, 0, count)
+            }
+        }
+        val archive = raw.toByteArray()
+        require(archive.size >= 22)
+        val envelope = java.nio.ByteBuffer.wrap(archive).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        val end = (archive.size - 22 downTo (archive.size - 65557).coerceAtLeast(0)).firstOrNull {
+            envelope.getInt(it) == 0x06054b50 && it + 22 + (envelope.getShort(it + 20).toInt() and 65535) == archive.size
+        } ?: throw IllegalArgumentException("Incomplete ZIP")
+        require(envelope.getShort(end + 4).toInt() == 0 && envelope.getShort(end + 6).toInt() == 0)
+        val entryCount = envelope.getShort(end + 10).toInt() and 65535
+        require(entryCount in 1..33 && envelope.getShort(end + 8) == envelope.getShort(end + 10))
+        val directorySize = envelope.getInt(end + 12).toLong()
+        val directoryOffset = envelope.getInt(end + 16).toLong()
+        require(directorySize >= 0 && directoryOffset >= 0 && directorySize + directoryOffset == end.toLong())
         val entries = linkedMapOf<String, ByteArray>()
         var total = 0
-        ZipInputStream(BufferedInputStream(input)).use { zip ->
+        ZipInputStream(ByteArrayInputStream(archive)).use { zip ->
             while (true) {
                 val entry = zip.nextEntry ?: break
                 require(!entry.isDirectory && entry.name !in entries && !entry.name.contains(".."))
+                require(entries.size < 33) // One metadata entry and at most 32 samples.
                 val bytes = ByteArrayOutputStream()
                 val buffer = ByteArray(8192)
                 while (true) {
@@ -72,6 +116,25 @@ object BackupArchive {
                 entries[entry.name] = bytes.toByteArray(); zip.closeEntry()
             }
         }
+        require(entries.size == entryCount)
+        var cursor = directoryOffset.toInt()
+        val indexed = hashSetOf<String>()
+        repeat(entryCount) {
+            require(cursor + 46 <= end && envelope.getInt(cursor) == 0x02014b50)
+            val nameSize = envelope.getShort(cursor + 28).toInt() and 65535
+            val extraSize = envelope.getShort(cursor + 30).toInt() and 65535
+            val commentSize = envelope.getShort(cursor + 32).toInt() and 65535
+            val next = cursor + 46 + nameSize + extraSize + commentSize
+            require(next <= end)
+            val name = String(archive, cursor + 46, nameSize, Charsets.UTF_8)
+            require(indexed.add(name))
+            val content = requireNotNull(entries[name])
+            require(envelope.getInt(cursor + 24) == content.size)
+            val crc = java.util.zip.CRC32().apply { update(content) }.value
+            require((envelope.getInt(cursor + 16).toLong() and 0xffffffffL) == crc)
+            cursor = next
+        }
+        require(cursor == end)
         val metadata = DataInputStream(ByteArrayInputStream(requireNotNull(entries.remove(METADATA))))
         require(metadata.readInt() == VERSION)
         val settings = metadata.readString().also(ConfigCodec::decode)
@@ -96,8 +159,7 @@ object BackupArchive {
         val files = samples.associate { sample ->
             UUID.fromString(sample.id).also { require(it.toString() == sample.id) }
             val bytes = requireNotNull(entries.remove("samples/${sample.id}.wav"))
-            val decoded = SamplePcm.decodeWav(bytes)
-            require(decoded.rate == SamplePcm.RATE && decoded.mono.size in 48..SamplePcm.MAX_FRAMES)
+            SamplePcm.decodeCanonical(bytes)
             sample.id to bytes
         }
         val sampleIds = samples.mapTo(hashSetOf()) { it.id }
