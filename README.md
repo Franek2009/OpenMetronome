@@ -6,18 +6,21 @@ Bez reklam, subskrypcji, kont i Google Play Services.
 
 ## Pobierz i zacznij ćwiczyć
 
-[Pobierz APK — 0.12.0-beta.1](https://github.com/Franek2009/OpenMetronome/releases/download/v0.12.0-beta.1/OpenMetronome-0.12.0-beta.1.apk)
+[Pobierz APK — 0.13.0-beta.1](https://github.com/Franek2009/OpenMetronome/releases/download/v0.13.0-beta.1/OpenMetronome-0.13.0-beta.1.apk)
 
-[Opis wydania i sumy kontrolne](https://github.com/Franek2009/OpenMetronome/releases/tag/v0.12.0-beta.1)
+[Opis wydania i sumy kontrolne](https://github.com/Franek2009/OpenMetronome/releases/tag/v0.13.0-beta.1)
 
-Wersja **0.12.0-beta.1** jest wydaniem testowym, nie ukończoną wersją 1.0.
+Wersja **0.13.0-beta.1** jest wydaniem testowym, nie ukończoną wersją 1.0.
 Wymagany Android **8.0 lub nowszy**. Telefon i tablet są obsługiwane w pionie
 i poziomie.
 
-**0.12.0-beta.1** porządkuje listę do sześciu wybranych barw
-i dodaje import własnych krótkich sampli WAV/MP3/OGG. Stare presety zachowują
-brzmienia archiwalne. **Po aktualizacji z 0.8 zacznij od niższej głośności** —
-poziom PCM jest wyższy; aplikacja nie zmienia głośności systemowej.
+**0.13.0-beta.1** dodaje wykresy statystyk, serie dni ćwiczeń i pełną
+kopię zapasową `.ombak` z możliwością przywrócenia ustawień, presetów,
+historii oraz własnych sampli. Eksport CSV pozostaje raportem do analizy.
+[Obsługa statystyk i kopii](docs/USAGE.md).
+
+Nadal dostępne są wybrane brzmienia i import WAV/MP3/OGG z wersji 0.12.
+Po aktualizacji z 0.8 zacznij od niższej głośności — poziom PCM jest wyższy.
 [Brzmienia i import sampli](docs/CUSTOM-SAMPLES.md).
 
 1. Otwórz stronę wydań na urządzeniu i pobierz plik `.apk` z sekcji Assets.
@@ -63,7 +66,7 @@ reklam ani komunikacji z naszym serwerem. Eksport uruchamiasz samodzielnie.
 
 Podstawowy dźwięk został sprawdzony przez użytkownika. Długie sesje i precyzja
 rzeczywistego wyjścia audio nie mają jeszcze pełnego odbioru sprzętowego;
-nie deklarujemy zakończenia stabilizacji. [Wyniki testów](docs/V0.12-VALIDATION.md).
+nie deklarujemy zakończenia stabilizacji. [Wyniki testów](docs/V0.13-VALIDATION.md).
 
 Znalazłeś problem? [Zgłoś go na GitHubie](https://github.com/Franek2009/OpenMetronome/issues),
 podając wersję aplikacji, model urządzenia, wersję Androida i kroki odtworzenia.

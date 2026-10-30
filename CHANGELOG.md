@@ -1,6 +1,6 @@
 # Zmiany
 
-## Następne wydanie
+## 0.13.0-beta.1
 
 - Nowy ekran statystyk: karty podsumowania, aktualna i najdłuższa seria,
   średnia sesja, rekord dzienny oraz wykresy 7 dni, 30 dni i 12 tygodni.
