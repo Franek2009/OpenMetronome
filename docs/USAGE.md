@@ -19,11 +19,31 @@ nadal jest eksportowana. Błąd zapisu może pozostawić niepełny plik wyjścio
 ale nie zmienia danych aplikacji. Bez PDF na tym etapie.
 
 Statystyki → Kopia zapasowa zapisuje wersjonowany plik `.ombak` z ustawieniami,
-presetami, historią i własnymi samplami. „Przywróć kopię” najpierw sprawdza cały
-plik, a po potwierdzeniu zastępuje bieżące dane. Przed przywracaniem warto
-zapisać aktualną kopię; metronom musi być zatrzymany.
+presetami, całą historią i własnymi samplami. Eksport i przywracanie wymagają
+ręcznego Stop oraz zakończenia zapisu sesji i innych operacji. Podczas backupu
+Start i zmiany danych są blokowane. Kopie v1 z 0.13.0-beta.1 pozostają obsługiwane.
 
-Weryfikacja i ograniczenia: [raport 0.8](V0.8-VALIDATION.md).
+„Przywróć kopię” otwiera systemowy wybór pliku, następnie prosi o potwierdzenie
+zastąpienia bieżących danych. Obrót ekranu zachowuje potwierdzenie. Dopiero po
+potwierdzeniu aplikacja sprawdza całe archiwum i rozpoczyna podmianę. Anulowanie
+wyboru lub potwierdzenia niczego nie zmienia. Przed przywracaniem warto zapisać
+aktualną kopię. Sukces oznacza zapis bazy, ustawień, sampli i zastosowanie
+konfiguracji; nie uruchamia dźwięku.
+
+Obsługiwany błąd przywracania cofa zmiany. Jeżeli samo cofnięcie zawiedzie,
+komunikat ostrzega o możliwym niepełnym stanie i aplikacja blokuje dalsze zmiany
+oraz Start w bieżącym procesie. Zachowuje prywatne materiały odzyskiwania;
+nie usuwaj danych aplikacji ani jej nie odinstalowuj. Nie obiecujemy automatycznej
+naprawy po ponownym uruchomieniu. Kopia nie jest szyfrowana; przechowuj ją
+w miejscu odpowiednim dla prywatnej historii ćwiczeń.
+
+Błąd eksportu może pozostawić niepełny plik docelowy, ale nie zmienia danych
+aplikacji. Limit kopii to 16 MiB po rozpakowaniu, maksymalnie 32 sample oraz
+100 000 rekordów każdej listy. Eksport stosuje te same wymagania co import.
+Nie gwarantujemy odzyskiwania po zabiciu procesu, restarcie lub utracie zasilania
+w trakcie przywracania; to osobny, niewykonany etap stabilizacji.
+
+Weryfikacja i ograniczenia: [raport 0.13](V0.13-VALIDATION.md).
 
 Metronom odtwarza generowany strumień PCM. Ekran pozwala ustawić tempo **20–300 BPM**,
 metrum **2/4, 3/4, 4/4 lub 6/8** i akcent pierwszej miary. Domyślne ustawienia:

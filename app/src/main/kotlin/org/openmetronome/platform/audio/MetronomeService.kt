@@ -18,9 +18,14 @@ class MetronomeService : Service() {
     inner class LocalBinder : Binder() {
         val controller get() = this@MetronomeService.controller
         fun stopPlayback() = this@MetronomeService.stopPlayback()
-        fun startPlayback() {
-            val token = requests.request()
-            startForegroundService(Intent(this@MetronomeService, MetronomeService::class.java).setAction(START).putExtra("request", token))
+        fun startPlayback(): Boolean {
+            val data = (application as OpenMetronomeApplication).data
+            if (!data.reservePlayback()) return false
+            try {
+                val token = requests.request()
+                startForegroundService(Intent(this@MetronomeService, MetronomeService::class.java).setAction(START).putExtra("request", token))
+                return true
+            } catch (error: RuntimeException) { data.playbackFinished(); throw error }
         }
     }
     private lateinit var controller: MetronomeController
@@ -155,6 +160,7 @@ class MetronomeService : Service() {
             catch (_: Exception) { (application as OpenMetronomeApplication).data.error.value = "Nie udało się zapisać końca sesji" }
             if (!foreground) {
                 if (wake.isHeld) wake.release()
+                (application as OpenMetronomeApplication).data.playbackFinished()
                 media.isActive = false
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
@@ -180,6 +186,7 @@ class MetronomeService : Service() {
         scope.cancel()
         if (wake.isHeld) wake.release()
         media.release()
+        (application as OpenMetronomeApplication).data.playbackFinished()
         super.onDestroy()
     }
     companion object {

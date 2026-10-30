@@ -152,6 +152,20 @@ Opublikowano [betę 0.12](https://github.com/Franek2009/OpenMetronome/releases/t
 po zaliczeniu CI, obu emulatorów, podpisu oraz kontroli pobranych plików.
 [Instrukcja](CUSTOM-SAMPLES.md), [weryfikacja](V0.12-VALIDATION.md).
 
+## Pakiet 0.13 — statystyki i kopie zapasowe
+
+0.13.0-beta.1 opublikowano 2026-10-30: wykresy, serie i wersjonowane kopie
+`.ombak`. Zaliczone: 124 JVM, ciche zestawy Samsung/Lenovo po 38 PASS i 6
+pominięć audio oraz CI, emulator i smoke podpisanego wydania. Instrumentacja
+fizycznych urządzeń używała osobnej kopii validation z powodu innego podpisu
+instalacji debug. [Raport 0.13](V0.13-VALIDATION.md).
+
+0.13.0-beta.2 przygotowuje zabezpieczenie eksportu i cofanie obsługiwanych
+błędów przywracania, pełną weryfikację trwałości oraz systemowego pickera.
+Bramki i rzeczywisty stan: [raport beta.2](V0.13-BETA2-VALIDATION.md).
+To nie zamyka odbioru audio, M6 ani gotowości 1.0; brak gwarancji odzyskiwania
+po przerwaniu procesu lub utracie zasilania.
+
 ## Urządzenia testowe
 
 - Samsung SM-A145R, Android 15 / API 35: dotychczasowy telefon testowy.

@@ -36,17 +36,9 @@ class CustomSampleRepository(private val db: PracticeDatabase, private val direc
         val samples = mutableMapOf<String, ShortArray>()
         val entries = db.practice().allSamples().map { record ->
             val pcm = runCatching {
-                val f = file(record.id)
-                require(f.length() in 46..(44 + SamplePcm.MAX_FRAMES * 2).toLong())
-                val bytes = f.readBytes()
-                val audio = SamplePcm.decodeWav(bytes)
-                require(audio.rate == SamplePcm.RATE && audio.mono.size in 48..SamplePcm.MAX_FRAMES)
-                ShortArray(audio.mono.size) { (audio.mono[it] * 32768).toInt().toShort() }.also { pcm ->
-                    require(pcm.first() == 0.toShort() && pcm.last() == 0.toShort())
-                    require(pcm.all { kotlin.math.abs(it.toInt()) <= org.openmetronome.domain.audio.ClickGenerator.PEAK_SAMPLE })
-                    require(kotlin.math.abs(pcm.map { it.toDouble() }.average()) < 655)
-                    require(bytes.contentEquals(SamplePcm.encodeCanonical(pcm)))
-                }
+                val source = file(record.id)
+                require(source.length() in 46..(44 + SamplePcm.MAX_FRAMES * 2).toLong())
+                SamplePcm.decodeCanonical(source.readBytes())
             }.getOrNull()
             if (pcm != null && pcm.any { it != 0.toShort() }) samples[record.id] = pcm
             CustomSampleItem(record.id, record.name, samples.containsKey(record.id))
@@ -119,52 +111,66 @@ class CustomSampleRepository(private val db: PracticeDatabase, private val direc
         }
     }
 
-    suspend fun backupFiles(records: List<CustomSampleRecord>): Map<String, ByteArray> = edit {
-        records.associate { record -> record.id to file(record.id).readBytes() }
+    /** Holds the same exclusion as playback leases and library edits throughout backup/rollback. */
+    internal suspend fun <T> backup(action: suspend BackupAccess.() -> T): T = edit {
+        check(loaded)
+        BackupAccess().action()
     }
 
-    /** Called only after the complete archive has been parsed and validated. */
-    suspend fun replaceFromBackup(snapshot: BackupSnapshot, replaceDatabase: suspend () -> Unit) = edit {
-        check(loaded)
-        val prepared = snapshot.samples.associate { record ->
-            val bytes = requireNotNull(snapshot.sampleFiles[record.id])
-            val audio = SamplePcm.decodeWav(bytes)
-            val pcm = ShortArray(audio.mono.size) { (audio.mono[it] * 32768).toInt().toShort() }
-            require(bytes.contentEquals(SamplePcm.encodeCanonical(pcm)))
-            record.id to pcm
-        }
-        val staging = File(directory.parentFile, "sample-restore-${UUID.randomUUID()}")
-        val rollback = File(directory.parentFile, "sample-rollback-${UUID.randomUUID()}")
-        var filesTouched = false
-        var databaseReplaced = false
-        try {
-            staging.mkdirs()
-            snapshot.sampleFiles.forEach { (id, bytes) -> File(staging, "$id.wav").writeBytes(bytes) }
-            rollback.mkdirs()
-            directory.listFiles()?.filter { it.extension == "wav" }?.forEach { it.copyTo(File(rollback, it.name)) }
-            withContext(NonCancellable) {
-                directory.mkdirs()
-                filesTouched = true
+    internal inner class BackupAccess {
+        fun files(records: List<CustomSampleRecord>): Map<String, ByteArray> =
+            records.associate { record -> record.id to file(record.id).readBytes() }
+
+        suspend fun replace(snapshot: BackupSnapshot, fault: (BackupStage) -> Unit = {}, replaceData: suspend () -> Unit) {
+            val prepared = snapshot.samples.associate { record ->
+                record.id to SamplePcm.decodeCanonical(requireNotNull(snapshot.sampleFiles[record.id]))
+            }
+            val staging = File(directory.parentFile, "sample-restore-${UUID.randomUUID()}")
+            val rollback = File(directory.parentFile, "sample-rollback-${UUID.randomUUID()}")
+            var movedOld = false
+            var installedNew = false
+            var keepRecovery = false
+            try {
+                check(staging.mkdirs())
                 snapshot.samples.forEach { record ->
-                    Files.move(File(staging, "${record.id}.wav").toPath(), file(record.id).toPath(), StandardCopyOption.REPLACE_EXISTING)
+                    java.io.FileOutputStream(File(staging, "${record.id}.wav")).use {
+                        it.write(requireNotNull(snapshot.sampleFiles[record.id])); it.fd.sync()
+                    }
                 }
-                replaceDatabase()
-                databaseReplaced = true
-                directory.listFiles()?.filter { it.extension == "wav" && it.nameWithoutExtension !in prepared }?.forEach(File::delete)
-                synchronized(gate) {
-                    bank = prepared
-                    mutableItems.value = snapshot.samples.map { CustomSampleItem(it.id, it.name, true) }
+                withContext(NonCancellable) {
+                    try {
+                        if (directory.exists()) {
+                            Files.move(directory.toPath(), rollback.toPath(), StandardCopyOption.ATOMIC_MOVE)
+                            movedOld = true
+                        }
+                        fault(BackupStage.FILES)
+                        Files.move(staging.toPath(), directory.toPath(), StandardCopyOption.ATOMIC_MOVE)
+                        installedNew = true
+                        replaceData()
+                        synchronized(gate) {
+                            bank = prepared
+                            mutableItems.value = snapshot.samples.map { CustomSampleItem(it.id, it.name, true) }
+                        }
+                    } catch (error: Exception) {
+                        try {
+                            fault(BackupStage.ROLLBACK_FILES)
+                            if (installedNew) {
+                                // Move aside, never delete the only remaining recovery copy.
+                                Files.move(directory.toPath(), staging.toPath(), StandardCopyOption.ATOMIC_MOVE)
+                            }
+                            if (movedOld) Files.move(rollback.toPath(), directory.toPath(), StandardCopyOption.ATOMIC_MOVE)
+                        } catch (recovery: Exception) {
+                            keepRecovery = true
+                            error.addSuppressed(recovery)
+                            throw BackupRecoveryException(error)
+                        }
+                        if (error is BackupRecoveryException) keepRecovery = true
+                        throw error
+                    }
                 }
+            } finally {
+                if (!keepRecovery) { staging.deleteRecursively(); rollback.deleteRecursively() }
             }
-        } catch (error: Exception) {
-            if (filesTouched && !databaseReplaced) {
-                directory.listFiles()?.filter { it.extension == "wav" }?.forEach(File::delete)
-                rollback.listFiles()?.forEach { it.copyTo(File(directory, it.name), overwrite = true) }
-            }
-            throw error
-        } finally {
-            staging.listFiles()?.forEach(File::delete); staging.delete()
-            rollback.listFiles()?.forEach(File::delete); rollback.delete()
         }
     }
 }
