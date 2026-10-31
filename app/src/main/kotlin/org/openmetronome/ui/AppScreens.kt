@@ -1,6 +1,12 @@
 package org.openmetronome.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -43,12 +49,13 @@ fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, notificationPermi
     val sampleWorking by data.sampleWorking.collectAsStateWithLifecycle()
     val backupWorking by data.backupWorking.collectAsStateWithLifecycle()
     val recoveryRequired by data.recoveryRequired.collectAsStateWithLifecycle()
+    val storageReady by data.storageReady.collectAsStateWithLifecycle()
     var page by rememberSaveable { mutableStateOf("Metronom") }
     var report by rememberSaveable { mutableStateOf<String?>(null) }
     BackHandler(enabled = page != "Metronom" && report == null) { page = "Metronom" }
     val context = LocalContext.current
     val diagnosticsTitle = stringResource(R.string.diagnostics_title)
-    Scaffold(modifier = Modifier.imePadding(), bottomBar = { PlaybackControls(state, model::start, model::stop, startEnabled = !sampleWorking && !backupWorking && !recoveryRequired) }) { padding ->
+    Scaffold(modifier = Modifier.imePadding(), bottomBar = { PlaybackControls(state, model::start, model::stop, startEnabled = storageReady && !sampleWorking && !backupWorking && !recoveryRequired) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             AppNavigation(page) { page = it }
             error?.let { message ->
@@ -56,7 +63,10 @@ fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, notificationPermi
                 TextButton({ data.error.value = null }) { Text("Zamknij komunikat") }
             }
             Box(Modifier.weight(1f)) {
-                when (page) {
+                if (!storageReady) {
+                    Text(if (recoveryRequired) "Dane wymagają odzyskania. Start i edycja są zablokowane."
+                        else "Przygotowywanie danych…", modifier = Modifier.padding(16.dp))
+                } else when (page) {
                     "Presety" -> PresetsScreen(data, model)
                     "Statystyki" -> StatisticsScreen(data, model)
                     "Ustawienia" -> SettingsScreen(model, data, notificationPermission) {
@@ -126,9 +136,13 @@ private fun PresetsScreen(data: AppData, model: MetronomeViewModel) {
     var name by rememberSaveable { mutableStateOf("") }
     var selected by remember { mutableStateOf<Preset?>(null) }
     var deleting by remember { mutableStateOf<Preset?>(null) }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    val editorFocus = remember { FocusRequester() }
+    // Keep Done within Compose: Oreo can restore cleared window focus to its sole editor.
+    Column(Modifier.fillMaxSize().focusRequester(editorFocus).focusable().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Presety", style = MaterialTheme.typography.headlineMedium)
-        OutlinedTextField(name, { name = it.take(120) }, label = { Text("Nazwa presetu") }, singleLine = true)
+        OutlinedTextField(name, { name = it.take(120) }, label = { Text("Nazwa presetu") }, singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { editorFocus.requestFocus() }))
         Button({ data.savePreset(name, model.state.value.config); name = ""; selected = null }, enabled = name.isNotBlank()) { Text("Zapisz jako nowy") }
         selected?.let { preset ->
             Text("Edytujesz: ${preset.name}")

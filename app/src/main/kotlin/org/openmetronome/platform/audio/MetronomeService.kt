@@ -60,6 +60,7 @@ class MetronomeService : Service() {
         val data = (application as OpenMetronomeApplication).data
         scope.launch {
             try {
+                data.ready.await()
                 val saved = withContext(Dispatchers.IO) { data.settings.load() }
                 if (controller.configurationRevision == 0L) controller.editConfig { saved }
                 else data.saveSettings(controller.state.value.config)

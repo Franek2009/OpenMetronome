@@ -114,40 +114,90 @@ class BackupUiTest {
     private fun systemNode(predicate: (android.view.accessibility.AccessibilityNodeInfo) -> Boolean): android.view.accessibility.AccessibilityNodeInfo? {
         fun visit(node: android.view.accessibility.AccessibilityNodeInfo?): android.view.accessibility.AccessibilityNodeInfo? {
             if (node == null) return null
-            if (predicate(node)) return node
+            if (node.isVisibleToUser && predicate(node)) return node
             for (i in 0 until node.childCount) visit(node.getChild(i))?.let { return it }
             return null
         }
-        return visit(instrumentation.uiAutomation.rootInActiveWindow)
+        val automation = instrumentation.uiAutomation
+        visit(automation.rootInActiveWindow)?.let { return it }
+        // Oreo can expose a null active root even though the focused DocumentsUI
+        // window is rendered. Query that window, never an obscured background one.
+        return automation.windows.filter { it.isActive || it.isFocused }
+            .firstNotNullOfOrNull { visit(it.root) }
     }
     private fun clickSystem(predicate: (android.view.accessibility.AccessibilityNodeInfo) -> Boolean) {
+        instrumentation.uiAutomation.waitForIdle(500, 10000)
         val deadline = android.os.SystemClock.uptimeMillis() + 15000
         while (android.os.SystemClock.uptimeMillis() < deadline) {
-            var node = systemNode(predicate)
-            if (node != null) {
-                while (node != null && !node.isClickable) node = node.parent
-                if (node?.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK) == true) return
+            val target = systemNode(predicate)
+            if (target != null && target.isEnabled && target.isVisibleToUser) {
+                // New DocumentsUI exposes clickable cards; Oreo sometimes only
+                // exposes a touch listener. Never activate the list container itself.
+                var actionNode: android.view.accessibility.AccessibilityNodeInfo? = target
+                while (actionNode != null && actionNode.collectionInfo == null &&
+                    actionNode.viewIdResourceName?.substringAfterLast('/') !in listOf("dir_list", "roots_list")) {
+                    if (actionNode.isClickable && actionNode.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)) {
+                        instrumentation.uiAutomation.waitForIdle(500, 10000)
+                        return
+                    }
+                    actionNode = actionNode.parent
+                }
+                val bounds = android.graphics.Rect()
+                target.getBoundsInScreen(bounds)
+                if (!bounds.isEmpty) {
+                    val downTime = android.os.SystemClock.uptimeMillis()
+                    fun touch(action: Int): Boolean {
+                        val event = android.view.MotionEvent.obtain(downTime,
+                            android.os.SystemClock.uptimeMillis(), action,
+                            bounds.exactCenterX(), bounds.exactCenterY(), 0)
+                        event.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
+                        return try { instrumentation.uiAutomation.injectInputEvent(event, true) }
+                        finally { event.recycle() }
+                    }
+                    val down = touch(android.view.MotionEvent.ACTION_DOWN)
+                    Thread.sleep(60)
+                    val up = touch(android.view.MotionEvent.ACTION_UP)
+                    if (down && up) {
+                        instrumentation.uiAutomation.waitForIdle(500, 10000)
+                        return
+                    }
+                }
             }
             Thread.sleep(100)
         }
-        throw AssertionError("System picker control unavailable")
+        val tree = StringBuilder()
+        systemNode { node ->
+            tree.append("\n").append(node.className).append(" ").append(node.viewIdResourceName)
+                .append(" text=").append(node.text).append(" desc=").append(node.contentDescription)
+            false
+        }
+        throw AssertionError("System picker control unavailable:$tree")
     }
     private fun selectFixtureRoot() {
         val automation = instrumentation.uiAutomation
         automation.serviceInfo = automation.serviceInfo.apply {
-            flags = flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
+            flags = flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or
+                android.accessibilityservice.AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
         }
-        Thread.sleep(700)
-        if (systemNode { it.text?.toString() == "OpenMetronome test backup" } != null &&
-            systemNode { it.text?.toString() == "roundtrip.ombak" } != null) return
-        if (systemNode { it.text?.toString() == "OpenMetronome test backup" } == null) {
+        fun inSystemList(node: android.view.accessibility.AccessibilityNodeInfo): Boolean {
+            var parent = node.parent
+            while (parent != null) {
+                if (parent.viewIdResourceName?.endsWith("/roots_list") == true) return true
+                parent = parent.parent
+            }
+            return false
+        }
+        val isFixtureRoot: (android.view.accessibility.AccessibilityNodeInfo) -> Boolean = {
+            it.text?.toString() == "OpenMetronome test backup" && inSystemList(it)
+        }
+        if (systemNode(isFixtureRoot) == null) {
             clickSystem {
                 val description = it.contentDescription?.toString()?.lowercase().orEmpty()
                 it.viewIdResourceName == "android:id/home" || description.contains("roots") ||
                     description.contains("lokalizac") || description.contains("główne") || description.contains("navigation drawer")
             }
         }
-        clickSystem { it.text?.toString() == "OpenMetronome test backup" }
+        clickSystem(isFixtureRoot)
     }
 
     @Test fun realSystemPickerExportsAndImportsOnlyFixtureProvider() {
@@ -161,9 +211,30 @@ class BackupUiTest {
             compose.onNodeWithText("Przywróć kopię").performScrollTo().performClick()
             selectFixtureRoot()
             clickSystem { it.text?.toString() == "roundtrip.ombak" }
+            // A physical tap returns before DocumentsUI has resumed our Activity.
+            compose.waitUntil(15000) {
+                compose.onAllNodesWithText("Przywróć", useUnmergedTree = true)
+                    .fetchSemanticsNodes(atLeastOneRootRequired = false).size == 1
+            }
             compose.onNodeWithText("Przywróć", useUnmergedTree = true).performClick()
             compose.waitUntil(15000) { !data.backupWorking.value && data.backupNotice.value?.startsWith("Kopia została przywrócona") == true }
             assertEquals(91, model.state.value.config.tempo.bpm)
+        } catch (failure: Throwable) {
+            runCatching {
+                instrumentation.uiAutomation.takeScreenshot()?.let { bitmap ->
+                    java.io.File(instrumentation.targetContext.cacheDir, "backup-picker-failure.png").outputStream().use {
+                        bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+                    }
+                    bitmap.recycle()
+                }
+            }
+            val tree = StringBuilder()
+            systemNode { node ->
+                tree.append("\n").append(node.viewIdResourceName).append(" text=").append(node.text)
+                    .append(" desc=").append(node.contentDescription)
+                false
+            }
+            throw AssertionError("Backup notice=${data.backupNotice.value}, working=${data.backupWorking.value}; screen:$tree", failure)
         } finally {
             // Close a system picker if a platform-specific control could not be found.
             if (instrumentation.uiAutomation.rootInActiveWindow?.packageName?.toString()?.contains("documentsui") == true)

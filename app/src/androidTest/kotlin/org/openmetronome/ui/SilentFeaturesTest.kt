@@ -64,8 +64,7 @@ class SilentFeaturesTest {
         compose.runOnIdle { assertEquals(2, model.state.value.config.silence.audibleBars) }
         field("Takty słyszalne", "64")
         compose.onNodeWithContentDescription("Zwiększ: Takty słyszalne").assertIsNotEnabled()
-        compose.onNodeWithContentDescription("Zmniejsz: Takty słyszalne")
-            .performScrollTo().assertIsDisplayed().performClick()
+        clickWhenStationary(compose.onNodeWithContentDescription("Zmniejsz: Takty słyszalne"))
         compose.waitUntil(10000) { model.state.value.config.silence.audibleBars == 63 }
         field("Takty ciszy", "1")
         toggle("Progresja wyciszeń")
@@ -133,8 +132,8 @@ class SilentFeaturesTest {
         awaitDescription("92 BPM")
         compose.runOnIdle { assertEquals(92, model.state.value.config.tempo.bpm) }
         compose.activityRule.scenario.recreate()
-        compose.onNodeWithContentDescription("Puls 2: cisza").assertIsDisplayed()
-        compose.onNodeWithContentDescription("92 BPM").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Puls 2: cisza").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithContentDescription("92 BPM").performScrollTo().assertIsDisplayed()
         assertEquals(PlaybackStatus.STOPPED, model.state.value.audio.status)
     }
 
@@ -441,7 +440,13 @@ class SilentFeaturesTest {
     }
     private fun toggle(label: String) = compose.onNodeWithContentDescription(label).performScrollTo().performClick()
     private fun field(label: String, value: String) {
-        compose.onNodeWithText(label).performScrollTo().performTextReplacement(value)
+        compose.onNodeWithText(label).performScrollTo().performClick().performTextReplacement(value)
+        compose.waitForIdle()
+        compose.onNodeWithText(label).performImeAction()
+        compose.waitUntil(10000) {
+            compose.onNodeWithText(label).fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.Focused] != true
+        }
+        compose.onNodeWithText(label).assertIsNotFocused()
         compose.runOnIdle {
             compose.activity.currentFocus?.let { view ->
                 (compose.activity.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager)
@@ -449,19 +454,54 @@ class SilentFeaturesTest {
                 view.clearFocus()
             }
         }
-        // Compose idleness does not wait for the platform IME closing animation.
+        // Focus/IME requests can arrive after Compose becomes idle. Keep requesting
+        // dismissal while waiting for the platform window to finish resizing.
         compose.waitUntil(10000) {
-            ViewCompat.getRootWindowInsets(compose.activity.window.decorView)
-                ?.isVisible(WindowInsetsCompat.Type.ime()) != true
+            compose.activity.runOnUiThread {
+                androidx.core.view.WindowCompat.getInsetsController(compose.activity.window,
+                    compose.activity.window.decorView).hide(WindowInsetsCompat.Type.ime())
+            }
+            if (android.os.Build.VERSION.SDK_INT >= 30) {
+                ViewCompat.getRootWindowInsets(compose.activity.window.decorView)
+                    ?.isVisible(WindowInsetsCompat.Type.ime()) != true
+            } else {
+                val frame = android.graphics.Rect()
+                compose.activity.window.decorView.getWindowVisibleDisplayFrame(frame)
+                val physical = android.util.DisplayMetrics()
+                @Suppress("DEPRECATION")
+                compose.activity.windowManager.defaultDisplay.getRealMetrics(physical)
+                physical.heightPixels - frame.bottom < 100 * physical.density
+            }
         }
+        compose.waitForIdle()
     }
-    private fun click(label: String) = compose.onNodeWithText(label).performScrollTo().performClick()
+    private fun clickWhenStationary(node: SemanticsNodeInteraction) {
+        node.performScrollTo()
+        var bounds = node.fetchSemanticsNode().boundsInWindow
+        var stationarySince = android.os.SystemClock.uptimeMillis()
+        compose.waitUntil(10000) {
+            if (!node.isDisplayed()) node.performScrollTo()
+            val current = node.fetchSemanticsNode().boundsInWindow
+            if (current != bounds) {
+                bounds = current
+                stationarySince = android.os.SystemClock.uptimeMillis()
+            }
+            node.isDisplayed() && android.os.SystemClock.uptimeMillis() - stationarySince >= 200
+        }
+        node.assertIsDisplayed().performClick()
+        compose.waitForIdle()
+    }
+    private fun click(label: String) = clickWhenStationary(compose.onNodeWithText(label))
     private fun page(label: String) {
         if (label == "Presety") compose.onNodeWithContentDescription("Presety").performClick()
         else compose.onAllNodesWithText(label)[0].performClick()
     }
     private fun awaitPresets(predicate: (List<Preset>) -> Boolean) {
-        compose.waitUntil(10000) { runBlocking { predicate(data.dao.presets().first()) } }
+        try {
+            compose.waitUntil(10000) { runBlocking { predicate(data.dao.presets().first()) } }
+        } catch (failure: ComposeTimeoutException) {
+            throw AssertionError("Stored presets: ${runBlocking { data.dao.presets().first() }}\n${compose.onRoot().printToString()}", failure)
+        }
         compose.waitForIdle()
     }
 }

@@ -40,8 +40,14 @@ w miejscu odpowiednim dla prywatnej historii ćwiczeń.
 Błąd eksportu może pozostawić niepełny plik docelowy, ale nie zmienia danych
 aplikacji. Limit kopii to 16 MiB po rozpakowaniu, maksymalnie 32 sample oraz
 100 000 rekordów każdej listy. Eksport stosuje te same wymagania co import.
-Nie gwarantujemy odzyskiwania po zabiciu procesu, restarcie lub utracie zasilania
-w trakcie przywracania; to osobny, niewykonany etap stabilizacji.
+Od 0.13.0-beta.3 przywracanie zapisuje trwały dziennik przed podmianą danych.
+Po przerwaniu procesu aplikacja przy następnym uruchomieniu odtworzy cały
+poprzedni zestaw albo dokończy zatwierdzony import. Start i edycja czekają
+na zakończenie odzyskiwania. Nieczytelny dziennik pozostaje zachowany i blokuje
+pracę. Testowano wymuszone zakończenia procesu; nie przeprowadzano fizycznego
+odcięcia zasilania. Mechanizm opiera się na trwałości zapisów systemu i nośnika;
+nie naprawia uszkodzeń sprzętowych. Starsza beta.2 nie tworzyła dziennika.
+[Szczegóły i ograniczenia](RESTORE-RECOVERY.md).
 
 Weryfikacja i ograniczenia: [raport 0.13](V0.13-VALIDATION.md).
 

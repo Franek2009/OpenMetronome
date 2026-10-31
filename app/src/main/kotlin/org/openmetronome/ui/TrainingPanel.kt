@@ -7,6 +7,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.semantics.contentDescription
@@ -101,6 +104,7 @@ fun RhythmControls(config: MetronomeConfig, onChange: (MetronomeConfig) -> Unit,
 @Composable
 fun NumberSetting(label: String, value: Int, range: IntRange, change: (Int) -> Unit) {
     var draft by remember(value) { mutableStateOf(value.toString()) }
+    val focus = LocalFocusManager.current
     Row(Modifier.fillMaxWidth()) {
         OutlinedTextField(draft, { text ->
             if (text.length <= 4 && text.all(Char::isDigit)) {
@@ -109,7 +113,8 @@ fun NumberSetting(label: String, value: Int, range: IntRange, change: (Int) -> U
             }
         }, label = { Text(label) }, modifier = Modifier.weight(1f), singleLine = true,
             isError = draft.toIntOrNull()?.let { it !in range } ?: true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { focus.clearFocus(force = true) }))
         TextButton({ change(value - 1) }, enabled = value > range.first,
             modifier = Modifier.semantics { contentDescription = "Zmniejsz: $label" }) { Text("−") }
         TextButton({ change(value + 1) }, enabled = value < range.last,

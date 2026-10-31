@@ -18,7 +18,10 @@ Eksport CSV, zapis i przywracanie kopii `.ombak` oraz kopiowanie raportu
 diagnostycznego następują wyłącznie po Twoim działaniu. Kopia zawiera ustawienia,
 presety, historię i własne sample; nie jest szyfrowana. Przywracanie wymaga
 potwierdzenia zastąpienia bieżących danych. Przy błędzie cofania mogą pozostać
-prywatne pliki odzyskiwania w pamięci aplikacji. Plik trafia do miejsca wskazanego w systemowym oknie wyboru,
+prywatne pliki odzyskiwania w pamięci aplikacji. Od beta.3 dziennik przywracania
+przechowuje tymczasowo poprzedni i przywracany zestaw danych oraz sample.
+Pozostaje w prywatnej pamięci aplikacji, jest używany do odzyskania po przerwaniu
+i sprzątany po zakończeniu. Nie jest wysyłany do twórców ani do GitHuba. Plik trafia do miejsca wskazanego w systemowym oknie wyboru,
 które może być także usługą chmurową wybraną przez Ciebie. Kopiowany raport
 trafia do systemowego schowka. Dalej obowiązują zasady wybranego systemu/usługi.
 
