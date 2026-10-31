@@ -6,16 +6,17 @@ Bez reklam, subskrypcji, kont i Google Play Services.
 
 ## Pobierz i zacznij ćwiczyć
 
-[Pobierz APK — 0.13.0-beta.2](https://github.com/Franek2009/OpenMetronome/releases/download/v0.13.0-beta.2/OpenMetronome-0.13.0-beta.2.apk)
+[Pobierz APK — 0.13.0-beta.3](https://github.com/Franek2009/OpenMetronome/releases/download/v0.13.0-beta.3/OpenMetronome-0.13.0-beta.3.apk)
 
-[Opis wydania i sumy kontrolne](https://github.com/Franek2009/OpenMetronome/releases/tag/v0.13.0-beta.2)
+[Opis wydania i sumy kontrolne](https://github.com/Franek2009/OpenMetronome/releases/tag/v0.13.0-beta.3)
 
-Wersja **0.13.0-beta.2** jest wydaniem testowym, nie ukończoną wersją 1.0.
+Wersja **0.13.0-beta.3** jest wydaniem testowym, nie ukończoną wersją 1.0.
 Wymagany Android **8.0 lub nowszy**. Telefon i tablet są obsługiwane w pionie
 i poziomie.
 
-**0.13.0-beta.2** zabezpiecza eksport i przywracanie kopii `.ombak`:
-spójne zapisy, cofanie obsługiwanych błędów i zachowanie potwierdzenia po obrocie.
+**0.13.0-beta.3** odzyskuje dane po przerwaniu przywracania kopii `.ombak`:
+przed odblokowaniem Start i edycji odtwarza cały poprzedni albo zatwierdzony
+nowy zestaw. Poprawia też kończenie edycji na Androidzie 8.
 Kopia obejmuje ustawienia, presety, historię oraz własne sample. Dostępne są też
 wykresy statystyk i serie dni ćwiczeń; CSV pozostaje raportem do analizy.
 [Obsługa statystyk i kopii](docs/USAGE.md).
