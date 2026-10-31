@@ -11,6 +11,8 @@
 - Test aktualizacji beta.2→kandydat przez publiczny UI, z porównaniem wszystkich
   danych i sampli. Kopie APK mają jednorazowy podpis testowy, bez oficjalnego klucza.
 - CI dla PR i main obejmuje Android 8/API26 oraz API35, ciche testy i aktualizację.
+- Akcja klawiatury „Gotowe” w edytorach treningu i nazw presetów kończy fokus,
+  zapobiegając ponownemu otwieraniu IME podczas przewijania.
 
 ## 0.13.0-beta.2
 

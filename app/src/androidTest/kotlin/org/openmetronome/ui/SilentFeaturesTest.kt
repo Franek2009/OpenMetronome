@@ -441,6 +441,7 @@ class SilentFeaturesTest {
     private fun toggle(label: String) = compose.onNodeWithContentDescription(label).performScrollTo().performClick()
     private fun field(label: String, value: String) {
         compose.onNodeWithText(label).performScrollTo().performTextReplacement(value)
+        compose.onNodeWithText(label).performImeAction().assertIsNotFocused()
         compose.runOnIdle {
             compose.activity.currentFocus?.let { view ->
                 (compose.activity.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager)
@@ -470,18 +471,19 @@ class SilentFeaturesTest {
         compose.waitForIdle()
     }
     private fun clickWhenStationary(node: SemanticsNodeInteraction) {
-        node.performScrollTo().assertIsDisplayed()
+        node.performScrollTo()
         var bounds = node.fetchSemanticsNode().boundsInWindow
         var stationarySince = android.os.SystemClock.uptimeMillis()
         compose.waitUntil(10000) {
+            if (!node.isDisplayed()) node.performScrollTo()
             val current = node.fetchSemanticsNode().boundsInWindow
             if (current != bounds) {
                 bounds = current
                 stationarySince = android.os.SystemClock.uptimeMillis()
             }
-            android.os.SystemClock.uptimeMillis() - stationarySince >= 200
+            node.isDisplayed() && android.os.SystemClock.uptimeMillis() - stationarySince >= 200
         }
-        node.performClick()
+        node.assertIsDisplayed().performClick()
         compose.waitForIdle()
     }
     private fun click(label: String) = clickWhenStationary(compose.onNodeWithText(label))

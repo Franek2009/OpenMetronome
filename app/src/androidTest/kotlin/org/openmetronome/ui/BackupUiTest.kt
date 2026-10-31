@@ -126,8 +126,17 @@ class BackupUiTest {
         while (android.os.SystemClock.uptimeMillis() < deadline) {
             val target = systemNode(predicate)
             if (target != null && target.isEnabled && target.isVisibleToUser) {
-                // Tap the matched row itself: a clickable RecyclerView ancestor may
-                // acknowledge ACTION_CLICK without activating the selected document.
+                // New DocumentsUI exposes clickable cards; Oreo sometimes only
+                // exposes a touch listener. Never activate the list container itself.
+                var actionNode: android.view.accessibility.AccessibilityNodeInfo? = target
+                while (actionNode != null && actionNode.collectionInfo == null &&
+                    actionNode.viewIdResourceName?.substringAfterLast('/') !in listOf("dir_list", "roots_list")) {
+                    if (actionNode.isClickable && actionNode.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)) {
+                        instrumentation.uiAutomation.waitForIdle(500, 10000)
+                        return
+                    }
+                    actionNode = actionNode.parent
+                }
                 val bounds = android.graphics.Rect()
                 target.getBoundsInScreen(bounds)
                 if (!bounds.isEmpty) {
@@ -205,6 +214,14 @@ class BackupUiTest {
             compose.waitUntil(15000) { !data.backupWorking.value && data.backupNotice.value?.startsWith("Kopia została przywrócona") == true }
             assertEquals(91, model.state.value.config.tempo.bpm)
         } catch (failure: Throwable) {
+            runCatching {
+                instrumentation.uiAutomation.takeScreenshot()?.let { bitmap ->
+                    java.io.File(instrumentation.targetContext.cacheDir, "backup-picker-failure.png").outputStream().use {
+                        bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+                    }
+                    bitmap.recycle()
+                }
+            }
             val tree = StringBuilder()
             systemNode { node ->
                 tree.append("\n").append(node.viewIdResourceName).append(" text=").append(node.text)
