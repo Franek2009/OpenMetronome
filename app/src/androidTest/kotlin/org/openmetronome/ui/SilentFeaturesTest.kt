@@ -441,7 +441,8 @@ class SilentFeaturesTest {
     private fun toggle(label: String) = compose.onNodeWithContentDescription(label).performScrollTo().performClick()
     private fun field(label: String, value: String) {
         compose.onNodeWithText(label).performScrollTo().performTextReplacement(value)
-        compose.onNodeWithText(label).performImeAction().assertIsNotFocused()
+        compose.onNodeWithText(label).performImeAction()
+        compose.onNodeWithText(label).assertIsNotFocused()
         compose.runOnIdle {
             compose.activity.currentFocus?.let { view ->
                 (compose.activity.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager)
