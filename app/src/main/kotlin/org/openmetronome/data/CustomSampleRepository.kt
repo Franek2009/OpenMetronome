@@ -121,12 +121,19 @@ class CustomSampleRepository(private val db: PracticeDatabase, private val direc
         fun files(records: List<CustomSampleRecord>): Map<String, ByteArray> =
             records.associate { record -> record.id to file(record.id).readBytes() }
 
-        suspend fun replace(snapshot: BackupSnapshot, fault: (BackupStage) -> Unit = {}, replaceData: suspend () -> Unit) {
+        suspend fun replace(
+            snapshot: BackupSnapshot,
+            fault: (BackupStage) -> Unit = {},
+            workDirectory: File? = null,
+            checkpoint: (RestoreCheckpoint) -> Unit = {},
+            replaceData: suspend () -> Unit,
+        ) {
             val prepared = snapshot.samples.associate { record ->
                 record.id to SamplePcm.decodeCanonical(requireNotNull(snapshot.sampleFiles[record.id]))
             }
-            val staging = File(directory.parentFile, "sample-restore-${UUID.randomUUID()}")
-            val rollback = File(directory.parentFile, "sample-rollback-${UUID.randomUUID()}")
+            val work = workDirectory?.let { File(it, "work-${UUID.randomUUID()}").also { folder -> check(folder.mkdirs()) } }
+            val staging = if (work != null) File(work, "staged") else File(directory.parentFile, "sample-restore-${UUID.randomUUID()}")
+            val rollback = if (work != null) File(work, "old") else File(directory.parentFile, "sample-rollback-${UUID.randomUUID()}")
             var movedOld = false
             var installedNew = false
             var keepRecovery = false
@@ -143,9 +150,11 @@ class CustomSampleRepository(private val db: PracticeDatabase, private val direc
                             Files.move(directory.toPath(), rollback.toPath(), StandardCopyOption.ATOMIC_MOVE)
                             movedOld = true
                         }
+                        checkpoint(RestoreCheckpoint.OLD_FILES_MOVED)
                         fault(BackupStage.FILES)
                         Files.move(staging.toPath(), directory.toPath(), StandardCopyOption.ATOMIC_MOVE)
                         installedNew = true
+                        checkpoint(RestoreCheckpoint.NEW_FILES_MOVED)
                         replaceData()
                         synchronized(gate) {
                             bank = prepared
@@ -169,7 +178,7 @@ class CustomSampleRepository(private val db: PracticeDatabase, private val direc
                     }
                 }
             } finally {
-                if (!keepRecovery) { staging.deleteRecursively(); rollback.deleteRecursively() }
+                if (!keepRecovery) { staging.deleteRecursively(); rollback.deleteRecursively(); work?.delete() }
             }
         }
     }

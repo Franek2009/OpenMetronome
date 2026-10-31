@@ -43,12 +43,13 @@ fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, notificationPermi
     val sampleWorking by data.sampleWorking.collectAsStateWithLifecycle()
     val backupWorking by data.backupWorking.collectAsStateWithLifecycle()
     val recoveryRequired by data.recoveryRequired.collectAsStateWithLifecycle()
+    val storageReady by data.storageReady.collectAsStateWithLifecycle()
     var page by rememberSaveable { mutableStateOf("Metronom") }
     var report by rememberSaveable { mutableStateOf<String?>(null) }
     BackHandler(enabled = page != "Metronom" && report == null) { page = "Metronom" }
     val context = LocalContext.current
     val diagnosticsTitle = stringResource(R.string.diagnostics_title)
-    Scaffold(modifier = Modifier.imePadding(), bottomBar = { PlaybackControls(state, model::start, model::stop, startEnabled = !sampleWorking && !backupWorking && !recoveryRequired) }) { padding ->
+    Scaffold(modifier = Modifier.imePadding(), bottomBar = { PlaybackControls(state, model::start, model::stop, startEnabled = storageReady && !sampleWorking && !backupWorking && !recoveryRequired) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             AppNavigation(page) { page = it }
             error?.let { message ->
@@ -56,7 +57,10 @@ fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, notificationPermi
                 TextButton({ data.error.value = null }) { Text("Zamknij komunikat") }
             }
             Box(Modifier.weight(1f)) {
-                when (page) {
+                if (!storageReady) {
+                    Text(if (recoveryRequired) "Dane wymagają odzyskania. Start i edycja są zablokowane."
+                        else "Przygotowywanie danych…", modifier = Modifier.padding(16.dp))
+                } else when (page) {
                     "Presety" -> PresetsScreen(data, model)
                     "Statystyki" -> StatisticsScreen(data, model)
                     "Ustawienia" -> SettingsScreen(model, data, notificationPermission) {

@@ -89,7 +89,7 @@ class BackupStorageTest {
             imported(data, sample("B", 137))
             assertTrue(data.recoveryRequired.value)
             assertTrue(data.backupNotice.value!!.contains("Dane mogą być niepełne"))
-            val recovery = dir.listFiles()!!.single { it.name.startsWith("backup-recovery-") }
+            val recovery = File(dir, "restore-journal/active/before.ombak")
             same(a, recovery.inputStream().use(BackupArchive::read))
             assertFalse(data.reservePlayback())
             data.exportBackup { throw AssertionError("Recovery must block export") }
@@ -104,9 +104,9 @@ class BackupStorageTest {
             data.backupFault = { if (it == BackupStage.FILES || it == BackupStage.ROLLBACK_FILES) throw IOException("injected $it") }
             imported(data, sample("B", 137))
             assertTrue(data.recoveryRequired.value)
-            val saved = dir.listFiles()!!.single { it.name.startsWith("sample-rollback-") }
+            val saved = File(dir, "restore-journal/active").walkTopDown().single { it.isDirectory && it.name == "old" }
             assertArrayEquals(a.sampleFiles.values.single(), File(saved, "${a.samples.single().id}.wav").readBytes())
-            assertTrue(dir.listFiles()!!.any { it.name.startsWith("backup-recovery-") })
+            assertTrue(File(dir, "restore-journal/active/before.ombak").exists())
         }
     }
 
@@ -184,6 +184,70 @@ class BackupStorageTest {
             } finally { release.countDown() }
             data.awaitWrites()
             same(incoming, exported(data))
+        }
+    }
+
+    @Test fun failedRuntimeRollbackIsRecoveredBeforeReopenedStorageIsReleased(): Unit = runBlocking {
+        fixture { data, dir ->
+            val a = sample("A", 91); imported(data, a)
+            data.backupFault = { if (it == BackupStage.SETTINGS || it == BackupStage.ROLLBACK_SETTINGS) throw IOException("injected") }
+            imported(data, sample("B", 137)); assertTrue(data.recoveryRequired.value)
+            data.closeTestStorage()
+            val reopened = AppData(context, dir)
+            try {
+                reopened.ready.await(); assertTrue(reopened.storageReady.value)
+                assertTrue(reopened.backupNotice.value!!.startsWith("Cofnięto przerwane"))
+                same(a, exported(reopened))
+                assertFalse(File(dir, "restore-journal/active").exists())
+            } finally { reopened.closeTestStorage() }
+        }
+    }
+
+    @Test fun committedRestoreIsCompletedAfterReopenAndStartupBlocksConcurrentMutation(): Unit = runBlocking {
+        fixture { data, dir ->
+            imported(data, sample("A", 91))
+            val b = sample("B", 137)
+            data.restoreCheckpoint = { if (it == RestoreCheckpoint.COMMITTED) throw IOException("interrupted cleanup") }
+            imported(data, b); assertTrue(data.recoveryRequired.value)
+            data.closeTestStorage()
+            val entered = java.util.concurrent.CountDownLatch(1)
+            val release = java.util.concurrent.CountDownLatch(1)
+            val reopened = AppData(context, dir) { stage ->
+                if (stage == RestoreCheckpoint.RECOVERY_FILES_MOVED) {
+                    entered.countDown(); check(release.await(10, java.util.concurrent.TimeUnit.SECONDS))
+                }
+            }
+            try {
+                try {
+                    assertTrue(entered.await(10, java.util.concurrent.TimeUnit.SECONDS))
+                    assertFalse(reopened.storageReady.value); assertFalse(reopened.ready.isCompleted)
+                    assertFalse(reopened.reservePlayback())
+                    var edited = false; reopened.editConfiguration { edited = true }; assertFalse(edited)
+                    reopened.saveSettings(MetronomeConfig(tempo = Tempo(200)))
+                } finally { release.countDown() }
+                reopened.ready.await()
+                assertTrue(reopened.backupNotice.value!!.startsWith("Dokończono zatwierdzone"))
+                same(b, exported(reopened))
+            } finally { reopened.closeTestStorage() }
+        }
+    }
+
+    @Test fun unreadableRecoveryJournalPreservesMaterialsAndBlocksStartup(): Unit = runBlocking {
+        fixture { data, dir ->
+            val a = sample("A", 91); imported(data, a)
+            data.backupFault = { if (it == BackupStage.SETTINGS || it == BackupStage.ROLLBACK_SETTINGS) throw IOException("injected") }
+            imported(data, sample("B", 137)); data.closeTestStorage()
+            val archive = File(dir, "restore-journal/active/before.ombak")
+            archive.writeText("corrupt")
+            val reopened = AppData(context, dir)
+            try {
+                try { reopened.ready.await(); fail("Unreadable journal must not release storage") }
+                catch (_: IllegalArgumentException) { }
+                assertFalse(reopened.storageReady.value); assertTrue(reopened.recoveryRequired.value)
+                assertFalse(reopened.reservePlayback())
+                assertEquals("corrupt", archive.readText())
+                assertEquals(a.presets, reopened.dao.allPresets())
+            } finally { reopened.closeTestStorage() }
         }
     }
 

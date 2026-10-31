@@ -1,5 +1,18 @@
 # Architektura OpenMetronome — M2–M5
 
+## Trwałe odzyskiwanie od 0.13.0-beta.3
+
+RestoreJournal zapisuje niezmienne archiwa before/after i znaczniki ready/committed.
+Plik i katalog są synchronizowane po atomowej publikacji; przed committed następuje
+checkpoint i fsync magazynów. Startup odtwarza before lub after przed zwolnieniem
+AppData.ready. Rezerwacja Start i zapisy są zamknięte do zakończenia tej inicjalizacji.
+Katalogi robocze podmiany sampli należą do aktywnego dziennika. Atomowe wycofanie
+jego nazwy oddziela zakończenie transakcji od usuwania materiałów. [Protokół,
+testy oraz granice](RESTORE-RECOVERY.md). Bez zmiany Room 2 i `.ombak` v1.
+
+Poniższa sekcja opisuje wcześniejszą implementację beta.2; jej brak odzyskiwania
+procesowego został zastąpiony nowym protokołem dla nowych operacji.
+
 ## Backup 0.13.0-beta.2
 
 AppData serializuje przyjmowane zapisy ustawień, presetów, biblioteki oraz

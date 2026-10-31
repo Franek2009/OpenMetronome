@@ -3,6 +3,7 @@ package org.openmetronome.data
 import android.content.Context
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
+import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.datastore.core.DataStore
 import androidx.room.Room
 import androidx.room.withTransaction
@@ -27,12 +28,17 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
 }
 
 /** Process-scoped repositories; service and UI share storage, never an audio worker. */
-class AppData private constructor(context: Context, isolatedTestStorage: Boolean, testDirectory: File?) {
-    constructor(context: Context, isolatedTestStorage: Boolean = false) : this(context, isolatedTestStorage, null)
-    internal constructor(context: Context, testDirectory: File) : this(context, true, testDirectory)
+class AppData private constructor(
+    context: Context, isolatedTestStorage: Boolean, testDirectory: File?, initialCheckpoint: (RestoreCheckpoint) -> Unit,
+) {
+    constructor(context: Context, isolatedTestStorage: Boolean = false) : this(context, isolatedTestStorage, null, {})
+    internal constructor(context: Context, testDirectory: File, checkpoint: (RestoreCheckpoint) -> Unit = {}) :
+        this(context, true, testDirectory, checkpoint)
 
     private val admission = Any()
+    val storageReady = MutableStateFlow(false)
     val playbackBusy = MutableStateFlow(false)
+    internal var restoreCheckpoint: (RestoreCheckpoint) -> Unit = initialCheckpoint
     val recoveryRequired = MutableStateFlow(false)
     internal var backupFault: (BackupStage) -> Unit = {}
     private var settingsWriteFailed = false
@@ -41,17 +47,18 @@ class AppData private constructor(context: Context, isolatedTestStorage: Boolean
 
     /** Synchronous admission keeps Start/config edits ordered against backup reservation. */
     fun editConfiguration(action: () -> Unit) = synchronized(admission) {
-        if ((!backupWorking.value && !recoveryRequired.value) || applyingBackup.get() == true) action()
+        if ((storageReady.value && !backupWorking.value && !recoveryRequired.value) || applyingBackup.get() == true) action()
     }
     fun reservePlayback(): Boolean = synchronized(admission) {
-        if (backupWorking.value || recoveryRequired.value || sampleWorking.value || playbackBusy.value) false
+        if (!storageReady.value || backupWorking.value || recoveryRequired.value || sampleWorking.value || playbackBusy.value) false
         else { playbackBusy.value = true; true }
     }
     fun playbackFinished() = synchronized(admission) { playbackBusy.value = false }
     private fun submit(action: suspend () -> Unit): Boolean = synchronized(admission) {
-        if (backupWorking.value || recoveryRequired.value) false else actions.trySend(action).isSuccess
+        if (!storageReady.value || backupWorking.value || recoveryRequired.value) false else actions.trySend(action).isSuccess
     }
     internal suspend fun awaitWrites() {
+        ready.await()
         val done = CompletableDeferred<Unit>()
         check(actions.trySend { done.complete(Unit) }.isSuccess)
         done.await()
@@ -59,7 +66,7 @@ class AppData private constructor(context: Context, isolatedTestStorage: Boolean
     internal suspend fun closeTestStorage() {
         check(isTestStorage)
         if (!scope.isActive) return
-        try { withTimeout(10000) { awaitWrites() } }
+        try { if (!ready.isCancelled) withTimeout(10000) { awaitWrites() } }
         finally { scope.cancel(); scope.coroutineContext[Job]!!.join(); database.close() }
     }
     private val isTestStorage = isolatedTestStorage
@@ -72,16 +79,26 @@ class AppData private constructor(context: Context, isolatedTestStorage: Boolean
     val sampleWorking = MutableStateFlow(false)
     val sampleNotice = MutableStateFlow<String?>(null)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    val settings = if (isolatedTestStorage) SettingsRepository(PreferenceDataStoreFactory.create(scope = scope) {
-        if (testDirectory != null) File(testDirectory, "settings.preferences_pb") else File(context.cacheDir, "instrumentation-${UUID.randomUUID()}.preferences_pb")
-    }) else SettingsRepository(context.applicationContext)
+    private val settingsFile = when {
+        testDirectory != null -> File(testDirectory, "settings.preferences_pb")
+        isolatedTestStorage -> File(context.cacheDir, "instrumentation-${UUID.randomUUID()}.preferences_pb")
+        else -> context.preferencesDataStoreFile("metronome-settings")
+    }
+    val settings = if (isolatedTestStorage) SettingsRepository(PreferenceDataStoreFactory.create(scope = scope) { settingsFile })
+        else SettingsRepository(context.applicationContext)
     val database = if (testDirectory != null) Room.databaseBuilder(context, PracticeDatabase::class.java,
         File(testDirectory, "practice.db").absolutePath).addMigrations(PracticeDatabase.MIGRATION_1_2).build()
         else if (isolatedTestStorage) Room.inMemoryDatabaseBuilder(context.applicationContext, PracticeDatabase::class.java).build()
         else Room.databaseBuilder(context.applicationContext, PracticeDatabase::class.java, "openmetronome.db")
             .addMigrations(PracticeDatabase.MIGRATION_1_2).build()
-    val samples = CustomSampleRepository(database, if (isolatedTestStorage)
-        if (testDirectory != null) File(testDirectory, "samples") else File(context.cacheDir, "sample-library-${UUID.randomUUID()}") else File(context.filesDir, "custom-samples"))
+    private val sampleDirectory = if (isolatedTestStorage)
+        if (testDirectory != null) File(testDirectory, "samples") else File(context.cacheDir, "sample-library-${UUID.randomUUID()}")
+        else File(context.filesDir, "custom-samples")
+    val samples = CustomSampleRepository(database, sampleDirectory)
+    private val contextDirectory = testDirectory ?: if (isolatedTestStorage) context.cacheDir else context.filesDir
+    private val journalRoot = File(contextDirectory, if (isolatedTestStorage && testDirectory == null)
+        "restore-journal-${UUID.randomUUID()}" else "restore-journal")
+    private val restoreJournal = RestoreJournal(journalRoot, ::syncDirectory)
     val dao = database.practice()
     val ready = CompletableDeferred<Unit>()
     val presets = dao.presets().catch { error.value = "Nie udało się odczytać presetów"; emit(emptyList()) }
@@ -96,8 +113,17 @@ class AppData private constructor(context: Context, isolatedTestStorage: Boolean
             }
         }
         scope.launch {
-            try { dao.recoverInterrupted(); samples.load(); ready.complete(Unit) }
-            catch (e: Exception) { ready.completeExceptionally(e); error.value = "Błąd otwarcia bazy. Dane nie zostały usunięte." }
+            try {
+                samples.load()
+                recoverRestore()
+                dao.recoverInterrupted()
+                storageReady.value = true
+                ready.complete(Unit)
+            } catch (e: Exception) {
+                recoveryRequired.value = true
+                error.value = "Nie udało się bezpiecznie przygotować danych. Zachowano materiały odzyskiwania; nie usuwaj danych aplikacji."
+                ready.completeExceptionally(e)
+            }
         }
     }
     fun saveSettings(config: MetronomeConfig) {
@@ -132,7 +158,7 @@ class AppData private constructor(context: Context, isolatedTestStorage: Boolean
 
     private fun sampleOperation(action: suspend () -> Unit) {
         synchronized(admission) {
-            if (backupWorking.value || recoveryRequired.value || !sampleWorking.compareAndSet(false, true)) return
+            if (!storageReady.value || backupWorking.value || recoveryRequired.value || !sampleWorking.compareAndSet(false, true)) return
             sampleNotice.value = null
             actions.trySend {
                 try { ready.await(); action() }
@@ -162,7 +188,7 @@ class AppData private constructor(context: Context, isolatedTestStorage: Boolean
     /** Process-owned IO job survives screen changes. Only writes the document chosen by the user. */
     fun exportCsv(openOutput: () -> OutputStream) {
         synchronized(admission) {
-            if (backupWorking.value || recoveryRequired.value || !exporting.compareAndSet(false, true)) return
+            if (!storageReady.value || backupWorking.value || recoveryRequired.value || !exporting.compareAndSet(false, true)) return
             exportNotice.value = null
             actions.trySend {
                 try {
@@ -188,7 +214,7 @@ class AppData private constructor(context: Context, isolatedTestStorage: Boolean
                 error.value = BACKUP_RECOVERY_NOTICE
                 return
             }
-            if (playbackBusy.value || sampleWorking.value || exporting.value || backupWorking.value) {
+            if (!storageReady.value || playbackBusy.value || sampleWorking.value || exporting.value || backupWorking.value) {
                 backupNotice.value = "Zatrzymaj metronom i poczekaj na zakończenie zapisu oraz innych operacji."
                 return
             }
@@ -238,24 +264,25 @@ class AppData private constructor(context: Context, isolatedTestStorage: Boolean
         samples.backup {
             val previous = database.withTransaction { snapshot(this) }
             val oldConfig = ConfigCodec.decode(previous.settings)
-            val recovery = File(contextDirectory, "backup-recovery-${UUID.randomUUID()}.ombak")
-            java.io.FileOutputStream(recovery).use { output ->
-                BackupArchive.write(previous, output); output.fd.sync()
-            }
-            var keepRecovery = false
+            var journalPrepared = false
+            var newDataApplied = false
             try {
-                replace(incoming, backupFault) {
+                restoreJournal.prepare(previous, incoming)
+                journalPrepared = true
+                restoreCheckpoint(RestoreCheckpoint.PREPARED)
+                replace(incoming, backupFault, restoreJournal.active, restoreCheckpoint) {
                     withContext(NonCancellable) {
                         try {
                             database.withTransaction {
-                                dao.deleteAllPracticeDays(); dao.deleteAllSessions(); dao.deleteAllPresets(); dao.deleteAllSamples()
-                                dao.insertSamples(incoming.samples); dao.insertPresets(incoming.presets)
-                                dao.insertSessions(incoming.sessions); dao.insertPracticeDays(incoming.days)
+                                replaceRows(incoming)
                                 backupFault(BackupStage.DATABASE)
+                                restoreCheckpoint(RestoreCheckpoint.DATABASE_CHANGED)
                                 backupFault(BackupStage.SETTINGS)
                                 settings.save(config)
+                                restoreCheckpoint(RestoreCheckpoint.SETTINGS_WRITTEN)
                                 applyConfiguration(config, applied)
                             }
+                            restoreCheckpoint(RestoreCheckpoint.DATABASE_COMMITTED)
                         } catch (error: Exception) {
                             try {
                                 backupFault(BackupStage.ROLLBACK_SETTINGS)
@@ -269,13 +296,89 @@ class AppData private constructor(context: Context, isolatedTestStorage: Boolean
                         }
                     }
                 }
-            } catch (error: BackupRecoveryException) { keepRecovery = true; throw error }
-            finally { if (!keepRecovery) recovery.delete() }
+                newDataApplied = true
+                withContext(NonCancellable) {
+                    syncStores()
+                    restoreCheckpoint(RestoreCheckpoint.STORES_SYNCED)
+                    restoreJournal.markCommitted()
+                    restoreCheckpoint(RestoreCheckpoint.COMMITTED)
+                    restoreJournal.finish()
+                    restoreCheckpoint(RestoreCheckpoint.JOURNAL_RETIRED)
+                }
+            } catch (error: Exception) {
+                if (error is BackupRecoveryException || newDataApplied || (!journalPrepared && restoreJournal.active.exists()))
+                    throw BackupRecoveryException(error)
+                try {
+                    // Runtime rollback already restored the previous stores. Durably retire
+                    // the undo journal only after that state has reached storage as well.
+                    if (journalPrepared) syncStores()
+                    restoreJournal.finish()
+                } catch (rollback: Exception) {
+                    error.addSuppressed(rollback)
+                    throw BackupRecoveryException(error)
+                }
+                throw error
+            }
         }
         backupNotice.value = "Kopia została przywrócona: ${incoming.sessions.size} sesji, ${incoming.presets.size} presetów."
     }
 
-    private val contextDirectory = testDirectory ?: if (isolatedTestStorage) context.cacheDir else context.filesDir
+    private suspend fun replaceRows(snapshot: BackupSnapshot) {
+        dao.deleteAllPracticeDays(); dao.deleteAllSessions(); dao.deleteAllPresets(); dao.deleteAllSamples()
+        dao.insertSamples(snapshot.samples); dao.insertPresets(snapshot.presets)
+        dao.insertSessions(snapshot.sessions); dao.insertPracticeDays(snapshot.days)
+    }
+
+    private suspend fun recoverRestore() {
+        val pending = restoreJournal.pending() ?: return
+        samples.backup {
+            replace(pending.snapshot, workDirectory = restoreJournal.active, checkpoint = { stage ->
+                if (stage == RestoreCheckpoint.NEW_FILES_MOVED) restoreCheckpoint(RestoreCheckpoint.RECOVERY_FILES_MOVED)
+            }) {
+                database.withTransaction {
+                    replaceRows(pending.snapshot)
+                    settings.save(ConfigCodec.decode(pending.snapshot.settings))
+                    restoreCheckpoint(RestoreCheckpoint.RECOVERY_DATABASE_CHANGED)
+                }
+            }
+            syncStores()
+            restoreCheckpoint(RestoreCheckpoint.RECOVERY_STORES_SYNCED)
+            restoreJournal.finish()
+        }
+        backupNotice.value = if (pending.committed) "Dokończono zatwierdzone przywracanie kopii po przerwaniu aplikacji."
+            else "Cofnięto przerwane przywracanie kopii. Zachowano poprzednie dane."
+    }
+
+    private fun syncStores() {
+        val sqlite = database.openHelper.writableDatabase
+        val path = sqlite.path
+        if (path != null && path != ":memory:") {
+            sqlite.query("PRAGMA wal_checkpoint(FULL)").use { cursor ->
+                check(cursor.moveToFirst() && cursor.getInt(0) == 0) { "Database checkpoint is busy" }
+            }
+            val dbFile = File(path)
+            for (file in listOf(dbFile, File(path + "-wal"))) syncFile(file)
+            syncDirectory(dbFile.parentFile!!)
+        }
+        syncFile(settingsFile)
+        if (settingsFile.parentFile!!.exists()) syncDirectory(settingsFile.parentFile!!)
+        sampleDirectory.listFiles()?.filter { it.isFile }?.forEach(::syncFile)
+        if (sampleDirectory.exists()) syncDirectory(sampleDirectory)
+        syncDirectory(sampleDirectory.parentFile!!)
+    }
+
+    private fun syncFile(file: File) {
+        if (file.exists()) java.io.FileInputStream(file).use { it.fd.sync() }
+    }
+    private fun syncDirectory(directory: File) {
+        val descriptor = android.system.Os.open(directory.absolutePath,
+            android.system.OsConstants.O_RDONLY, 0)
+        try {
+            check(android.system.OsConstants.S_ISDIR(android.system.Os.fstat(descriptor).st_mode))
+            android.system.Os.fsync(descriptor)
+        } finally { android.system.Os.close(descriptor) }
+    }
+
     private suspend fun applyConfiguration(config: MetronomeConfig, applied: (MetronomeConfig) -> Unit) {
         withContext(Dispatchers.Main) {
             applyingBackup.set(true)

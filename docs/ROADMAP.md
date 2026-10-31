@@ -169,6 +169,19 @@ wcześniejsza nieudana instrumentacja tabletu nie jest PASS.
 To nie zamyka odbioru audio, M6 ani gotowości 1.0; brak gwarancji odzyskiwania
 po przerwaniu procesu lub utracie zasilania.
 
+## Kandydat 0.13.0-beta.3 — odzyskiwanie i zgodność
+
+Dziennik przywracania wybiera kompletny poprzedni albo zatwierdzony nowy
+zestaw przed odblokowaniem Start i edycji. Testy zabijają oddzielny proces
+na izolowanych danych, także podczas odzyskiwania. Format `.ombak` v1
+oraz schemat Room 2 pozostają bez zmian.
+
+CI rozszerzone o ciche testy i aktualizację beta.2→kandydat na API 26 i 35.
+Szczegóły oraz aktualny stan walidacji: [raport beta.3](V0.13-BETA3-VALIDATION.md),
+[protokół odzyskiwania](RESTORE-RECOVERY.md). Kandydat nie jest opublikowany;
+nie zamyka M6, długich sesji ani odbioru audio. Zabicie procesu nie zastępuje
+sprzętowego testu odcięcia zasilania.
+
 ## Urządzenia testowe
 
 - Samsung SM-A145R, Android 15 / API 35: dotychczasowy telefon testowy.

@@ -64,8 +64,7 @@ class SilentFeaturesTest {
         compose.runOnIdle { assertEquals(2, model.state.value.config.silence.audibleBars) }
         field("Takty słyszalne", "64")
         compose.onNodeWithContentDescription("Zwiększ: Takty słyszalne").assertIsNotEnabled()
-        compose.onNodeWithContentDescription("Zmniejsz: Takty słyszalne")
-            .performScrollTo().assertIsDisplayed().performClick()
+        clickWhenStationary(compose.onNodeWithContentDescription("Zmniejsz: Takty słyszalne"))
         compose.waitUntil(10000) { model.state.value.config.silence.audibleBars == 63 }
         field("Takty ciszy", "1")
         toggle("Progresja wyciszeń")
@@ -449,19 +448,51 @@ class SilentFeaturesTest {
                 view.clearFocus()
             }
         }
-        // Compose idleness does not wait for the platform IME closing animation.
+        // Focus/IME requests can arrive after Compose becomes idle. Keep requesting
+        // dismissal while waiting for the platform window to finish resizing.
         compose.waitUntil(10000) {
-            ViewCompat.getRootWindowInsets(compose.activity.window.decorView)
-                ?.isVisible(WindowInsetsCompat.Type.ime()) != true
+            compose.activity.runOnUiThread {
+                androidx.core.view.WindowCompat.getInsetsController(compose.activity.window,
+                    compose.activity.window.decorView).hide(WindowInsetsCompat.Type.ime())
+            }
+            if (android.os.Build.VERSION.SDK_INT >= 30) {
+                ViewCompat.getRootWindowInsets(compose.activity.window.decorView)
+                    ?.isVisible(WindowInsetsCompat.Type.ime()) != true
+            } else {
+                val frame = android.graphics.Rect()
+                val decor = compose.activity.window.decorView
+                decor.getWindowVisibleDisplayFrame(frame)
+                decor.rootView.height - frame.bottom < 100 * compose.activity.resources.displayMetrics.density
+            }
         }
+        compose.waitForIdle()
     }
-    private fun click(label: String) = compose.onNodeWithText(label).performScrollTo().performClick()
+    private fun clickWhenStationary(node: SemanticsNodeInteraction) {
+        node.performScrollTo().assertIsDisplayed()
+        var bounds = node.fetchSemanticsNode().boundsInWindow
+        var stationarySince = android.os.SystemClock.uptimeMillis()
+        compose.waitUntil(10000) {
+            val current = node.fetchSemanticsNode().boundsInWindow
+            if (current != bounds) {
+                bounds = current
+                stationarySince = android.os.SystemClock.uptimeMillis()
+            }
+            android.os.SystemClock.uptimeMillis() - stationarySince >= 200
+        }
+        node.performClick()
+        compose.waitForIdle()
+    }
+    private fun click(label: String) = clickWhenStationary(compose.onNodeWithText(label))
     private fun page(label: String) {
         if (label == "Presety") compose.onNodeWithContentDescription("Presety").performClick()
         else compose.onAllNodesWithText(label)[0].performClick()
     }
     private fun awaitPresets(predicate: (List<Preset>) -> Boolean) {
-        compose.waitUntil(10000) { runBlocking { predicate(data.dao.presets().first()) } }
+        try {
+            compose.waitUntil(10000) { runBlocking { predicate(data.dao.presets().first()) } }
+        } catch (failure: AssertionError) {
+            throw AssertionError("Stored presets: ${runBlocking { data.dao.presets().first() }}\n${compose.onRoot().printToString()}", failure)
+        }
         compose.waitForIdle()
     }
 }

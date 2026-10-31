@@ -1,5 +1,17 @@
 # Zmiany
 
+## 0.13.0-beta.3 — przygotowywana
+
+- Trwały dziennik przywracania: automatyczne cofnięcie przerwanego importu lub
+  dokończenie zatwierdzonego zestawu przed udostępnieniem danych i Start.
+- Atomowe znaczniki, synchronizacja magazynów i bezpieczne sprzątanie; bez
+  destrukcyjnego fallbacku w przypadku nieczytelnego dziennika.
+- Rzeczywiste testy zabijania osobnego procesu debug na izolowanych danych,
+  także podczas odzyskiwania; usługa probe nie występuje w release.
+- Test aktualizacji beta.2→kandydat przez publiczny UI, z porównaniem wszystkich
+  danych i sampli. Kopie APK mają jednorazowy podpis testowy, bez oficjalnego klucza.
+- CI dla PR i main obejmuje Android 8/API26 oraz API35, ciche testy i aktualizację.
+
 ## 0.13.0-beta.2
 
 - Backup wymaga ręcznego Stop i zakończenia zapisu sesji; blokuje równoczesny

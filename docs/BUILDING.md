@@ -246,3 +246,31 @@ bez deklaracji ukończenia stabilizacji. Tap tempo, głośność i wybór barwy
 obejmuje wersja 0.6. Pomiary fizycznego audio i wydanie produkcyjne
 pozostają otwarte, podobnie jak odbiór na Lenovo.
 Proces wydawniczy tworzy draft, nie publikuje automatycznie. [Wydawanie](RELEASING.md).
+
+
+## Odzyskiwanie i zgodność od beta.3
+
+PR oraz main uruchamiają pełną cichą instrumentację na API26/x86 i API35/x86_64.
+Test RestoreCrashTest zabija wyłącznie debug-only proces :restore_probe,
+sprawdzający katalogi UUID pod cache. Nie zabija runnera ani aplikacji użytkownika.
+Nowe klasy zachowują allowAudio=false i allowHaptics=false.
+
+Osobny test aktualizacji uruchamia się wyłącznie na świeżym emulatorze bez
+org.openmetronome. Bazą jest stały publiczny APK v0.13.0-beta.2; nowy kandydat
+jest niedebugowalnym unsigned release. Skrypt sprawdza certyfikat bazy, tworzy
+kopie obu APK z jednorazowym kluczem testowym, importuje syntetyczny `.ombak`
+przez systemowy picker, aktualizuje przez install -r, eksportuje i porównuje
+ustawienia, presety, sesje, dni oraz bajty sampli. Nigdy nie czyści ani nie
+odinstalowuje istniejącej aplikacji. Klucz jest usuwany po próbie, kopie nie są
+oficjalnymi wydaniami. Zgodność oficjalnego podpisu nadal sprawdza release workflow.
+
+```bash
+ANDROID_SERIAL=emulator-5554 bash scripts/verify-upgrade.sh \
+  poprzedni-oficjalny-0.13.0-beta.2.apk \
+  app/build/outputs/apk/release/app-release-unsigned.apk
+python3 scripts/test-upgrade-tools.py
+```
+
+Skrypt odmawia działania na urządzeniu fizycznym. Raporty: app/build/reports/upgrade-validation/.
+Odtworzenie dziennika nie oznacza sprzętowego testu odcięcia zasilania;
+[zakres i ograniczenia](RESTORE-RECOVERY.md).

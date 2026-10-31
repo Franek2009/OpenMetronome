@@ -114,7 +114,7 @@ class BackupUiTest {
     private fun systemNode(predicate: (android.view.accessibility.AccessibilityNodeInfo) -> Boolean): android.view.accessibility.AccessibilityNodeInfo? {
         fun visit(node: android.view.accessibility.AccessibilityNodeInfo?): android.view.accessibility.AccessibilityNodeInfo? {
             if (node == null) return null
-            if (predicate(node)) return node
+            if (node.isVisibleToUser && predicate(node)) return node
             for (i in 0 until node.childCount) visit(node.getChild(i))?.let { return it }
             return null
         }
@@ -123,31 +123,63 @@ class BackupUiTest {
     private fun clickSystem(predicate: (android.view.accessibility.AccessibilityNodeInfo) -> Boolean) {
         val deadline = android.os.SystemClock.uptimeMillis() + 15000
         while (android.os.SystemClock.uptimeMillis() < deadline) {
-            var node = systemNode(predicate)
-            if (node != null) {
+            val target = systemNode(predicate)
+            if (target != null && target.isEnabled && target.isVisibleToUser) {
+                var node: android.view.accessibility.AccessibilityNodeInfo? = target
                 while (node != null && !node.isClickable) node = node.parent
                 if (node?.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK) == true) return
+                // Oreo DocumentsUI handles file selection through RecyclerView touch
+                // listeners without exposing ACTION_CLICK on the document row.
+                val bounds = android.graphics.Rect()
+                target.getBoundsInScreen(bounds)
+                if (!bounds.isEmpty) {
+                    val time = android.os.SystemClock.uptimeMillis()
+                    fun touch(action: Int, eventTime: Long): Boolean {
+                        val event = android.view.MotionEvent.obtain(time, eventTime, action,
+                            bounds.exactCenterX(), bounds.exactCenterY(), 0)
+                        event.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
+                        return try { instrumentation.uiAutomation.injectInputEvent(event, true) }
+                        finally { event.recycle() }
+                    }
+                    val down = touch(android.view.MotionEvent.ACTION_DOWN, time)
+                    val up = touch(android.view.MotionEvent.ACTION_UP, time + 50)
+                    if (down && up) return
+                }
             }
             Thread.sleep(100)
         }
-        throw AssertionError("System picker control unavailable")
+        val tree = StringBuilder()
+        systemNode { node ->
+            tree.append("\n").append(node.className).append(" ").append(node.viewIdResourceName)
+                .append(" text=").append(node.text).append(" desc=").append(node.contentDescription)
+            false
+        }
+        throw AssertionError("System picker control unavailable:$tree")
     }
     private fun selectFixtureRoot() {
         val automation = instrumentation.uiAutomation
         automation.serviceInfo = automation.serviceInfo.apply {
             flags = flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
         }
-        Thread.sleep(700)
-        if (systemNode { it.text?.toString() == "OpenMetronome test backup" } != null &&
-            systemNode { it.text?.toString() == "roundtrip.ombak" } != null) return
-        if (systemNode { it.text?.toString() == "OpenMetronome test backup" } == null) {
+        fun inSystemList(node: android.view.accessibility.AccessibilityNodeInfo): Boolean {
+            var parent = node.parent
+            while (parent != null) {
+                if (parent.viewIdResourceName?.endsWith("/roots_list") == true) return true
+                parent = parent.parent
+            }
+            return false
+        }
+        val isFixtureRoot: (android.view.accessibility.AccessibilityNodeInfo) -> Boolean = {
+            it.text?.toString() == "OpenMetronome test backup" && inSystemList(it)
+        }
+        if (systemNode(isFixtureRoot) == null) {
             clickSystem {
                 val description = it.contentDescription?.toString()?.lowercase().orEmpty()
                 it.viewIdResourceName == "android:id/home" || description.contains("roots") ||
                     description.contains("lokalizac") || description.contains("główne") || description.contains("navigation drawer")
             }
         }
-        clickSystem { it.text?.toString() == "OpenMetronome test backup" }
+        clickSystem(isFixtureRoot)
     }
 
     @Test fun realSystemPickerExportsAndImportsOnlyFixtureProvider() {
@@ -161,6 +193,11 @@ class BackupUiTest {
             compose.onNodeWithText("Przywróć kopię").performScrollTo().performClick()
             selectFixtureRoot()
             clickSystem { it.text?.toString() == "roundtrip.ombak" }
+            // A physical tap returns before DocumentsUI has resumed our Activity.
+            compose.waitUntil(15000) {
+                compose.onAllNodesWithText("Przywróć", useUnmergedTree = true)
+                    .fetchSemanticsNodes(atLeastOneRootRequired = false).size == 1
+            }
             compose.onNodeWithText("Przywróć", useUnmergedTree = true).performClick()
             compose.waitUntil(15000) { !data.backupWorking.value && data.backupNotice.value?.startsWith("Kopia została przywrócona") == true }
             assertEquals(91, model.state.value.config.tempo.bpm)

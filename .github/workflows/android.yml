@@ -39,6 +39,7 @@ jobs:
         run: |
           bash scripts/test-verification-parser.sh
           bash scripts/test-release-tools.sh
+          python3 scripts/test-upgrade-tools.py
 
       - name: Unit tests, Lint and builds (release is unsigned)
         run: >-
@@ -70,8 +71,25 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Upload unsigned upgrade candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: upgrade-candidate-unsigned
+          path: app/build/outputs/apk/release/app-release-unsigned.apk
+          if-no-files-found: error
+          retention-days: 14
+
   quiet:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+    name: quiet (API ${{ matrix.api }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - api: 26
+            arch: x86
+          - api: 35
+            arch: x86_64
     needs: verify
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -95,15 +113,69 @@ jobs:
           sudo udevadm trigger --name-match=kvm
       - uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: ${{ matrix.api }}
           target: default
-          arch: x86_64
+          arch: ${{ matrix.arch }}
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           script: ANDROID_SERIAL=emulator-5554 bash scripts/quiet-emulator.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: quiet-emulator-report
+          name: quiet-emulator-report-api${{ matrix.api }}
           path: app/build/reports/quiet-emulator/
+          retention-days: 14
+
+
+  upgrade:
+    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+    name: upgrade (API ${{ matrix.api }})
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - api: 26
+            arch: x86
+          - api: 35
+            arch: x86_64
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: upgrade-candidate-unsigned
+          path: upgrade-candidate
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools build-tools;36.0.0'
+      - name: Download fixed public upgrade baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download v0.13.0-beta.2 --repo Franek2009/OpenMetronome --pattern 'OpenMetronome-0.13.0-beta.2.apk' --dir upgrade-baseline
+      - name: Enable emulator acceleration on disposable runner
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          target: default
+          arch: ${{ matrix.arch }}
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: ANDROID_SERIAL=emulator-5554 bash scripts/verify-upgrade.sh upgrade-baseline/OpenMetronome-0.13.0-beta.2.apk upgrade-candidate/app-release-unsigned.apk
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: upgrade-report-api${{ matrix.api }}
+          path: app/build/reports/upgrade-validation/
           retention-days: 14
