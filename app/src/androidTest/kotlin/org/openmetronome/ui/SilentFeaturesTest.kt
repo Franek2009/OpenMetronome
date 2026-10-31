@@ -132,8 +132,8 @@ class SilentFeaturesTest {
         awaitDescription("92 BPM")
         compose.runOnIdle { assertEquals(92, model.state.value.config.tempo.bpm) }
         compose.activityRule.scenario.recreate()
-        compose.onNodeWithContentDescription("Puls 2: cisza").assertIsDisplayed()
-        compose.onNodeWithContentDescription("92 BPM").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Puls 2: cisza").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithContentDescription("92 BPM").performScrollTo().assertIsDisplayed()
         assertEquals(PlaybackStatus.STOPPED, model.state.value.audio.status)
     }
 
@@ -440,8 +440,12 @@ class SilentFeaturesTest {
     }
     private fun toggle(label: String) = compose.onNodeWithContentDescription(label).performScrollTo().performClick()
     private fun field(label: String, value: String) {
-        compose.onNodeWithText(label).performScrollTo().performTextReplacement(value)
+        compose.onNodeWithText(label).performScrollTo().performClick().performTextReplacement(value)
+        compose.waitForIdle()
         compose.onNodeWithText(label).performImeAction()
+        compose.waitUntil(10000) {
+            compose.onNodeWithText(label).fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.Focused] != true
+        }
         compose.onNodeWithText(label).assertIsNotFocused()
         compose.runOnIdle {
             compose.activity.currentFocus?.let { view ->

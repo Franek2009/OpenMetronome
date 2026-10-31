@@ -114,7 +114,7 @@ fun NumberSetting(label: String, value: Int, range: IntRange, change: (Int) -> U
         }, label = { Text(label) }, modifier = Modifier.weight(1f), singleLine = true,
             isError = draft.toIntOrNull()?.let { it !in range } ?: true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { focus.clearFocus() }))
+            keyboardActions = KeyboardActions(onDone = { focus.clearFocus(force = true) }))
         TextButton({ change(value - 1) }, enabled = value > range.first,
             modifier = Modifier.semantics { contentDescription = "Zmniejsz: $label" }) { Text("−") }
         TextButton({ change(value + 1) }, enabled = value < range.last,

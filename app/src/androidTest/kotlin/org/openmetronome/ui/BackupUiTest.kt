@@ -118,7 +118,12 @@ class BackupUiTest {
             for (i in 0 until node.childCount) visit(node.getChild(i))?.let { return it }
             return null
         }
-        return visit(instrumentation.uiAutomation.rootInActiveWindow)
+        val automation = instrumentation.uiAutomation
+        visit(automation.rootInActiveWindow)?.let { return it }
+        // Oreo can expose a null active root even though the focused DocumentsUI
+        // window is rendered. Query that window, never an obscured background one.
+        return automation.windows.filter { it.isActive || it.isFocused }
+            .firstNotNullOfOrNull { visit(it.root) }
     }
     private fun clickSystem(predicate: (android.view.accessibility.AccessibilityNodeInfo) -> Boolean) {
         instrumentation.uiAutomation.waitForIdle(500, 10000)
@@ -171,7 +176,8 @@ class BackupUiTest {
     private fun selectFixtureRoot() {
         val automation = instrumentation.uiAutomation
         automation.serviceInfo = automation.serviceInfo.apply {
-            flags = flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
+            flags = flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or
+                android.accessibilityservice.AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
         }
         fun inSystemList(node: android.view.accessibility.AccessibilityNodeInfo): Boolean {
             var parent = node.parent

@@ -4,7 +4,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -134,12 +136,13 @@ private fun PresetsScreen(data: AppData, model: MetronomeViewModel) {
     var name by rememberSaveable { mutableStateOf("") }
     var selected by remember { mutableStateOf<Preset?>(null) }
     var deleting by remember { mutableStateOf<Preset?>(null) }
-    val focus = LocalFocusManager.current
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    val editorFocus = remember { FocusRequester() }
+    // Keep Done within Compose: Oreo can restore cleared window focus to its sole editor.
+    Column(Modifier.fillMaxSize().focusRequester(editorFocus).focusable().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Presety", style = MaterialTheme.typography.headlineMedium)
         OutlinedTextField(name, { name = it.take(120) }, label = { Text("Nazwa presetu") }, singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { focus.clearFocus() }))
+            keyboardActions = KeyboardActions(onDone = { editorFocus.requestFocus() }))
         Button({ data.savePreset(name, model.state.value.config); name = ""; selected = null }, enabled = name.isNotBlank()) { Text("Zapisz jako nowy") }
         selected?.let { preset ->
             Text("Edytujesz: ${preset.name}")
