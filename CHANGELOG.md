@@ -1,6 +1,6 @@
 # Zmiany
 
-## 0.13.0-beta.3 — przygotowywana
+## 0.13.0-beta.3
 
 - Trwały dziennik przywracania: automatyczne cofnięcie przerwanego importu lub
   dokończenie zatwierdzonego zestawu przed udostępnieniem danych i Start.
