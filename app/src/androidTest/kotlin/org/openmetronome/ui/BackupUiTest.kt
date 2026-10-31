@@ -121,29 +121,32 @@ class BackupUiTest {
         return visit(instrumentation.uiAutomation.rootInActiveWindow)
     }
     private fun clickSystem(predicate: (android.view.accessibility.AccessibilityNodeInfo) -> Boolean) {
+        instrumentation.uiAutomation.waitForIdle(500, 10000)
         val deadline = android.os.SystemClock.uptimeMillis() + 15000
         while (android.os.SystemClock.uptimeMillis() < deadline) {
             val target = systemNode(predicate)
             if (target != null && target.isEnabled && target.isVisibleToUser) {
-                var node: android.view.accessibility.AccessibilityNodeInfo? = target
-                while (node != null && !node.isClickable) node = node.parent
-                if (node?.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK) == true) return
-                // Oreo DocumentsUI handles file selection through RecyclerView touch
-                // listeners without exposing ACTION_CLICK on the document row.
+                // Tap the matched row itself: a clickable RecyclerView ancestor may
+                // acknowledge ACTION_CLICK without activating the selected document.
                 val bounds = android.graphics.Rect()
                 target.getBoundsInScreen(bounds)
                 if (!bounds.isEmpty) {
-                    val time = android.os.SystemClock.uptimeMillis()
-                    fun touch(action: Int, eventTime: Long): Boolean {
-                        val event = android.view.MotionEvent.obtain(time, eventTime, action,
+                    val downTime = android.os.SystemClock.uptimeMillis()
+                    fun touch(action: Int): Boolean {
+                        val event = android.view.MotionEvent.obtain(downTime,
+                            android.os.SystemClock.uptimeMillis(), action,
                             bounds.exactCenterX(), bounds.exactCenterY(), 0)
                         event.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
                         return try { instrumentation.uiAutomation.injectInputEvent(event, true) }
                         finally { event.recycle() }
                     }
-                    val down = touch(android.view.MotionEvent.ACTION_DOWN, time)
-                    val up = touch(android.view.MotionEvent.ACTION_UP, time + 50)
-                    if (down && up) return
+                    val down = touch(android.view.MotionEvent.ACTION_DOWN)
+                    Thread.sleep(60)
+                    val up = touch(android.view.MotionEvent.ACTION_UP)
+                    if (down && up) {
+                        instrumentation.uiAutomation.waitForIdle(500, 10000)
+                        return
+                    }
                 }
             }
             Thread.sleep(100)
@@ -201,6 +204,14 @@ class BackupUiTest {
             compose.onNodeWithText("Przywróć", useUnmergedTree = true).performClick()
             compose.waitUntil(15000) { !data.backupWorking.value && data.backupNotice.value?.startsWith("Kopia została przywrócona") == true }
             assertEquals(91, model.state.value.config.tempo.bpm)
+        } catch (failure: Throwable) {
+            val tree = StringBuilder()
+            systemNode { node ->
+                tree.append("\n").append(node.viewIdResourceName).append(" text=").append(node.text)
+                    .append(" desc=").append(node.contentDescription)
+                false
+            }
+            throw AssertionError("Backup notice=${data.backupNotice.value}, working=${data.backupWorking.value}; screen:$tree", failure)
         } finally {
             // Close a system picker if a platform-specific control could not be found.
             if (instrumentation.uiAutomation.rootInActiveWindow?.packageName?.toString()?.contains("documentsui") == true)

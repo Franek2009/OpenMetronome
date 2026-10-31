@@ -460,9 +460,11 @@ class SilentFeaturesTest {
                     ?.isVisible(WindowInsetsCompat.Type.ime()) != true
             } else {
                 val frame = android.graphics.Rect()
-                val decor = compose.activity.window.decorView
-                decor.getWindowVisibleDisplayFrame(frame)
-                decor.rootView.height - frame.bottom < 100 * compose.activity.resources.displayMetrics.density
+                compose.activity.window.decorView.getWindowVisibleDisplayFrame(frame)
+                val physical = android.util.DisplayMetrics()
+                @Suppress("DEPRECATION")
+                compose.activity.windowManager.defaultDisplay.getRealMetrics(physical)
+                physical.heightPixels - frame.bottom < 100 * physical.density
             }
         }
         compose.waitForIdle()
@@ -490,7 +492,7 @@ class SilentFeaturesTest {
     private fun awaitPresets(predicate: (List<Preset>) -> Boolean) {
         try {
             compose.waitUntil(10000) { runBlocking { predicate(data.dao.presets().first()) } }
-        } catch (failure: AssertionError) {
+        } catch (failure: ComposeTimeoutException) {
             throw AssertionError("Stored presets: ${runBlocking { data.dao.presets().first() }}\n${compose.onRoot().printToString()}", failure)
         }
         compose.waitForIdle()
