@@ -3,22 +3,35 @@
 Każdy etap kończy się weryfikacją i wspólnym przeglądem. Samo przygotowanie
 plików nie oznacza przejścia testów ani ukończenia etapu.
 
-## Bieżący etap — stabilizacja 1.0.0-rc.1
+## Bieżący etap — przygotowania RC2 i zamknięcie stabilizacji 1.0
 
-Zamrożenie funkcji. Punktem odniesienia jest opublikowane v0.13.0-beta.3.
-Gałąź robocza zawiera zweryfikowane poprawki rezerwacji foreground, końcowego zapisu
-sesji i spójności `.ombak` v1, bez zmiany schematu Room i identyfikatora aplikacji.
-Regresja: 144 JVM PASS, po 62 ciche PASS i 6 audio SKIPPED na API 26/35,
-Lint i trzy kompilacje PASS, aktualizacja beta.3→RC PASS na obu emulatorach.
-RC gotowy jako propozycja; scalenie, tag i publikacja wymagają osobnej zgody.
-Oficjalny podpis RC i odbiór konkretnego RC pozostają do wykonania.
+[RC1 jest opublikowanym Prerelease](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.0.0-rc.1),
+nie stabilnym 1.0. Oficjalny podpis i aktualizacja beta.3→RC1 na świeżych
+emulatorach API 26/35 zostały sprawdzone; [uzupełniony raport](V1.0-RC1-VALIDATION.md).
+Użytkownik potwierdził ręcznie zachowanie danych przy tej aktualizacji na A56.
+To nie jest odbiór nieistniejącego jeszcze RC2.
 
-Użytkownik zgłosił około godzinę prawidłowej praktyki, również z blokadą
-ekranu przez nieustalony czas, poprawny import i odsłuch własnego sampla oraz
-wcześniejsze działanie treningu. Wersja użytego APK jest niepotwierdzona.
-To manualny odbiór, bez pomiarów jittera/underrunów; M6 pozostaje otwarte.
-[Odbiór M6](M6-ACCEPTANCE.md), [kryteria 1.0 i raport RC](V1.0-RC1-VALIDATION.md).
-Lenovo pominięte decyzją użytkownika; bez automatycznych prób audio i wibracji.
+Nowa ikona (PR #5) została zaakceptowana i scalona. Main
+`0de19ed98d0900699dafde1094d4aa8e5518acf6`: CI 5/5 PASS, lokalnie
+144 JVM PASS, po 64 ciche PASS i 6 audio SKIPPED na API 26/35.
+Nie wracamy do geometrii logo bez wykazanego błędu.
+
+RC2 obejmuje nowe logo, bez dodatkowych brzmień i zmian funkcjonalnych.
+„Drewniany” z własnym akcentem odłożony decyzją użytkownika do 1.0.1;
+[dotychczasowy audyt](SAMPLE-QUALIFICATION.md) pozostaje materiałem przyszłych
+prac. Brak oryginalnych WAV-ów nie blokuje RC2 ani stabilnego 1.0.0.
+Nie zmieniamy identyfikatorów brzmień, Room, pakietu ani klucza.
+
+Blokery RC2: PR metadanych wersji i pełna regresja, następnie osobno
+zatwierdzony proces podpisania i weryfikacja oficjalnego artefaktu.
+Stabilne 1.0 wymaga dodatkowo
+praktycznego odbioru znanego RC i osobnej zgody na wydanie.
+[Checklista i plan publikacji](V1.0-RC2-READINESS.md).
+
+Około godzinna praktyka z blokadą przez nieustalony czas pozostaje manualnym
+potwierdzeniem użytkownika, z niepotwierdzoną wersją APK. Jitter i latencja
+pozostają niezmierzone. [M6](M6-ACCEPTANCE.md) nie jest zamknięte; Lenovo
+pominięte decyzją użytkownika, bez nowych automatycznych prób audio/wibracji.
 
 Poniżej historia etapów i wyników; aktualny stan odbioru opisano powyżej.
 
@@ -45,8 +58,8 @@ próby blokady, foreground service i sesja 30-minutowa wymagają osobnego odbior
 Zatwierdzono przygotowanie odbioru M6, bez nowych funkcji i bez deklaracji
 gotowości wydania 1.0. [Checklista odbioru M6](M6-ACCEPTANCE.md).
 Plan i przebieg: [implementacja pakietu](IMPLEMENTATION-M2-M5.md).
-Użytkownik potwierdził podstawowy odsłuch: dźwięk działa. Pełny odbiór audio,
-praca po blokadzie i długi test nadal są otwarte. Zgoda na automatyczne audio
+Użytkownik potwierdził podstawowy odsłuch: dźwięk działa. W tamtym historycznym przebiegu pełny odbiór audio,
+praca po blokadzie i długi test pozostawały otwarte; bieżące potwierdzenia są wyżej. Zgoda na automatyczne audio
 oraz osobno wibracje pozostaje wymagana. [Cicha stabilizacja](QUIET-STABILIZATION.md).
 Domyślne testy urządzeniowe nie mogą uruchamiać dźwięku ani wibracji.
 Na Samsungu zaliczono pełny dostępny cichy zestaw: 14 testów, w tym 7 UI;
@@ -204,7 +217,8 @@ sprzętowego testu odcięcia zasilania.
 ## Urządzenia testowe
 
 - Samsung SM-A145R, Android 15 / API 35: dotychczasowy telefon testowy.
-- Samsung Galaxy A56 5G: urządzenie wskazane w początkowych założeniach, dotąd nietestowane.
+- Samsung Galaxy A56 5G: główny telefon; użytkownik potwierdził zachowanie danych
+  przy aktualizacji oficjalna beta.3→RC1. Brak pełnego odbioru RC2.
 - Lenovo TB-X505F: podłączone urządzenie raportuje TrebleDroid_vanilla,
   Android 13 / API 33; pakietu Google Play Services nie wykryto. Wstępnie
   wskazany LineageOS 20 nie jest potwierdzoną nazwą aktualnego obrazu systemu.

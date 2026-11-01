@@ -1,7 +1,10 @@
 # Wydawanie OpenMetronome
 
 Kanał początkowy: publiczny GitHub Releases. Format instalacyjny Androida:
-APK, nie AppImage. Aktualne wydanie 0.13.0-beta.3 jest prerelease, nie deklaracją M6/1.0.
+APK, nie AppImage. Aktualne oficjalne wydanie to
+[1.0.0-rc.1 — Prerelease](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.0.0-rc.1),
+nie stabilne 1.0. [Checklista RC2 i plan finalnej publikacji](V1.0-RC2-READINESS.md).
+Nie uruchamiać tagowania, podpisywania ani publikacji bez osobnej zgody.
 
 ## Tożsamość i klucz
 
@@ -10,7 +13,8 @@ zmienia identyfikatora. Oficjalne aktualizacje muszą używać tego samego
 klucza podpisu i rosnącego versionCode. Utrata klucza uniemożliwi zwykłe
 aktualizacje z GitHuba. Nie używamy klucza debug jako wydawniczego.
 
-Jednorazowe utworzenie (JDK/keytool i openssl):
+Historyczna procedura utworzenia klucza (wyłącznie dla nowego projektu;
+**nie uruchamiać w celu przygotowania RC2/1.0**, użyć istniejącego klucza):
 
 ```bash
 source scripts/dev-env.sh
@@ -34,17 +38,23 @@ na 64-znakowy odcisk SHA-256 certyfikatu, bez dwukropków, małymi literami.
 Nie myl go z SHA-256 pliku APK; certyfikat pozostaje ten sam między wydaniami.
 Klucz jest używany tylko w zadaniu podpisującym, nie w CI pull requestów.
 
-## Kandydat 1.0.0-rc.1
+## Stan wydań i najbliższe metadane
 
-Gałąź robocza: versionCode 16, versionName 1.0.0-rc.1. To propozycja bez tagu,
-scalenia i opublikowanego APK. [Raport i bramki](V1.0-RC1-VALIDATION.md).
+RC1 jest opublikowany: versionCode 16, versionName 1.0.0-rc.1.
+[Raport stabilizacji i oficjalnego artefaktu](V1.0-RC1-VALIDATION.md).
 Oficjalny certyfikat SHA-256 pozostaje:
 `563cd960efc3fc5b483ceae4b96e66728af9e2bb0c52d6162fe37cded72ac4a2`.
-Nie tworzyć nowego klucza. Weryfikacja unsigned release nie jest dowodem
-podpisania kandydata; podpis i aktualizację oficjalny→oficjalny należy sprawdzić
-na konkretnym artefakcie po osobnej zgodzie na proces wydawniczy.
+Nie tworzyć nowego klucza. Aktualny main zawiera nową ikonę, ale nie podniesiono
+wersji i nie zmieniono wydania RC1. Propozycje przyszłych kodów: RC2=17,
+stable=18, pod warunkiem sprawdzenia ich dostępności i osobnego zatwierdzenia.
 
-## Proces
+Unsigned CI i próba aktualizacji kopii z podpisem testowym nie są dowodem
+zgodności podpisu produkcyjnego. Po utworzeniu oficjalnego draftu wykonać
+osobno oryginalne oficjalne APK→oficjalny kandydat na świeżych API 26/35,
+bez przepodpisywania, z porównaniem wszystkich danych i bajtów sampli.
+Sama ponowna instalacja tej samej wersji w smoke nie zastępuje aktualizacji.
+
+## Proces — wyłącznie po odpowiednim zatwierdzeniu
 
 1. Uaktualnij versionName/versionCode w Gradle, changelog i opis w `docs/releases/`.
 2. Zatwierdź zmiany na main. CI musi zaliczyć JVM, parsery, Lint debug/release
@@ -64,13 +74,24 @@ na konkretnym artefakcie po osobnej zgodzie na proces wydawniczy.
    Kolejne osobne zadanie sprawdza podpisany APK na drugim świeżym emulatorze API 35:
    instalacja, zapis BPM i ponowna instalacja z zachowaniem ustawień, bez Start.
    Oba zadania emulatorów nie otrzymują klucza podpisu. Dopiero po ich
-   zaliczeniu powstaje draft. Dla 0.9 ręczny odsłuch jest dodatkową bramką
-   przed publikacją, niezależnie od wcześniej potwierdzonej kopii klucza.
+   zaliczeniu powstaje draft. Ręczny odbiór nowych barw pozostaje oddzielną
+   bramką; nie zastępuje go cichy zestaw debug ani smoke podpisanego APK.
 7. Pobierz pliki z draftu, sprawdź SHA256SUMS i podpis. Potwierdź kopię klucza.
-   Dopiero wtedy opublikuj prerelease.
+   Wykonaj także oficjalny→oficjalny upgrade i kontrolę zgodności plików
+   draftu z dokładnie testowanym artefaktem. Dopiero po osobnej zgodzie
+   opublikuj prerelease; potem sprawdź publiczny plik i status.
 
 Publikowany zestaw: APK, SHA256SUMS, SIGNING-CERT-SHA256.txt oraz opis zmian.
 Nie publikuj APK instrumentacji. Opis wydania jest wybierany według versionName.
+
+## Stabilne 1.0.0
+
+Nie wystarczy przemianować APK RC2: nowa wersja i rosnący versionCode wymagają
+nowego podpisanego artefaktu z tego samego klucza i ponownej kontroli aktualizacji.
+Istniejący workflow zawsze tworzy draft z `prerelease=true`, również dla tagu
+`v1.0.0`. Po końcowym odbiorze i osobnej zgodzie publikacja stable wymaga
+jawnego `prerelease=false`; nie zmieniamy workflow tylko z powodu nazwy wersji.
+Pełna kolejność i kryteria: [RC2 i 1.0](V1.0-RC2-READINESS.md).
 
 ## Lokalna kontrola podpisu
 

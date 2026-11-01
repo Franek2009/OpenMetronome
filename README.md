@@ -79,7 +79,8 @@ niezmierzona. Opublikowanie Prerelease nie oznacza ukończenia M6 ani wydania
 stabilnego 1.0.0.
 
 [Checklista odbioru M6](docs/M6-ACCEPTANCE.md)
-· [Raport stabilizacji kodu i kryteria 1.0](docs/V1.0-RC1-VALIDATION.md)
+· [Raport stabilizacji i oficjalnego RC1](docs/V1.0-RC1-VALIDATION.md)
+· [Przygotowania RC2 i kryteria stabilnego 1.0](docs/V1.0-RC2-READINESS.md)
 
 Znalazłeś problem? [Zgłoś go na GitHubie](https://github.com/Franek2009/OpenMetronome/issues),
 podając wersję aplikacji, model urządzenia, wersję Androida i kroki odtworzenia.

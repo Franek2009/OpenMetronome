@@ -1,6 +1,39 @@
 # M6 — odbiór sprzętowy
 
-## Przygotowanie RC — zgłoszenie użytkownika 2026-11-01
+## Bieżący odbiór i rzeczywiste bramki 1.0
+
+**Manualne potwierdzenie użytkownika:** aktualizacja oficjalnej beta.3 do
+oficjalnego RC1 na Samsungu A56 zachowała dane. Nie wykonywano w tej sesji
+operacji na telefonie; nie znamy wersji Androida ani szczegółowej macierzy
+porównania. Nie jest to automatyczny test, pomiar bajtów sampla ani pełny
+odbiór RC1/RC2. A56 służy do oficjalnych APK, A14 pozostaje urządzeniem testowym.
+Historyczna niezgodność podpisu A14 nie jest problemem aktualizacji na A56
+ani powodem do odinstalowania aplikacji.
+
+RC1 jest opublikowanym Prerelease. Nowa ikona z PR #5 jest zaakceptowana
+wizualnie i scalona; CI main `0de19ed98d0900699dafde1094d4aa8e5518acf6`
+zakończyło się 5/5 PASS. Nie jest to jeszcze podpisany RC2 ani odbiór jego audio.
+
+Przed stabilnym 1.0 potrzebne są: regresja zamrożonego kodu, kontrola
+oficjalnego podpisanego artefaktu i aktualizacji z zachowaniem danych,
+oraz manualny odbiór **znanej wersji końcowego RC**: zwykła praktyka,
+Start/Stop, część sesji z blokadą, Stop z powiadomienia, przerwanie audio bez
+samoczynnego wznowienia i kontrola końcowego zapisu. RC2 zawiera nowe logo
+bez dodatkowych brzmień. „Drewniany” odłożony do 1.0.1; jego kwalifikacja
+nie blokuje RC2 ani stabilnego 1.0.0. M6 pozostaje otwarte.
+
+**Nie są automatycznymi blokerami 1.0:** ponowienie całej historycznej macierzy
+urządzeń, Lenovo (pominięte decyzją użytkownika), laboratoryjny pomiar jittera,
+latencji i odcięcia zasilania oraz dokładnie 30-minutowa instrumentacja zamiast
+rzetelnie opisanej zwykłej sesji. Ich brak musi pozostać jawny. Odbiór wibracji
+należy wykonać za zgodą lub jawnie zaakceptować brak nowego odbioru; nie
+uznajemy go za PASS. Nie wymagamy wymyślonych zer underrunów/jittera.
+
+Pełne rozdzielenie obowiązkowych bramek, ograniczeń i decyzji:
+[checklista RC2 i plan 1.0](V1.0-RC2-READINESS.md).
+Poniższe wyniki są historyczne i nie są aktualnym raportem RC2.
+
+## Przygotowanie RC1 — zgłoszenie użytkownika 2026-11-01
 
 **Manualne potwierdzenie użytkownika, bez instrumentacji:** około godzinna
 sesja ćwiczeń na kontrabasie przebiegła bez zauważonych przerw i problemów
