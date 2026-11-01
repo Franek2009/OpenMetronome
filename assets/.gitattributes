@@ -1,0 +1,2 @@
+# Preserve original Inkscape/SVG Repo source bytes, including CRLF line endings.
+*.svg -text
