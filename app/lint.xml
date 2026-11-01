@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<lint>
+    <!-- Keep adaptive XML in v26 so unqualified density PNGs remain valid legacy resources. -->
+    <issue id="ObsoleteSdkInt">
+        <ignore path="src/main/res/mipmap-anydpi-v26" />
+    </issue>
+    <!-- API 33+ selects the v33 override with a dedicated monochrome layer.
+         LauncherIconTest verifies the actual framework selection on API 35. -->
+    <issue id="MonochromeLauncherIcon">
+        <ignore path="src/main/res/mipmap-anydpi-v26/ic_launcher.xml" />
+    </issue>
+</lint>
