@@ -1,6 +1,9 @@
-# „Drewniany” — kwalifikacja źródeł i zakres regresji
+# „Drewniany” — odłożona kwalifikacja na 1.0.1
 
-Stan 2026-11-01: **oczekiwanie na oryginalne WAV-y** w
+Decyzja wydawnicza: barwa odłożona do **1.0.1**, poza RC2 i stabilnym 1.0.0.
+Brak WAV-ów nie blokuje tych wydań. Zachowujemy audyt jako materiał przyszłych prac.
+
+Stan analizy: **oczekiwanie na oryginalne WAV-y** w
 `assets/samples/source/`. Nie wdrożono nowej barwy. Nie odtwarzano dźwięku.
 
 ## Pochodzenie
@@ -73,7 +76,7 @@ treningu lub silnika. Wybór konkretnego sposobu ładowania po analizie WAV-ów.
    DSP nie zastępuje oceny słuchowej użytkownika. Brak słyszalnej różnicy
    lub uszkodzony akcent to powód odrzucenia, nie zwiększania liczby barw.
 5. Dopiero po pozytywnej kwalifikacji implementacja jednej pary, osobny PR,
-   pełna regresja z checklisty RC2 i akceptacja brzmienia przed scaleniem.
+   pełna regresja przyszłej wersji i akceptacja brzmienia przed scaleniem.
 
 ## Budżet i dowody wydajności
 
@@ -89,4 +92,27 @@ banku, zajęte tablice i brak alokacji/I/O nowej ścieżki w pętli. Porównać
 ramki pulsów i podziałów przy zmianach BPM, głośności i ciszy. Scheduler
 nie powinien się zmienić; cyfrowe indeksy ramek nie dowodzą fizycznego jittera.
 
-Pełny zestaw bramek: [RC2/1.0](V1.0-RC2-READINESS.md).
+## Przyszła barwa — plan na 1.0.1, poza bramkami RC2/1.0
+
+- [ ] Oryginały WAV, SHA-256, pochodzenie i CC0; analiza obu kanałów przed mono.
+- [ ] Kwalifikacja kliku oraz osobnego akcentu po przygotowaniu do maks. 40 ms;
+  brak uszkodzenia ataku/wybrzmienia, clippingu i nowych trzasków.
+- [ ] Jeden nowy trwały identyfikator, dopisany do enum; istniejące ID i PCM
+  sześciu barw bitowo niezmienione. Nie zastępować historycznego `WOOD`.
+- [ ] Oddzielny akcent wybierany z nagrania, bez automatycznej transpozycji.
+  Ten sam scheduler/renderer; bez I/O w pętli renderowania i bez migracji Room.
+- [ ] Testy round-trip konfiguracji, presetów, historii i `.ombak` v1,
+  również z historycznymi ID. Nowe ID nie obiecuje obsługi przez stare APK.
+- [ ] PCM offline na 44,1/48 kHz i obsługiwanych skrajnych częstotliwościach;
+  głośność, granice, długość, DC, clipping, akcent, zmiany konfiguracji,
+  wyciszenia, podziały i niezmienione indeksy ramek pulsów.
+- [ ] Zmierzone przyrosty rozmiaru APK i pamięci PCM oraz koszt budowy banku;
+  nie zastępować ich szacunkiem ani deklaracją fizycznej precyzji audio.
+- [ ] JVM, parsery/skrypty, PCM offline, Lint debug/release, debug/test/release,
+  pełne ciche API 26/35, aktualizacja i backup/restore PASS na końcowym HEAD PR.
+  Audio/wibracje pominięte jawnie, zero nieoczekiwanych pominięć.
+- [ ] Akceptacja brzmienia kliku i akcentu przez użytkownika, CI 5/5 PASS
+  i osobna zgoda na scalenie. Nie uruchamiać samodzielnie fizycznego odsłuchu.
+
+
+Bieżący proces wydania (bez tej barwy): [RC2/1.0](V1.0-RC2-READINESS.md).

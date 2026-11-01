@@ -16,15 +16,15 @@ Nowa ikona (PR #5) została zaakceptowana i scalona. Main
 144 JVM PASS, po 64 ciche PASS i 6 audio SKIPPED na API 26/35.
 Nie wracamy do geometrii logo bez wykazanego błędu.
 
-Jedyny dopuszczony dodatek: jedna barwa „Drewniany” z własnym akcentem,
-warunkowo po kwalifikacji oryginalnych WAV-ów. Obecnie brak tych plików;
-barwa nie jest wdrożona. [Stan analizy](SAMPLE-QUALIFICATION.md).
-Nie zmieniamy istniejących identyfikatorów brzmień, Room, pakietu ani klucza.
-Pozostałe funkcje są zamrożone.
+RC2 obejmuje nowe logo, bez dodatkowych brzmień i zmian funkcjonalnych.
+„Drewniany” z własnym akcentem odłożony decyzją użytkownika do 1.0.1;
+[dotychczasowy audyt](SAMPLE-QUALIFICATION.md) pozostaje materiałem przyszłych
+prac. Brak oryginalnych WAV-ów nie blokuje RC2 ani stabilnego 1.0.0.
+Nie zmieniamy identyfikatorów brzmień, Room, pakietu ani klucza.
 
-Blokery RC2: źródła i kwalifikacja barwy, jej implementacja/regresja, akceptacja
-brzmienia i PR/CI; następnie metadane wersji oraz osobno zatwierdzony proces
-podpisania i weryfikacja oficjalnego artefaktu. Stabilne 1.0 wymaga dodatkowo
+Blokery RC2: PR metadanych wersji i pełna regresja, następnie osobno
+zatwierdzony proces podpisania i weryfikacja oficjalnego artefaktu.
+Stabilne 1.0 wymaga dodatkowo
 praktycznego odbioru znanego RC i osobnej zgody na wydanie.
 [Checklista i plan publikacji](V1.0-RC2-READINESS.md).
 

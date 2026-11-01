@@ -5,8 +5,8 @@
 - Nowa ikona użytkownika: adaptive, monochrome Androida 13+ i klasyczne PNG.
   PR #5 scalony; wygląd zaakceptowany, CI na main 5/5 PASS.
 - Uporządkowane kryteria RC2 i stabilnego 1.0 oraz dokumentacja odbioru.
-- Planowana jedna barwa „Drewniany” z oddzielnym akcentem: **jeszcze nie
-  wdrożona ani zakwalifikowana**; wymaga oryginalnych WAV-ów i odbioru brzmienia.
+- Bez nowych brzmień ani zmian funkcjonalnych. „Drewniany” odłożony do 1.0.1;
+  zachowany audyt nie jest blokerem RC2/1.0.0.
 
 ## 1.0.0-rc.1 — opublikowany Release Candidate (Prerelease)
 

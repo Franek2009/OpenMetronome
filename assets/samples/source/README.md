@@ -1,4 +1,6 @@
-# Oryginalne źródła planowanej barwy „Drewniany”
+# Oryginalne źródła przyszłej barwy „Drewniany” — 1.0.1
+
+Barwa odłożona do 1.0.1; brak plików nie blokuje RC2 ani stabilnego 1.0.0.
 
 Oczekiwane oryginalne pliki z Freesound (nie przekonwertowane podglądy):
 

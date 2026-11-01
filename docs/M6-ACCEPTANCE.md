@@ -18,8 +18,9 @@ Przed stabilnym 1.0 potrzebne są: regresja zamrożonego kodu, kontrola
 oficjalnego podpisanego artefaktu i aktualizacji z zachowaniem danych,
 oraz manualny odbiór **znanej wersji końcowego RC**: zwykła praktyka,
 Start/Stop, część sesji z blokadą, Stop z powiadomienia, przerwanie audio bez
-samoczynnego wznowienia i kontrola końcowego zapisu. Nowa barwa wymaga
-osobnej akceptacji normalnego kliku i akcentu. M6 pozostaje otwarte.
+samoczynnego wznowienia i kontrola końcowego zapisu. RC2 zawiera nowe logo
+bez dodatkowych brzmień. „Drewniany” odłożony do 1.0.1; jego kwalifikacja
+nie blokuje RC2 ani stabilnego 1.0.0. M6 pozostaje otwarte.
 
 **Nie są automatycznymi blokerami 1.0:** ponowienie całej historycznej macierzy
 urządzeń, Lenovo (pominięte decyzją użytkownika), laboratoryjny pomiar jittera,
