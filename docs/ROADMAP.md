@@ -3,6 +3,25 @@
 Każdy etap kończy się weryfikacją i wspólnym przeglądem. Samo przygotowanie
 plików nie oznacza przejścia testów ani ukończenia etapu.
 
+## Bieżący etap — stabilizacja 1.0.0-rc.1
+
+Zamrożenie funkcji. Punktem odniesienia jest opublikowane v0.13.0-beta.3.
+Gałąź robocza zawiera zweryfikowane poprawki rezerwacji foreground, końcowego zapisu
+sesji i spójności `.ombak` v1, bez zmiany schematu Room i identyfikatora aplikacji.
+Regresja: 144 JVM PASS, po 62 ciche PASS i 6 audio SKIPPED na API 26/35,
+Lint i trzy kompilacje PASS, aktualizacja beta.3→RC PASS na obu emulatorach.
+RC gotowy jako propozycja; scalenie, tag i publikacja wymagają osobnej zgody.
+Oficjalny podpis RC i odbiór konkretnego RC pozostają do wykonania.
+
+Użytkownik zgłosił około godzinę prawidłowej praktyki, również z blokadą
+ekranu przez nieustalony czas, poprawny import i odsłuch własnego sampla oraz
+wcześniejsze działanie treningu. Wersja użytego APK jest niepotwierdzona.
+To manualny odbiór, bez pomiarów jittera/underrunów; M6 pozostaje otwarte.
+[Odbiór M6](M6-ACCEPTANCE.md), [kryteria 1.0 i raport RC](V1.0-RC1-VALIDATION.md).
+Lenovo pominięte decyzją użytkownika; bez automatycznych prób audio i wibracji.
+
+Poniżej historia etapów i wyników; aktualny stan odbioru opisano powyżej.
+
 | Etap | Zakres | Kryterium odbioru |
 | --- | --- | --- |
 | M0 — Fundament | Narzędzia, jeden moduł Android, Compose, modele, testy, dokumentacja, CI | Testy JVM i Lint przechodzą, oba debug APK się budują, ekran działa na urządzeniu |

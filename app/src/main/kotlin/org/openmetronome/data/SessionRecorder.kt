@@ -7,7 +7,12 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /** Called on a storage coroutine, not on the AudioTrack worker. */
-class SessionRecorder(private val data: AppData) {
+class SessionRecorder internal constructor(
+    private val checkpoint: suspend (PracticeSession, List<PracticeDay>) -> Unit,
+) {
+    constructor(data: AppData) : this({ session, _ ->
+        data.recordSession(session)
+    })
     private var session: PracticeSession? = null
     private var lastSavedMs = -5000L
     private val lock = Mutex()
@@ -29,15 +34,11 @@ class SessionRecorder(private val data: AppData) {
             finished = final, interrupted = state.audio.status == PlaybackStatus.ERROR)
         session = current
         if (final || duration - lastSavedMs >= 5000) {
-            try {
-                data.ready.await()
-                data.dao.checkpoint(current, PracticeTimeline.days(current.id, current.startedAt, duration, ZoneId.of(current.zoneId)))
-                lastSavedMs = duration
-            } finally {
-                if (final) {
-                    lastClosedSessionId = diagnostics?.sessionId
-                    session = null
-                }
+            checkpoint(current, PracticeTimeline.days(current.id, current.startedAt, duration, ZoneId.of(current.zoneId)))
+            lastSavedMs = duration
+            if (final) {
+                lastClosedSessionId = diagnostics?.sessionId
+                session = null
             }
         }
         if (final) session = null

@@ -159,7 +159,7 @@ jobs:
       - name: Download fixed public upgrade baseline
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release download v0.13.0-beta.2 --repo Franek2009/OpenMetronome --pattern 'OpenMetronome-0.13.0-beta.2.apk' --dir upgrade-baseline
+        run: gh release download v0.13.0-beta.3 --repo Franek2009/OpenMetronome --pattern 'OpenMetronome-0.13.0-beta.3.apk' --dir upgrade-baseline
       - name: Enable emulator acceleration on disposable runner
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -172,7 +172,7 @@ jobs:
           arch: ${{ matrix.arch }}
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
           disable-animations: true
-          script: ANDROID_SERIAL=emulator-5554 bash scripts/verify-upgrade.sh upgrade-baseline/OpenMetronome-0.13.0-beta.2.apk upgrade-candidate/app-release-unsigned.apk
+          script: ANDROID_SERIAL=emulator-5554 bash scripts/verify-upgrade.sh upgrade-baseline/OpenMetronome-0.13.0-beta.3.apk upgrade-candidate/app-release-unsigned.apk
       - uses: actions/upload-artifact@v4
         if: always()
         with:

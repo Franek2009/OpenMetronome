@@ -1,5 +1,38 @@
 # M6 — odbiór sprzętowy
 
+## Przygotowanie RC — zgłoszenie użytkownika 2026-11-01
+
+**Manualne potwierdzenie użytkownika, bez instrumentacji:** około godzinna
+sesja ćwiczeń na kontrabasie przebiegła bez zauważonych przerw i problemów
+utrudniających ćwiczenie. Podczas sesji używano również blokady ekranu;
+czas jej trwania nie jest znany. Import własnego sampla powiódł się, a jego
+odsłuch nie wykazał zauważalnych trzasków ani nierówności. Wyciszanie i zmiany
+tempa użytkownik sprawdzał wcześniej i zgłasza je jako działające.
+
+Wersja APK użyta w tej sesji: **niepotwierdzona**. Wydanie referencyjne prac
+stabilizacyjnych to v0.13.0-beta.3; nie przypisujemy automatycznie sesji do tego
+wydania ani do przyszłego RC. Ostatnia odczytana instalacja Samsunga miała inny
+podpis i wersję 0.12.0-beta.1. Nie kasowano jej danych ani jej nie aktualizowano.
+
+To potwierdza użyteczność podczas długiej zwykłej praktyki. Nie zalicza
+instrumentacyjnego testu 30 minut, nie dowodzi godziny zablokowanego ekranu
+ani zerowych underrunów. Jitter, latencja i fizyczna precyzja wyjścia audio
+pozostają **niezmierzone**. Nie potwierdzono osobno wibracji ani całej macierzy
+BPM, akcentów, przerwań audio i obsługi powiadomienia.
+
+Zgłoszenie nie udziela zgody na kolejne automatyczne próby audio/wibracji.
+Lenovo pozostaje pominięte decyzją użytkownika na tym etapie.
+Cicha regresja kandydata: 144 JVM PASS, po 62 ciche PASS i 6 audio SKIPPED
+na API 26/35, bez FAIL i innych pominięć; Lint i trzy kompilacje PASS.
+Aktualizacja beta.3→RC na obu emulatorach PASS, na kopiach z testowym podpisem.
+To wyniki automatyczne, bez odsłuchu RC. M6 nie jest oznaczone jako ukończone.
+Kryteria stabilnego wydania i wyniki
+regresji kandydata: [raport RC](V1.0-RC1-VALIDATION.md).
+
+Poniższe sekcje zachowują **historyczny stan odbioru**. Wpisy o braku długiej
+sesji odnoszą się do tamtych przebiegów; aktualne potwierdzenie ręczne opisano
+powyżej, a automatyczne długie testy nadal nie zostały wykonane.
+
 ## Aktualizacja 0.13 — 2026-10-30
 
 0.13.0-beta.1: Samsung i Lenovo zaliczyły po 38 cichych testów; na każdym

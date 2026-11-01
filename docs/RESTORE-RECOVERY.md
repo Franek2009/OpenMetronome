@@ -57,3 +57,15 @@ potwierdzać sukces. Automatyczne odzyskiwanie dotyczy operacji rozpoczętych
 z nowym dziennikiem; beta.2 nie tworzyła tego protokołu.
 
 M6, odsłuch i długie sesje pozostają odrębnymi otwartymi kryteriami.
+
+## Zgodność RC i osobna kolejka sesji
+
+Od 1.0.0-rc.1 publiczny import/eksport odbudowuje dane pochodne ze źródłowych
+sesji, zachowując v1. RestoreJournal celowo używa wariantu bez normalizacji:
+cofnięcie operacji odtwarza dokładne poprzednie rekordy, również historyczne.
+
+Osobna prywatna kolejka SessionWriteQueue zabezpiecza zapis sesji. Jest
+opróżniana przed rezerwowanym backupem; startup próbuje ją odzyskać po
+dzienniku restore. Błąd tej kolejki zachowuje dane, umożliwia ponowienie
+i blokuje eksport niepełnej historii, bez trwałej rezerwacji odtwarzania.
+Szczegóły i ograniczenia pełnego dysku: [raport RC](V1.0-RC1-VALIDATION.md).

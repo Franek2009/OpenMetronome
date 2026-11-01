@@ -37,7 +37,7 @@ STUB
 cat > "$release_test_dir/sdk/build-tools/36.0.0/aapt" <<'STUB'
 #!/usr/bin/env bash
 if [[ "$3" == old.apk ]]; then
-    echo "package: name='org.openmetronome' versionCode='14' versionName='0.13.0-beta.2'"
+    echo "package: name='org.openmetronome' versionCode='15' versionName='0.13.0-beta.3'"
 else
     echo "package: name='org.openmetronome' versionCode='$STUB_RELEASE_CODE' versionName='$STUB_RELEASE_VERSION'"
 fi

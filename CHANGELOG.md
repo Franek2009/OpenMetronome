@@ -1,5 +1,19 @@
 # Zmiany
 
+## 1.0.0-rc.1 — kandydat roboczy, nieopublikowany
+
+- Zwolnienie rezerwacji odtwarzania także przy błędzie uruchomienia foreground.
+- Końcowy zapis sesji niezależny od zniszczenia usługi; trwała kolejka ponowień
+  z odzyskiwaniem po restarcie i zachowaniem identyfikatora sesji.
+- Eksport `.ombak` i CSV ponawia zaległe zapisy; przy błędzie nie otwiera pliku
+  docelowego i nie zgłasza sukcesu niepełnej historii.
+- Rekonstrukcja statystyk dziennych i checkpointów z sesji w starszych `.ombak`
+  v1, z limitami odbudowy. Dziennik restore zachowuje dokładne poprzednie dane.
+- Testy błędów dysku, cyklu życia foreground i zgodności historycznych kopii;
+  baza aktualizacji testowych przesunięta z beta.2 na beta.3.
+- Ręczny odbiór około godzinnej praktyki zapisany osobno od automatycznych
+  wyników i niezmierzonych parametrów audio. Brak nowych funkcji i barw.
+
 ## 0.13.0-beta.3
 
 - Trwały dziennik przywracania: automatyczne cofnięcie przerwanego importu lub
