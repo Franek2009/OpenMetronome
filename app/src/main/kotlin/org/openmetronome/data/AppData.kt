@@ -100,6 +100,33 @@ class AppData private constructor(
         "restore-journal-${UUID.randomUUID()}" else "restore-journal")
     private val restoreJournal = RestoreJournal(journalRoot, ::syncDirectory)
     val dao = database.practice()
+    internal var sessionCheckpoint: suspend (PracticeSession, List<PracticeDay>) -> Unit = { session, days ->
+        dao.checkpoint(session, days)
+        syncDatabase()
+    }
+    private val sessionWrites = SessionWriteQueue(File(contextDirectory, if (isolatedTestStorage && testDirectory == null)
+        "session-writes-${UUID.randomUUID()}" else "session-writes"), ::syncDirectory) { session, days -> sessionCheckpoint(session, days) }
+    val sessionWriteFailed = MutableStateFlow(false)
+
+    /** An accepted snapshot stays in process memory even if both journal and database are unwritable. */
+    internal suspend fun recordSession(session: PracticeSession) = withContext(NonCancellable) {
+        scope.async {
+            ready.await()
+            try { sessionWrites.record(session); sessionWriteFailed.value = false }
+            catch (_: Exception) {
+                sessionWriteFailed.value = true
+                error.value = "Nie udało się zapisać całej sesji. Zapis zostanie ponowiony; eksport pozostaje zablokowany. Nie usuwaj danych aplikacji."
+            }
+        }.await()
+    }
+
+    internal fun launchSessionWork(action: suspend CoroutineScope.() -> Unit): Job = scope.launch(Dispatchers.Main.immediate, block = action)
+
+    private suspend fun retrySessionWrites(recovering: Boolean = false) {
+        try { sessionWrites.retry(recovering); sessionWriteFailed.value = false }
+        catch (error: Exception) { sessionWriteFailed.value = true; throw error }
+    }
+
     val ready = CompletableDeferred<Unit>()
     val presets = dao.presets().catch { error.value = "Nie udało się odczytać presetów"; emit(emptyList()) }
     val sessions = dao.sessions().catch { error.value = "Nie udało się odczytać historii"; emit(emptyList()) }
@@ -116,6 +143,8 @@ class AppData private constructor(
             try {
                 samples.load()
                 recoverRestore()
+                try { retrySessionWrites(recovering = true) }
+                catch (_: Exception) { error.value = "Nie udało się odzyskać całej historii sesji. Eksport pozostaje zablokowany; zachowano dane odzyskiwania." }
                 dao.recoverInterrupted()
                 storageReady.value = true
                 ready.complete(Unit)
@@ -188,11 +217,15 @@ class AppData private constructor(
     /** Process-owned IO job survives screen changes. Only writes the document chosen by the user. */
     fun exportCsv(openOutput: () -> OutputStream) {
         synchronized(admission) {
-            if (!storageReady.value || backupWorking.value || recoveryRequired.value || !exporting.compareAndSet(false, true)) return
+            if (!storageReady.value || playbackBusy.value || backupWorking.value || recoveryRequired.value || !exporting.compareAndSet(false, true)) {
+                exportNotice.value = "Zatrzymaj metronom i poczekaj na zakończenie zapisu oraz innych operacji."
+                return
+            }
             exportNotice.value = null
             actions.trySend {
                 try {
                     ready.await()
+                    retrySessionWrites()
                     val snapshot = dao.sessionsForExport()
                     openOutput().bufferedWriter(Charsets.UTF_8).use { SessionCsv.write(snapshot, it) }
                     exportNotice.value = "Zapisano CSV. Liczba sesji: ${snapshot.size}."
@@ -221,7 +254,7 @@ class AppData private constructor(
             backupWorking.value = true
             backupNotice.value = null
             actions.trySend {
-                try { ready.await(); check(!settingsWriteFailed); action() }
+                try { ready.await(); check(!settingsWriteFailed); retrySessionWrites(); action() }
                 catch (_: BackupRecoveryException) {
                     recoveryRequired.value = true
                     backupNotice.value = BACKUP_RECOVERY_NOTICE
@@ -349,7 +382,7 @@ class AppData private constructor(
             else "Cofnięto przerwane przywracanie kopii. Zachowano poprzednie dane."
     }
 
-    private fun syncStores() {
+    private fun syncDatabase() {
         val sqlite = database.openHelper.writableDatabase
         val path = sqlite.path
         if (path != null && path != ":memory:") {
@@ -360,6 +393,10 @@ class AppData private constructor(
             for (file in listOf(dbFile, File(path + "-wal"))) syncFile(file)
             syncDirectory(dbFile.parentFile!!)
         }
+    }
+
+    private fun syncStores() {
+        syncDatabase()
         syncFile(settingsFile)
         if (settingsFile.parentFile!!.exists()) syncDirectory(settingsFile.parentFile!!)
         sampleDirectory.listFiles()?.filter { it.isFile }?.forEach(::syncFile)

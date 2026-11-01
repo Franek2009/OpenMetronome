@@ -26,10 +26,14 @@ object BackupArchive {
     private const val MAX_ITEMS = 100_000
 
     fun write(snapshot: BackupSnapshot, output: OutputStream) {
+        writeStored(normalize(snapshot), output)
+    }
+
+    internal fun writeStored(snapshot: BackupSnapshot, output: OutputStream) {
         val encoded = ByteArrayOutputStream()
         encode(snapshot, encoded)
         val bytes = encoded.toByteArray()
-        read(ByteArrayInputStream(bytes)) // Export must satisfy exactly the same limits as import.
+        readStored(ByteArrayInputStream(bytes)) // Export must satisfy exactly the same limits as import.
         output.write(bytes)
     }
 
@@ -74,7 +78,10 @@ object BackupArchive {
         }
     }
 
-    fun read(input: InputStream): BackupSnapshot {
+    fun read(input: InputStream): BackupSnapshot = normalize(readStored(input))
+
+    // Recovery journals must replay the exact previous rows, including historical derivatives.
+    internal fun readStored(input: InputStream): BackupSnapshot {
         // ZipInputStream alone accepts a missing central directory. Require the complete
         // envelope produced by v1, and bound compressed data as well as inflated entries.
         val raw = ByteArrayOutputStream()
@@ -170,6 +177,25 @@ object BackupArchive {
         require(configs.all { it.sound.customSampleId == null || it.sound.customSampleId in sampleIds })
         require(entries.isEmpty())
         return BackupSnapshot(settings, presets, sessions, days, samples, files)
+    }
+
+    private fun normalize(snapshot: BackupSnapshot): BackupSnapshot {
+        val ids = snapshot.sessions.mapTo(hashSetOf()) { it.id }
+        require(snapshot.sessions.all { it.durationMs >= 0 && it.checkpointAt >= it.startedAt })
+        require(snapshot.days.all { it.sessionId in ids && it.durationMs >= 0 })
+        require(snapshot.days.map { it.sessionId to it.date }.distinct().size == snapshot.days.size)
+        snapshot.days.forEach { LocalDate.parse(it.date) }
+        var remaining = MAX_ITEMS
+        val days = mutableListOf<PracticeDay>()
+        val sessions = snapshot.sessions.map { session ->
+            val end = Math.addExact(session.startedAt, session.durationMs)
+            val rebuilt = PracticeTimeline.days(session.id, session.startedAt, session.durationMs,
+                ZoneId.of(session.zoneId), remaining)
+            remaining -= rebuilt.size
+            days.addAll(rebuilt)
+            session.copy(checkpointAt = end)
+        }
+        return snapshot.copy(sessions = sessions, days = days)
     }
 
     private fun DataOutputStream.writeString(value: String) {

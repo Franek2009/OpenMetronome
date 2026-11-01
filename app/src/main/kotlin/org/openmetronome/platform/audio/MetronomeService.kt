@@ -14,18 +14,31 @@ import org.openmetronome.data.SessionRecorder
 import kotlinx.coroutines.flow.*
 import org.openmetronome.audio.*
 
-class MetronomeService : Service() {
+open class MetronomeService : Service() {
     inner class LocalBinder : Binder() {
         val controller get() = this@MetronomeService.controller
         fun stopPlayback() = this@MetronomeService.stopPlayback()
         fun startPlayback(): Boolean {
             val data = (application as OpenMetronomeApplication).data
             if (!data.reservePlayback()) return false
+            reserved = true
             try {
                 val token = requests.request()
-                startForegroundService(Intent(this@MetronomeService, MetronomeService::class.java).setAction(START).putExtra("request", token))
+                // Promote the already-bound service before requesting a started lifetime.
+                // A failed promotion must not arm Android's foreground-service timeout.
+                waitingForStart = true
+                promoteToForeground()
+                foreground = true
+                startForegroundService(Intent(this@MetronomeService, this@MetronomeService.javaClass).setAction(START).putExtra("request", token))
                 return true
-            } catch (error: RuntimeException) { data.playbackFinished(); throw error }
+            } catch (error: RuntimeException) {
+                Log.e("OpenMetronomeAudio", "foreground start failed", error)
+                requests.cancel()
+                controller.stop()
+                controller.reportFailure(AudioFailure.INITIALIZATION)
+                endForeground()
+                return false
+            }
         }
     }
     private lateinit var controller: MetronomeController
@@ -33,6 +46,8 @@ class MetronomeService : Service() {
     private lateinit var wake: PowerManager.WakeLock
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var foreground = false
+    private var reserved = false
+    private var destroyed = false
     private var waitingForStart = false
     private var lastPulseFrame = -1L
     private val settingsReady = CompletableDeferred<Unit>()
@@ -106,17 +121,13 @@ class MetronomeService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == STOP) { stopPlayback(); return START_NOT_STICKY }
         if (intent?.action != START) { stopSelf(); return START_NOT_STICKY }
+        if (!requests.accepts(intent.getLongExtra("request", -1))) return START_NOT_STICKY
         try {
-            if (foreground && (waitingForStart || controller.state.value.keepsScreenOn)) return START_NOT_STICKY
+            if (foreground && controller.state.value.keepsScreenOn) return START_NOT_STICKY
             lastPulseFrame = -1L
             notificationTempo = null
-            if (Build.VERSION.SDK_INT >= 29) startForeground(ID, notification(controller.state.value), ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
-            else startForeground(ID, notification(controller.state.value))
+            if (!foreground) promoteToForeground()
             foreground = true
-            if (!requests.accepts(intent.getLongExtra("request", -1))) {
-                endForeground()
-                return START_NOT_STICKY
-            }
             waitingForStart = true
             holdCpu()
             if (controller.state.value.keepsScreenOn) waitingForStart = false
@@ -150,21 +161,30 @@ class MetronomeService : Service() {
             .addAction(Notification.Action.Builder(null, "Stop", stop).build())
             .setStyle(Notification.MediaStyle().setMediaSession(media.sessionToken).setShowActionsInCompactView(0)).build()
     }
+    /** Small platform boundary also exercised by a debug-only failing service. */
+    protected open fun promoteToForeground() {
+        if (Build.VERSION.SDK_INT >= 29) startForeground(ID, notification(controller.state.value), ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+        else startForeground(ID, notification(controller.state.value))
+    }
+
     private fun endForeground() {
-        if (!foreground) return
+        if ((!foreground && !reserved) || finishing?.isActive == true) return
         foreground = false
         waitingForStart = false
-        if (wake.isHeld) wake.release()
         val state = controller.state.value
-        finishing = scope.launch {
+        val data = (application as OpenMetronomeApplication).data
+        // This finite job belongs to the application, so onDestroy cannot cancel the checkpoint.
+        finishing = data.launchSessionWork {
             try { withContext(Dispatchers.IO) { recorder.accept(state) } }
-            catch (_: Exception) { (application as OpenMetronomeApplication).data.error.value = "Nie udało się zapisać końca sesji" }
-            if (!foreground) {
-                if (wake.isHeld) wake.release()
-                (application as OpenMetronomeApplication).data.playbackFinished()
-                media.isActive = false
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf()
+            catch (_: Exception) { data.error.value = "Nie udało się zapisać końca sesji" }
+            finally {
+                if (reserved) { reserved = false; data.playbackFinished() }
+                if (!destroyed) {
+                    if (wake.isHeld) wake.release()
+                    media.isActive = false
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf()
+                }
             }
         }
     }
@@ -183,11 +203,15 @@ class MetronomeService : Service() {
     }
     override fun onDestroy() {
         if (controller.configurationRevision > 0) (application as OpenMetronomeApplication).data.saveSettings(controller.state.value.config)
+        destroyed = true
+        requests.cancel()
+        playRequest?.cancel()
+        controller.stop()
+        endForeground()
         controller.close()
         scope.cancel()
         if (wake.isHeld) wake.release()
         media.release()
-        (application as OpenMetronomeApplication).data.playbackFinished()
         super.onDestroy()
     }
     companion object {

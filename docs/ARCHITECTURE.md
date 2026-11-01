@@ -1,5 +1,26 @@
 # Architektura OpenMetronome — M2–M5
 
+## Stabilizacja 1.0.0-rc.1
+
+Usługa promuje się do foreground z istniejącego bindingu przed żądaniem
+started lifetime, aby błąd promocji nie zostawiał systemowego timeoutu.
+Rezerwacja odtwarzania jest niezależna od flagi foreground. Końcowy zapis
+należy do procesowego AppData, więc zniszczenie Service go nie anuluje.
+
+SessionWriteQueue przechowuje checkpointy w prywatnych plikach `.ombak`:
+atomowy zapis i fsync poprzedzają transakcję Room, a synchronizacja bazy
+poprzedza usunięcie pliku. Błąd zachowuje kolejkę w pamięci i, jeśli udało
+się ją utrwalić, na dysku. Rezerwacja jest zwalniana także po błędzie;
+oba eksporty i import backupu najpierw ponawiają zaległe zapisy. Startup
+odtwarza dziennik restore, następnie kolejkę sesji, a potem oznacza pozostałe
+niedokończone rekordy jako przerwane. Nieczytelny dziennik sesji blokuje
+rzetelny eksport, ale nie rezerwuje na stałe Start.
+
+Publiczny BackupArchive odtwarza dni i checkpointAt z sesji, z limitem
+liczby dni oraz kontrolą przepełnienia. Prywatne dzienniki używają wariantu
+bez normalizacji, aby przywracać dokładne poprzednie rekordy.
+[Wyniki i granice](V1.0-RC1-VALIDATION.md).
+
 ## Trwałe odzyskiwanie od 0.13.0-beta.3
 
 RestoreJournal zapisuje niezmienne archiwa before/after i znaczniki ready/committed.
@@ -96,9 +117,12 @@ oczekującej zmiany nadal odróżnia ustawienie od zastosowania w rendererze.
 `PracticeDao.sessionsForExport()` zwraca wszystkie sesje w jednym odczycie
 SQL, niezależnie od limitu 100 na ekranie. `SessionCsv` jest czystym formatterem
 piszącym do Writer. `AppData.exportCsv` działa w procesowym scope IO, bez
-zależności od Activity i bez zatrzymywania sesji. Systemowy CreateDocument
+zależności od Activity. Od RC wymaga ręcznego Stop i ponowienia zaległych
+zapisów przed pobraniem migawki; nie zatrzymuje odtwarzania automatycznie.
+Systemowy CreateDocument
 udostępnia wyłącznie plik wskazany przez użytkownika. Anulowanie nie uruchamia
-eksportu, błąd nie modyfikuje bazy. Stan eksportu przeżywa obrót/zmianę ekranu,
+eksportu. Ponowienie zaległych checkpointów może uzupełnić bazę przed eksportem;
+błąd samego dokumentu nie zmienia historii. Stan eksportu przeżywa obrót/zmianę ekranu,
 ale nie ubijanie procesu. Eksport nie jest kopią zapasową do importu.
 
 ## Warstwy i własność sesji

@@ -28,7 +28,8 @@ class BackupArchiveTest {
         assertEquals(91, ConfigCodec.decode(restored.settings).tempo.bpm)
         assertEquals("Ćwiczenie", restored.presets.single().name)
         assertEquals(5L, restored.sessions.single().durationMs)
-        assertEquals("2026-10-30", restored.days.single().date)
+        assertEquals("1970-01-01", restored.days.single().date)
+        assertEquals(8L, restored.sessions.single().checkpointAt)
         assertArrayEquals(wav, restored.sampleFiles.getValue(sampleId))
     }
 
@@ -56,6 +57,26 @@ class BackupArchiveTest {
         assertEquals(1000L, restored.sessions.single().durationMs)
         assertEquals(restored.samples.single().id, ConfigCodec.decode(restored.settings).sound.customSampleId)
         SamplePcm.decodeCanonical(restored.sampleFiles.values.single())
+    }
+
+    @Test fun `historical inconsistent derivatives are rebuilt without losing session data`() {
+        val legacy = snapshot().copy(days = listOf(PracticeDay("session", "2026-10-30", 999)))
+        val bytes = ByteArrayOutputStream().also { BackupArchive.writeStored(legacy, it) }.toByteArray()
+        val restored = BackupArchive.read(ByteArrayInputStream(bytes))
+        assertEquals(legacy.sessions.single().copy(checkpointAt = 8), restored.sessions.single())
+        assertEquals(listOf(PracticeDay("session", "1970-01-01", 5)), restored.days)
+        assertEquals(legacy, BackupArchive.readStored(ByteArrayInputStream(bytes)).let { it.copy(sampleFiles = legacy.sampleFiles) })
+    }
+
+    @Test fun `timeline overflow and unbounded reconstruction are rejected before output`() {
+        for (session in listOf(
+            snapshot().sessions.single().copy(startedAt = Long.MAX_VALUE - 1, checkpointAt = Long.MAX_VALUE, durationMs = 5),
+            snapshot().sessions.single().copy(durationMs = 100_001L * 86_400_000),
+        )) {
+            val out = ByteArrayOutputStream()
+            assertThrows(Exception::class.java) { BackupArchive.write(snapshot().copy(sessions = listOf(session)), out) }
+            assertEquals(0, out.size())
+        }
     }
 
     @Test fun `empty backup round trips without samples`() {

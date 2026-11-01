@@ -1,10 +1,10 @@
-name: Prepare signed beta release
+name: Prepare signed prerelease
 
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing version tag on main (e.g. v0.9.0-beta.1)
+        description: Existing version tag on main (e.g. v1.0.0-rc.1)
         required: true
         type: string
 

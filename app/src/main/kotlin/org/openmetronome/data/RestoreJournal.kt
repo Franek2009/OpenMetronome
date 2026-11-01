@@ -25,8 +25,8 @@ internal class RestoreJournal(
         syncDirectory(requireNotNull(root.parentFile))
         check(active.mkdir())
         syncDirectory(root)
-        writeAtomic(File(active, "before.ombak")) { BackupArchive.write(before, it) }
-        writeAtomic(File(active, "after.ombak")) { BackupArchive.write(after, it) }
+        writeAtomic(File(active, "before.ombak")) { BackupArchive.writeStored(before, it) }
+        writeAtomic(File(active, "after.ombak")) { BackupArchive.writeStored(after, it) }
         // No store may be modified until this marker and both archives are durable.
         writeAtomic(File(active, "ready")) { it.write(magic.toByteArray(Charsets.UTF_8)) }
     }
@@ -44,7 +44,7 @@ internal class RestoreJournal(
         if (commit.exists()) checkMarker(commit)
         val archive = File(active, if (commit.exists()) "after.ombak" else "before.ombak")
         check(archive.isFile && !Files.isSymbolicLink(archive.toPath()))
-        return Pending(archive.inputStream().use(BackupArchive::read), commit.exists())
+        return Pending(archive.inputStream().use(BackupArchive::readStored), commit.exists())
     }
 
     fun markCommitted() {

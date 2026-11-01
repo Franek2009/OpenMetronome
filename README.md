@@ -35,6 +35,16 @@ Nie trzeba jej odinstalowywać. Oficjalne wydania mają stały podpis cyfrowy.
 **Wcześniejsze APK debug mają inny podpis:** jeśli aktualizacja jest odrzucana,
 nie usuwaj aplikacji, jeśli zależy Ci na jej danych — [szczegóły](docs/RELEASING.md).
 
+## Przygotowanie 1.0
+
+Trwa stabilizacja **1.0.0-rc.1**; kandydat nie jest jeszcze opublikowany.
+Publiczne pobieranie powyżej nadal prowadzi do beta.3. Zakres obejmuje
+niezawodność zapisu sesji i backupów, bez dodawania funkcji.
+Użytkownik potwierdził około godzinną praktykę bez zauważonych problemów,
+również z blokadą ekranu przez nieustalony czas, oraz poprawny własny sample.
+Wersja użytego APK nie jest potwierdzona. Fizyczny jitter i underruny nie były
+mierzone w tej sesji. [Odbiór i kryteria 1.0](docs/V1.0-RC1-VALIDATION.md).
+
 ## Co potrafi?
 
 - Tempo 20–300 BPM: przyciski, suwak, wpisywanie wartości i tap tempo.
@@ -66,9 +76,9 @@ Ustawienia, presety i historia pozostają na urządzeniu. Nie ma analityki,
 reklam ani komunikacji z naszym serwerem. Eksport uruchamiasz samodzielnie.
 [Informacja o prywatności](PRIVACY.md).
 
-Podstawowy dźwięk został sprawdzony przez użytkownika. Długie sesje i precyzja
-rzeczywistego wyjścia audio nie mają jeszcze pełnego odbioru sprzętowego;
-nie deklarujemy zakończenia stabilizacji. [Wyniki testów](docs/V0.13-BETA2-VALIDATION.md).
+Użytkownik potwierdził podstawowy dźwięk i około godzinną zwykłą praktykę.
+Pełny odbiór sprzętowy oraz pomiary rzeczywistego wyjścia audio pozostają otwarte;
+nie deklarujemy zakończenia stabilizacji. [Wyniki stabilizacji](docs/V1.0-RC1-VALIDATION.md).
 
 Znalazłeś problem? [Zgłoś go na GitHubie](https://github.com/Franek2009/OpenMetronome/issues),
 podając wersję aplikacji, model urządzenia, wersję Androida i kroki odtworzenia.

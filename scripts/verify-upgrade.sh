@@ -16,9 +16,9 @@ upgrade_adb=(adb -s "$upgrade_serial")
 }
 upgrade_old_badging="$($upgrade_tools/aapt dump badging "$upgrade_old")"
 upgrade_new_badging="$($upgrade_tools/aapt dump badging "$upgrade_new")"
-grep -q "^package: name='org.openmetronome' versionCode='14' versionName='0.13.0-beta.2'" <<< "$upgrade_old_badging"
+grep -q "^package: name='org.openmetronome' versionCode='15' versionName='0.13.0-beta.3'" <<< "$upgrade_old_badging"
 grep -q "^package: name='org.openmetronome' versionCode='$release_code' versionName='$release_version'" <<< "$upgrade_new_badging"
-[[ "$release_code" -gt 14 ]]
+[[ "$release_code" -gt 15 ]]
 if grep -q 'application-debuggable' <<< "$upgrade_old_badging" ||
     grep -q 'application-debuggable' <<< "$upgrade_new_badging"; then
     echo 'Upgrade validation requires non-debuggable release APKs.' >&2; exit 1

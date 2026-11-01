@@ -34,13 +34,23 @@ na 64-znakowy odcisk SHA-256 certyfikatu, bez dwukropków, małymi literami.
 Nie myl go z SHA-256 pliku APK; certyfikat pozostaje ten sam między wydaniami.
 Klucz jest używany tylko w zadaniu podpisującym, nie w CI pull requestów.
 
+## Kandydat 1.0.0-rc.1
+
+Gałąź robocza: versionCode 16, versionName 1.0.0-rc.1. To propozycja bez tagu,
+scalenia i opublikowanego APK. [Raport i bramki](V1.0-RC1-VALIDATION.md).
+Oficjalny certyfikat SHA-256 pozostaje:
+`563cd960efc3fc5b483ceae4b96e66728af9e2bb0c52d6162fe37cded72ac4a2`.
+Nie tworzyć nowego klucza. Weryfikacja unsigned release nie jest dowodem
+podpisania kandydata; podpis i aktualizację oficjalny→oficjalny należy sprawdzić
+na konkretnym artefakcie po osobnej zgodzie na proces wydawniczy.
+
 ## Proces
 
 1. Uaktualnij versionName/versionCode w Gradle, changelog i opis w `docs/releases/`.
 2. Zatwierdź zmiany na main. CI musi zaliczyć JVM, parsery, Lint debug/release
    oraz kompilację debug/test/release. Release w zwykłym CI jest niepodpisany.
 3. Utwórz i wyślij tag `v` + versionName wskazujący aktualny commit main.
-4. Ręcznie uruchom **Prepare signed beta release** z gałęzi main i tym tagiem.
+4. Ręcznie uruchom **Prepare signed prerelease** z gałęzi main i tym tagiem.
    Kod jest przypięty do zweryfikowanego SHA. Proces nie przyjmuje obcego refa
    do zadania z sekretami; sprawdza zgodność tagu z wersją i HEAD main.
 5. Workflow ponownie sprawdza projekt, podpisuje APK, odrzuca debug/obcy
