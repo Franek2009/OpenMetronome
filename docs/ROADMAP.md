@@ -22,7 +22,9 @@ RC2 obejmuje nowe logo, bez dodatkowych brzmień i zmian funkcjonalnych.
 prac. Brak oryginalnych WAV-ów nie blokuje RC2 ani stabilnego 1.0.0.
 Nie zmieniamy identyfikatorów brzmień, Room, pakietu ani klucza.
 
-Blokery RC2: PR metadanych wersji i pełna regresja, następnie osobno
+Osobny PR wydawniczy przygotowuje 1.0.0-rc.2 / versionCode 17 bez zmian
+funkcjonalnych; [raport](V1.0-RC2-VALIDATION.md).
+Blokery RC2: akceptacja tego PR i pełna regresja, następnie osobno
 zatwierdzony proces podpisania i weryfikacja oficjalnego artefaktu.
 Stabilne 1.0 wymaga dodatkowo
 praktycznego odbioru znanego RC i osobnej zgody na wydanie.

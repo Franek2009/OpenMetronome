@@ -1,10 +1,12 @@
 # Zmiany
 
-## W przygotowaniu do 1.0.0-rc.2 — bez tagu i wydania
+## 1.0.0-rc.2 — kandydat nieopublikowany
 
 - Nowa ikona użytkownika: adaptive, monochrome Androida 13+ i klasyczne PNG.
   PR #5 scalony; wygląd zaakceptowany, CI na main 5/5 PASS.
 - Uporządkowane kryteria RC2 i stabilnego 1.0 oraz dokumentacja odbioru.
+- Metadane kandydata: versionCode 17, versionName 1.0.0-rc.2; zachowany pakiet
+  i konfiguracja podpisu, bez zmian funkcjonalnych.
 - Bez nowych brzmień ani zmian funkcjonalnych. „Drewniany” odłożony do 1.0.1;
   zachowany audyt nie jest blokerem RC2/1.0.0.
 

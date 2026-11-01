@@ -44,9 +44,10 @@ RC1 jest opublikowany: versionCode 16, versionName 1.0.0-rc.1.
 [Raport stabilizacji i oficjalnego artefaktu](V1.0-RC1-VALIDATION.md).
 Oficjalny certyfikat SHA-256 pozostaje:
 `563cd960efc3fc5b483ceae4b96e66728af9e2bb0c52d6162fe37cded72ac4a2`.
-Nie tworzyć nowego klucza. Aktualny main zawiera nową ikonę, ale nie podniesiono
-wersji i nie zmieniono wydania RC1. Propozycje przyszłych kodów: RC2=17,
-stable=18, pod warunkiem sprawdzenia ich dostępności i osobnego zatwierdzenia.
+Nie tworzyć nowego klucza. Main zawiera nową ikonę, ale nie zmieniono
+wydania RC1. Osobny PR wydawniczy przygotowuje RC2=17 / 1.0.0-rc.2,
+bez oficjalnego podpisanego APK i tagu. Stable=18 pozostaje propozycją,
+pod warunkiem sprawdzenia dostępności i osobnego zatwierdzenia.
 
 Unsigned CI i próba aktualizacji kopii z podpisem testowym nie są dowodem
 zgodności podpisu produkcyjnego. Po utworzeniu oficjalnego draftu wykonać
