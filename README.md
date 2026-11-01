@@ -6,44 +6,42 @@ Bez reklam, subskrypcji, kont i Google Play Services.
 
 ## Pobierz i zacznij ćwiczyć
 
-[Pobierz APK — 0.13.0-beta.3](https://github.com/Franek2009/OpenMetronome/releases/download/v0.13.0-beta.3/OpenMetronome-0.13.0-beta.3.apk)
+[Pobierz APK — 1.0.0-rc.1](https://github.com/Franek2009/OpenMetronome/releases/download/v1.0.0-rc.1/OpenMetronome-1.0.0-rc.1.apk)
 
-[Opis wydania i sumy kontrolne](https://github.com/Franek2009/OpenMetronome/releases/tag/v0.13.0-beta.3)
+[Opis wydania](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.0.0-rc.1)
+· [Sumy SHA-256](https://github.com/Franek2009/OpenMetronome/releases/download/v1.0.0-rc.1/SHA256SUMS)
+· [Certyfikat podpisu](https://github.com/Franek2009/OpenMetronome/releases/download/v1.0.0-rc.1/SIGNING-CERT-SHA256.txt)
 
-Wersja **0.13.0-beta.3** jest wydaniem testowym, nie ukończoną wersją 1.0.
-Wymagany Android **8.0 lub nowszy**. Telefon i tablet są obsługiwane w pionie
-i poziomie.
+**1.0.0-rc.1 jest opublikowanym Release Candidate (Prerelease).**
+To kandydat do pierwszego stabilnego wydania; **stabilne 1.0.0 nie zostało
+jeszcze wydane**.
 
-**0.13.0-beta.3** odzyskuje dane po przerwaniu przywracania kopii `.ombak`:
-przed odblokowaniem Start i edycji odtwarza cały poprzedni albo zatwierdzony
-nowy zestaw. Poprawia też kończenie edycji na Androidzie 8.
-Kopia obejmuje ustawienia, presety, historię oraz własne sample. Dostępne są też
-wykresy statystyk i serie dni ćwiczeń; CSV pozostaje raportem do analizy.
-[Obsługa statystyk i kopii](docs/USAGE.md).
+Wymagany Android **8.0 lub nowszy**. Aplikacja obsługuje telefony i tablety
+w pionie i poziomie. Interfejs jest po polsku.
 
-Nadal dostępne są wybrane brzmienia i import WAV/MP3/OGG z wersji 0.12.
-Po aktualizacji z 0.8 zacznij od niższej głośności — poziom PCM jest wyższy.
-[Brzmienia i import sampli](docs/CUSTOM-SAMPLES.md).
-
-1. Otwórz stronę wydań na urządzeniu i pobierz plik `.apk` z sekcji Assets.
+1. Pobierz APK z linku powyżej lub z sekcji Assets na stronie wydania.
 2. Otwórz plik. Jeżeli Android poprosi, zezwól użytej przeglądarce lub menedżerowi
    plików na instalowanie aplikacji z tego źródła.
 3. Zainstaluj aplikację, ustaw tempo i naciśnij **Start**.
 
-Aktualizacje pobierasz z tej samej strony i instalujesz na istniejącą aplikację.
-Nie trzeba jej odinstalowywać. Oficjalne wydania mają stały podpis cyfrowy.
-**Wcześniejsze APK debug mają inny podpis:** jeśli aktualizacja jest odrzucana,
-nie usuwaj aplikacji, jeśli zależy Ci na jej danych — [szczegóły](docs/RELEASING.md).
+Oficjalne APK z GitHuba mają stały podpis cyfrowy. Aktualizację instalujesz
+na istniejącą aplikację, bez odinstalowywania, pod warunkiem zgodności podpisów.
+**Wcześniejsze APK debug mogą mieć inny podpis.** Jeśli Android odrzuca
+aktualizację, nie odinstalowuj aplikacji ani nie czyść jej danych, aby obejść
+niezgodność — [szczegóły podpisywania i aktualizacji](docs/RELEASING.md).
 
-## Przygotowanie 1.0
+## Co zmienia RC?
 
-Trwa stabilizacja **1.0.0-rc.1**; kandydat nie jest jeszcze opublikowany.
-Publiczne pobieranie powyżej nadal prowadzi do beta.3. Zakres obejmuje
-niezawodność zapisu sesji i backupów, bez dodawania funkcji.
-Użytkownik potwierdził około godzinną praktykę bez zauważonych problemów,
-również z blokadą ekranu przez nieustalony czas, oraz poprawny własny sample.
-Wersja użytego APK nie jest potwierdzona. Fizyczny jitter i underruny nie były
-mierzone w tej sesji. [Odbiór i kryteria 1.0](docs/V1.0-RC1-VALIDATION.md).
+Wersja 1.0.0-rc.1 skupia się na stabilności i zachowaniu danych:
+
+- Niezawodniejsze kończenie sesji i obsługa błędów uruchamiania odtwarzania.
+- Ponawianie nieudanych zapisów i odzyskiwanie utrwalonych zapisów sesji
+  po restarcie aplikacji.
+- Zachowanie zgodności kopii `.ombak` v1 oraz odbudowa niespójnych statystyk
+  dziennych na podstawie sesji.
+
+RC zachowuje dotychczasowe funkcje metronomu i treningu.
+[Pełny opis zmian i wyniki weryfikacji wydania](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.0.0-rc.1).
 
 ## Co potrafi?
 
@@ -51,15 +49,18 @@ mierzone w tej sesji. [Odbiór i kryteria 1.0](docs/V1.0-RC1-VALIDATION.md).
 - Metrum 2/4, 3/4, 4/4 i 6/8, akcenty oraz podziały rytmiczne.
 - Trening pulsu: losowa cisza, całe ciche takty i stopniowo rosnąca trudność.
 - Automatyczne zwiększanie i zmniejszanie tempa.
-- Sześć wybranych brzmień kliku oraz import własnych sampli,
+- Sześć wybranych brzmień kliku oraz import własnych sampli WAV/MP3/OGG,
   regulacja głośności, wizualny puls i opcjonalne wibracje.
 - Odtwarzanie w tle oraz zatrzymywanie z powiadomienia.
-- Presety, lokalna historia ćwiczeń, serie i wykresy statystyk, eksport do CSV oraz
-  pełna kopia zapasowa ustawień, historii i własnych sampli.
+- Presety, lokalna historia ćwiczeń, serie i wykresy statystyk.
+- Eksport historii do CSV oraz pełna kopia ustawień, presetów, historii
+  i własnych sampli w formacie `.ombak`.
 
 W 6/8 BPM oznacza **ósemki — sześć głównych pulsów na takt**.
-CSV to eksport historii do analizy; do przywracania danych służy kopia `.ombak`.
-[Więcej o ustawieniach i treningu](docs/USAGE.md).
+CSV służy do analizy historii; do przywracania danych służy kopia `.ombak`.
+
+- [Ustawienia, trening, statystyki i kopie zapasowe](docs/USAGE.md)
+- [Brzmienia i import własnych sampli](docs/CUSTOM-SAMPLES.md)
 
 ## Jak wygląda?
 
@@ -67,22 +68,28 @@ CSV to eksport historii do analizy; do przywracania danych służy kopia `.ombak
 | --- | --- |
 | ![Ekran metronomu na telefonie](docs/images/phone.png) | ![Ekran metronomu na tablecie](docs/images/tablet.png) |
 
-Ciemny interfejs dopasowuje się do wielkości ekranu. Grafiki interfejsu są
-własne; inspiracją układu były zrzuty Metronome Beats, nie kopiujemy ich do APK.
+Ciemny interfejs dopasowuje się do ekranu telefonu i tabletu.
 
-## Prywatność i status projektu
+## Status RC i zgłaszanie błędów
 
-Ustawienia, presety i historia pozostają na urządzeniu. Nie ma analityki,
-reklam ani komunikacji z naszym serwerem. Eksport uruchamiasz samodzielnie.
-[Informacja o prywatności](PRIVACY.md).
+**Końcowy odbiór M6 i fizyczne testy audio nie są jeszcze w pełni zakończone.**
+Testy automatyczne i dotychczasowe odsłuchy nie zastępują pełnego praktycznego
+odbioru tego RC. Fizyczna precyzja wyjścia audio, w tym jitter, pozostaje
+niezmierzona. Opublikowanie Prerelease nie oznacza ukończenia M6 ani wydania
+stabilnego 1.0.0.
 
-Użytkownik potwierdził podstawowy dźwięk i około godzinną zwykłą praktykę.
-Pełny odbiór sprzętowy oraz pomiary rzeczywistego wyjścia audio pozostają otwarte;
-nie deklarujemy zakończenia stabilizacji. [Wyniki stabilizacji](docs/V1.0-RC1-VALIDATION.md).
+[Checklista odbioru M6](docs/M6-ACCEPTANCE.md)
+· [Raport stabilizacji kodu i kryteria 1.0](docs/V1.0-RC1-VALIDATION.md)
 
 Znalazłeś problem? [Zgłoś go na GitHubie](https://github.com/Franek2009/OpenMetronome/issues),
 podając wersję aplikacji, model urządzenia, wersję Androida i kroki odtworzenia.
 Nie przesyłaj kluczy podpisu ani prywatnych danych.
+
+## Prywatność
+
+Ustawienia, presety, historia i własne sample pozostają na urządzeniu.
+Nie ma analityki, reklam ani komunikacji z naszym serwerem. Eksport uruchamiasz
+samodzielnie. [Informacja o prywatności](PRIVACY.md).
 
 ## Kod i współpraca
 
@@ -93,5 +100,5 @@ Można budować z terminala na Linuxie, bez Android Studio.
 - [Architektura](docs/ARCHITECTURE.md) i [roadmapa](docs/ROADMAP.md)
 - [Zmiany w wersjach](CHANGELOG.md) i [przygotowanie wydania](docs/RELEASING.md)
 
-Pierwszym kanałem dystrybucji jest GitHub. Google Play i F-Droid nie są
-jeszcze kanałami publikacji projektu.
+Aplikacja jest dystrybuowana przez GitHub Releases. Google Play i F-Droid
+nie są obecnie kanałami publikacji projektu.
