@@ -6,21 +6,15 @@ Bez reklam, subskrypcji, kont i Google Play Services.
 
 ## Pobierz i zacznij ćwiczyć
 
-[Pobierz APK — 1.0.0-rc.2](https://github.com/Franek2009/OpenMetronome/releases/download/v1.0.0-rc.2/OpenMetronome-1.0.0-rc.2.apk)
+[Pobierz APK — 1.0.0](https://github.com/Franek2009/OpenMetronome/releases/download/v1.0.0/OpenMetronome-1.0.0.apk)
 
-[Opis wydania](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.0.0-rc.2)
-· [Sumy SHA-256](https://github.com/Franek2009/OpenMetronome/releases/download/v1.0.0-rc.2/SHA256SUMS)
-· [Certyfikat podpisu](https://github.com/Franek2009/OpenMetronome/releases/download/v1.0.0-rc.2/SIGNING-CERT-SHA256.txt)
+[Opis wydania](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.0.0)
+· [Sumy SHA-256](https://github.com/Franek2009/OpenMetronome/releases/download/v1.0.0/SHA256SUMS)
+· [Certyfikat podpisu](https://github.com/Franek2009/OpenMetronome/releases/download/v1.0.0/SIGNING-CERT-SHA256.txt)
 
-**1.0.0-rc.2 jest opublikowanym Release Candidate (Prerelease).**
-To kandydat do pierwszego stabilnego wydania; **stabilne 1.0.0 nie zostało
-jeszcze wydane**.
-
-Trwa przygotowanie PR stabilnego `1.0.0` (code 18), bez nowych funkcji
-względem RC2. Nie utworzono tagu ani oficjalnego APK 1.0.0. Pobieranie
-powyżej nadal prowadzi do opublikowanego RC2.
-
-[Raport przygotowania RC2](docs/V1.0-RC2-VALIDATION.md).
+**1.0.0 jest pierwszym opublikowanym wydaniem stabilnym.**
+Zachowuje funkcjonalność RC2, dotychczasowy podpis i zgodność danych.
+„Drewniany” oraz nowe funkcje pozostają poza 1.0.0, w planach na 1.0.1.
 
 Wymagany Android **8.0 lub nowszy**. Aplikacja obsługuje telefony i tablety
 w pionie i poziomie. Interfejs jest po polsku.
@@ -36,11 +30,11 @@ na istniejącą aplikację, bez odinstalowywania, pod warunkiem zgodności podpi
 aktualizację, nie odinstalowuj aplikacji ani nie czyść jej danych, aby obejść
 niezgodność — [szczegóły podpisywania i aktualizacji](docs/RELEASING.md).
 
-## Co zmienia RC?
+## Wydanie 1.0.0
 
-RC2 wprowadza zaakceptowane nowe logo: ikonę adaptacyjną, monochromatyczną
-Androida 13+ oraz klasyczne PNG. Nie dodaje funkcji ani brzmień; sześć
-dotychczasowych barw pozostaje bez zmian. „Drewniany” jest planowany na 1.0.1.
+Wersja 1.0.0 opiera się na zaakceptowanym RC2: to samo oficjalne logo
+z ikoną adaptacyjną, monochromatyczną Androida 13+ i klasycznymi PNG.
+Sześć dotychczasowych brzmień i funkcje metronomu pozostają bez zmian.
 
 Zachowuje poprawki stabilności i ochrony danych z RC1:
 
@@ -50,8 +44,8 @@ Zachowuje poprawki stabilności i ochrony danych z RC1:
 - Zachowanie zgodności kopii `.ombak` v1 oraz odbudowa niespójnych statystyk
   dziennych na podstawie sesji.
 
-RC zachowuje dotychczasowe funkcje metronomu i treningu.
-[Pełny opis zmian i wyniki weryfikacji wydania](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.0.0-rc.2).
+1.0.0 zachowuje dotychczasowe funkcje metronomu i treningu.
+[Pełny opis zmian i wyniki weryfikacji wydania](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.0.0).
 
 ## Co potrafi?
 
@@ -80,25 +74,26 @@ CSV służy do analizy historii; do przywracania danych służy kopia `.ombak`.
 
 Ciemny interfejs dopasowuje się do ekranu telefonu i tabletu.
 
-## Status RC i zgłaszanie błędów
+## Weryfikacja, ograniczenia i zgłaszanie błędów
 
-**Końcowy odbiór M6 i fizyczne testy audio nie są jeszcze w pełni zakończone.**
-Testy automatyczne i dotychczasowe odsłuchy nie zastępują pełnego praktycznego
-odbioru tego RC. Fizyczna precyzja wyjścia audio, w tym jitter, pozostaje
-niezmierzona. Opublikowanie Prerelease nie oznacza ukończenia M6 ani wydania
-stabilnego 1.0.0.
+Oficjalnie podpisany APK 1.0.0 przeszedł kontrolę podpisu, sum i metadanych.
+Zaliczono sześć aktualizacji oryginalnych oficjalnych APK beta.3/RC1/RC2→1.0
+na API 26/35, z porównaniem testowych danych i dokładnych bajtów sampla.
+[Pełne wyniki i ograniczenia wydania](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.0.0).
 
-[Checklista odbioru M6](docs/M6-ACCEPTANCE.md)
-· [Raport stabilizacji i oficjalnego RC1](docs/V1.0-RC1-VALIDATION.md)
-· [Przygotowania RC2 i kryteria stabilnego 1.0](docs/V1.0-RC2-READINESS.md)
+Użytkownik manualnie potwierdził na Samsungu Galaxy A56 działanie oficjalnego
+RC2: aktualizację, uruchomienie i logo, dłuższą praktykę z blokadą, Stop
+z powiadomienia, historię/ustawienia/zapis, akcenty/trening i wibracje.
+Potwierdził też prawidłowy ostatni test przerwania audio, bez podania szczegółów.
+Nie twierdzimy, że osobno sprawdzono wszystkie warianty focus/słuchawek;
+nie oznaczamy całego M6 jako PASS ani nie przypisujemy tego odbioru do
+fizycznego odsłuchu nowego APK 1.0.0.
 
-Użytkownik potwierdził na Samsungu Galaxy A56 poprawną aktualizację i
-uruchomienie oficjalnego RC2, nowe logo i ogólne działanie bez zauważonych
-problemów. Nie jest to potwierdzenie wszystkich scenariuszy M6 ani pomiar
-fizycznej precyzji audio. Wcześniejsze zachowanie danych przy beta.3→RC1
-pozostaje osobnym manualnym potwierdzeniem.
-[Brakujące próby M6](docs/M6-ACCEPTANCE.md) ·
-[Regresja i bramki przygotowania 1.0](docs/V1.0-VALIDATION.md).
+**Fizyczny jitter i latencja pozostają niezmierzone.** Automatyczne pominięcia
+audio nie są PASS. Pełny dysk może uniemożliwić utrwalenie najnowszych danych;
+nie gwarantujemy wszystkich urządzeń i tras audio.
+[Dokładny zakres odbioru M6](docs/M6-ACCEPTANCE.md) ·
+[Dokumentacja przygotowania 1.0](docs/V1.0-VALIDATION.md).
 
 Znalazłeś problem? [Zgłoś go na GitHubie](https://github.com/Franek2009/OpenMetronome/issues),
 podając wersję aplikacji, model urządzenia, wersję Androida i kroki odtworzenia.
