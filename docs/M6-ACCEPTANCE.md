@@ -1,5 +1,32 @@
 # M6 — odbiór sprzętowy
 
+## Manualny odbiór oficjalnego RC2 na Samsungu Galaxy A56
+
+Użytkownik potwierdził: aktualizacja i uruchomienie oficjalnego RC2 przebiegły
+prawidłowo, nowe logo wyświetla się poprawnie, aplikacja działa i nie zauważył
+problemów. To **manualne potwierdzenie użytkownika**, nie instrumentacja.
+Nie podano czasu sesji, trasy audio ani szczegółowych scenariuszy. Nie
+rozszerzamy zgłoszenia na pełny M6, pomiary ani wibracje.
+
+Brakujące obowiązkowe potwierdzenia na znanym końcowym RC:
+
+- [ ] Zwykła dłuższa praktyka i Start/Stop, bez zauważonych przerw; część sesji
+  z blokadą ekranu (zapisać rzeczywisty czas, bez wymaganego sztywnego minimum).
+- [ ] Stop z powiadomienia oraz przerwanie audio bez samoczynnego wznowienia.
+- [ ] Końcowy czas/sesja w historii i zgodne statystyki po ponownym otwarciu;
+  ustawienia, presety i własny sample nadal dostępne.
+- [ ] Podstawowe używane akcenty i trening wyciszeń/zmian tempa na RC2,
+  albo jawna decyzja o zakresie wystarczającego odbioru przed stable.
+
+Wibracje: brak nowego odbioru; wymagają osobnej zgody albo jawnej akceptacji
+tego ograniczenia. Nie są PASS. Laboratoryjny jitter i latencja pozostają
+niezmierzone; Lenovo i dokładnie 30-minutowa instrumentacja nie są samodzielnymi
+blokerami. Wcześniejsza godzinna praktyka nie ma potwierdzonej wersji APK i nie
+zastępuje powyższych scenariuszy RC2. Nie udzielono zgody na automatyczne audio.
+
+PR stabilnego 1.0 przygotowuje metadane i regresję; nie zamyka M6.
+[Raport i bramki 1.0](V1.0-VALIDATION.md).
+
 ## Bieżący odbiór i rzeczywiste bramki 1.0
 
 **Manualne potwierdzenie użytkownika:** aktualizacja oficjalnej beta.3 do
@@ -12,7 +39,8 @@ ani powodem do odinstalowania aplikacji.
 
 RC1 jest opublikowanym Prerelease. Nowa ikona z PR #5 jest zaakceptowana
 wizualnie i scalona; CI main `0de19ed98d0900699dafde1094d4aa8e5518acf6`
-zakończyło się 5/5 PASS. Nie jest to jeszcze podpisany RC2 ani odbiór jego audio.
+zakończyło się 5/5 PASS. To historyczny wynik ikony; RC2 został następnie oficjalnie podpisany
+i opublikowany. Aktualne potwierdzenie użytkownika jest powyżej.
 
 Przed stabilnym 1.0 potrzebne są: regresja zamrożonego kodu, kontrola
 oficjalnego podpisanego artefaktu i aktualizacji z zachowaniem danych,

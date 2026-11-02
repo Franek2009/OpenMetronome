@@ -2,7 +2,7 @@
 
 Kanał początkowy: publiczny GitHub Releases. Format instalacyjny Androida:
 APK, nie AppImage. Aktualne oficjalne wydanie to
-[1.0.0-rc.1 — Prerelease](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.0.0-rc.1),
+[1.0.0-rc.2 — Prerelease](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.0.0-rc.2),
 nie stabilne 1.0. [Checklista RC2 i plan finalnej publikacji](V1.0-RC2-READINESS.md).
 Nie uruchamiać tagowania, podpisywania ani publikacji bez osobnej zgody.
 
@@ -40,14 +40,14 @@ Klucz jest używany tylko w zadaniu podpisującym, nie w CI pull requestów.
 
 ## Stan wydań i najbliższe metadane
 
-RC1 jest opublikowany: versionCode 16, versionName 1.0.0-rc.1.
-[Raport stabilizacji i oficjalnego artefaktu](V1.0-RC1-VALIDATION.md).
+RC2 jest opublikowany: versionCode 17, versionName 1.0.0-rc.2.
 Oficjalny certyfikat SHA-256 pozostaje:
 `563cd960efc3fc5b483ceae4b96e66728af9e2bb0c52d6162fe37cded72ac4a2`.
-Nie tworzyć nowego klucza. Main zawiera nową ikonę, ale nie zmieniono
-wydania RC1. Osobny PR wydawniczy przygotowuje RC2=17 / 1.0.0-rc.2,
-bez oficjalnego podpisanego APK i tagu. Stable=18 pozostaje propozycją,
-pod warunkiem sprawdzenia dostępności i osobnego zatwierdzenia.
+Nie tworzyć nowego klucza. PR 1.0.0 przygotowuje code 18, bez zmian
+funkcjonalnych względem RC2. Numer 18 nie występuje w sprawdzonych wydaniach
+ani tagach; przed oficjalnym procesem ponownie sprawdzić dostępność.
+Nie ma jeszcze tagu ani podpisanego APK stable.
+[Dokładny plan kontroli i bramki](V1.0-VALIDATION.md).
 
 Unsigned CI i próba aktualizacji kopii z podpisem testowym nie są dowodem
 zgodności podpisu produkcyjnego. Po utworzeniu oficjalnego draftu wykonać

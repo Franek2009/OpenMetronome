@@ -1,6 +1,16 @@
 # Zmiany
 
-## 1.0.0-rc.2 — kandydat nieopublikowany
+## 1.0.0 — przygotowanie stabilnego wydania, nieopublikowane
+
+- Metadane wersji: versionName 1.0.0, versionCode 18.
+- Bez zmian funkcjonalnych względem oficjalnego RC2: ten sam silnik audio,
+  brzmienia, logo, Room 2, format `.ombak` v1 i identyfikatory danych.
+- Zapisano manualne potwierdzenie aktualizacji, uruchomienia, logo i ogólnego
+  działania RC2 na A56; pozostałe scenariusze M6 nie są automatycznie zaliczone.
+- Przygotowano regresję i plan aktualizacji oryginalnych oficjalnych APK.
+  Tag, podpisanie i publikacja wymagają osobnych decyzji.
+
+## 1.0.0-rc.2 — opublikowany Prerelease
 
 - Nowa ikona użytkownika: adaptive, monochrome Androida 13+ i klasyczne PNG.
   PR #5 scalony; wygląd zaakceptowany, CI na main 5/5 PASS.

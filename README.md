@@ -16,6 +16,10 @@ Bez reklam, subskrypcji, kont i Google Play Services.
 To kandydat do pierwszego stabilnego wydania; **stabilne 1.0.0 nie zostało
 jeszcze wydane**.
 
+Trwa przygotowanie PR stabilnego `1.0.0` (code 18), bez nowych funkcji
+względem RC2. Nie utworzono tagu ani oficjalnego APK 1.0.0. Pobieranie
+powyżej nadal prowadzi do opublikowanego RC2.
+
 [Raport przygotowania RC2](docs/V1.0-RC2-VALIDATION.md).
 
 Wymagany Android **8.0 lub nowszy**. Aplikacja obsługuje telefony i tablety
@@ -88,10 +92,13 @@ stabilnego 1.0.0.
 · [Raport stabilizacji i oficjalnego RC1](docs/V1.0-RC1-VALIDATION.md)
 · [Przygotowania RC2 i kryteria stabilnego 1.0](docs/V1.0-RC2-READINESS.md)
 
-Aktualizacja oficjalnej beta.3 do RC1 na Samsungu A56 zachowała dane według
-manualnego potwierdzenia użytkownika. Nie jest to pełny odbiór RC2 ani pomiar
-fizycznej precyzji audio. Stabilne 1.0.0 nadal wymaga praktycznego odbioru
-końcowego RC i osobnej zgody na publikację.
+Użytkownik potwierdził na Samsungu Galaxy A56 poprawną aktualizację i
+uruchomienie oficjalnego RC2, nowe logo i ogólne działanie bez zauważonych
+problemów. Nie jest to potwierdzenie wszystkich scenariuszy M6 ani pomiar
+fizycznej precyzji audio. Wcześniejsze zachowanie danych przy beta.3→RC1
+pozostaje osobnym manualnym potwierdzeniem.
+[Brakujące próby M6](docs/M6-ACCEPTANCE.md) ·
+[Regresja i bramki przygotowania 1.0](docs/V1.0-VALIDATION.md).
 
 Znalazłeś problem? [Zgłoś go na GitHubie](https://github.com/Franek2009/OpenMetronome/issues),
 podając wersję aplikacji, model urządzenia, wersję Androida i kroki odtworzenia.
