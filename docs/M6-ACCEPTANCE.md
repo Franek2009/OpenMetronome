@@ -2,30 +2,38 @@
 
 ## Manualny odbiór oficjalnego RC2 na Samsungu Galaxy A56
 
-Użytkownik potwierdził: aktualizacja i uruchomienie oficjalnego RC2 przebiegły
-prawidłowo, nowe logo wyświetla się poprawnie, aplikacja działa i nie zauważył
-problemów. To **manualne potwierdzenie użytkownika**, nie instrumentacja.
-Nie podano czasu sesji, trasy audio ani szczegółowych scenariuszy. Nie
-rozszerzamy zgłoszenia na pełny M6, pomiary ani wibracje.
+**Manualne potwierdzenie użytkownika — oficjalne RC2, Samsung Galaxy A56.**
+Wcześniej potwierdzono aktualizację, uruchomienie, poprawne logo i ogólne
+działanie aplikacji bez zauważonych problemów.
 
-Brakujące obowiązkowe potwierdzenia na znanym końcowym RC:
+Aktualizacja odbioru, zgłoszona przez użytkownika:
 
-- [ ] Zwykła dłuższa praktyka i Start/Stop, bez zauważonych przerw; część sesji
-  z blokadą ekranu (zapisać rzeczywisty czas, bez wymaganego sztywnego minimum).
-- [ ] Stop z powiadomienia oraz przerwanie audio bez samoczynnego wznowienia.
-- [ ] Końcowy czas/sesja w historii i zgodne statystyki po ponownym otwarciu;
-  ustawienia, presety i własny sample nadal dostępne.
-- [ ] Podstawowe używane akcenty i trening wyciszeń/zmian tempa na RC2,
-  albo jawna decyzja o zakresie wystarczającego odbioru przed stable.
+**PASS (manualne, nie testy instrumentacyjne):**
 
-Wibracje: brak nowego odbioru; wymagają osobnej zgody albo jawnej akceptacji
-tego ograniczenia. Nie są PASS. Laboratoryjny jitter i latencja pozostają
-niezmierzone; Lenovo i dokładnie 30-minutowa instrumentacja nie są samodzielnymi
-blokerami. Wcześniejsza godzinna praktyka nie ma potwierdzonej wersji APK i nie
-zastępuje powyższych scenariuszy RC2. Nie udzielono zgody na automatyczne audio.
+- Dłuższa praktyka i działanie przy zablokowanym ekranie.
+- Zatrzymanie odtwarzania z powiadomienia.
+- Historia, ustawienia i zapis danych.
+- Akcenty oraz funkcje treningowe.
+- Wibracje.
 
-PR stabilnego 1.0 przygotowuje metadane i regresję; nie zamyka M6.
-[Raport i bramki 1.0](V1.0-VALIDATION.md).
+**Dodatkowe manualne PASS użytkownika:** ostatni test przerwania audio na
+oficjalnym RC2 na Samsungu Galaxy A56 przebiegł prawidłowo, bez zauważonych
+problemów. Nie podano szczegółów tego testu. Nie twierdzimy, że osobno
+sprawdzono wszystkie warianty utraty audio focus, odłączania słuchawek lub
+inne możliwe przerwania. Całego M6 nie oznaczamy jako PASS.
+
+Nie podano dokładnego czasu praktyki/blokady ani parametrów trasy audio.
+Nie dopisujemy szczegółów, pomiarów, zer underrunów czy porównania bajtów.
+Jitter i latencja fizycznego wyjścia nadal **niezmierzone**. Wcześniejsza
+godzinna praktyka o niepotwierdzonej wersji pozostaje osobnym zgłoszeniem.
+Manualny odbiór nie jest zgodą na kolejne próby automatyczne lub operacje
+na telefonach.
+
+Użytkownik osobno zatwierdził po zielonym CI scalenie dokumentacji, tag
+v1.0.0 i oficjalny workflow tworzący wyłącznie niepubliczny draft. Publikacja
+stable nadal wymaga kontroli podpisanego APK, sześciu oficjalnych aktualizacji
+i kolejnej osobnej zgody. Sam manualny wynik nie zastępuje tych kontroli.
+[Krótka checklista GO/NO-GO](V1.0-VALIDATION.md#checklista-tag-v100-i-oficjalny-workflow).
 
 ## Bieżący odbiór i rzeczywiste bramki 1.0
 
