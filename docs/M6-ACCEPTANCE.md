@@ -2,30 +2,39 @@
 
 ## Manualny odbiór oficjalnego RC2 na Samsungu Galaxy A56
 
-Użytkownik potwierdził: aktualizacja i uruchomienie oficjalnego RC2 przebiegły
-prawidłowo, nowe logo wyświetla się poprawnie, aplikacja działa i nie zauważył
-problemów. To **manualne potwierdzenie użytkownika**, nie instrumentacja.
-Nie podano czasu sesji, trasy audio ani szczegółowych scenariuszy. Nie
-rozszerzamy zgłoszenia na pełny M6, pomiary ani wibracje.
+**Manualne potwierdzenie użytkownika — oficjalne RC2, Samsung Galaxy A56.**
+Wcześniej potwierdzono aktualizację, uruchomienie, poprawne logo i ogólne
+działanie aplikacji bez zauważonych problemów.
 
-Brakujące obowiązkowe potwierdzenia na znanym końcowym RC:
+Aktualizacja odbioru, zgłoszona przez użytkownika:
 
-- [ ] Zwykła dłuższa praktyka i Start/Stop, bez zauważonych przerw; część sesji
-  z blokadą ekranu (zapisać rzeczywisty czas, bez wymaganego sztywnego minimum).
-- [ ] Stop z powiadomienia oraz przerwanie audio bez samoczynnego wznowienia.
-- [ ] Końcowy czas/sesja w historii i zgodne statystyki po ponownym otwarciu;
-  ustawienia, presety i własny sample nadal dostępne.
-- [ ] Podstawowe używane akcenty i trening wyciszeń/zmian tempa na RC2,
-  albo jawna decyzja o zakresie wystarczającego odbioru przed stable.
+**PASS (manualne, nie testy instrumentacyjne):**
 
-Wibracje: brak nowego odbioru; wymagają osobnej zgody albo jawnej akceptacji
-tego ograniczenia. Nie są PASS. Laboratoryjny jitter i latencja pozostają
-niezmierzone; Lenovo i dokładnie 30-minutowa instrumentacja nie są samodzielnymi
-blokerami. Wcześniejsza godzinna praktyka nie ma potwierdzonej wersji APK i nie
-zastępuje powyższych scenariuszy RC2. Nie udzielono zgody na automatyczne audio.
+- Dłuższa praktyka i działanie przy zablokowanym ekranie.
+- Zatrzymanie odtwarzania z powiadomienia.
+- Historia, ustawienia i zapis danych.
+- Akcenty oraz funkcje treningowe.
+- Wibracje.
 
-PR stabilnego 1.0 przygotowuje metadane i regresję; nie zamyka M6.
-[Raport i bramki 1.0](V1.0-VALIDATION.md).
+**NIE SPRAWDZONO:** reakcja na przerwanie audio, w szczególności utratę
+audio focus lub odłączenie słuchawek i brak samoczynnego wznowienia.
+Ten punkt pozostaje otwarty; nie oznaczamy całego M6 jako PASS.
+
+Nie podano dokładnego czasu praktyki/blokady ani parametrów trasy audio.
+Nie dopisujemy szczegółów, pomiarów, zer underrunów czy porównania bajtów.
+Jitter i latencja fizycznego wyjścia nadal **niezmierzone**. Wcześniejsza
+godzinna praktyka o niepotwierdzonej wersji pozostaje osobnym zgłoszeniem.
+Manualny odbiór wibracji nie jest zgodą na kolejne próby automatyczne.
+
+Krótka brakująca próba użytkownika: na znanym RC2 sprawdzić przerwanie audio
+(utratę focus oraz odłączenie słuchawek, jeśli używane) i potwierdzić brak
+samoczynnego wznowienia. Zapisać faktyczny scenariusz i wynik; nie wykonywać
+samodzielnie operacji na telefonie ani automatycznych prób audio/wibracji.
+
+Publiczne stable pozostaje wstrzymane do tego potwierdzenia, weryfikacji
+podpisanego APK 1.0 i sześciu oficjalnych ścieżek aktualizacji. Zgłoszenie
+nie udziela zgody na tag, podpisywanie lub publikację.
+[Krótka checklista GO/NO-GO](V1.0-VALIDATION.md#checklista-tag-v100-i-oficjalny-workflow).
 
 ## Bieżący odbiór i rzeczywiste bramki 1.0
 
