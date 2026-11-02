@@ -6,23 +6,16 @@ Bez reklam, subskrypcji, kont i Google Play Services.
 
 ## Pobierz i zacznij ćwiczyć
 
-[Pobierz APK — 1.0.0-rc.1](https://github.com/Franek2009/OpenMetronome/releases/download/v1.0.0-rc.1/OpenMetronome-1.0.0-rc.1.apk)
+[Pobierz APK — 1.0.0-rc.2](https://github.com/Franek2009/OpenMetronome/releases/download/v1.0.0-rc.2/OpenMetronome-1.0.0-rc.2.apk)
 
-[Opis wydania](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.0.0-rc.1)
-· [Sumy SHA-256](https://github.com/Franek2009/OpenMetronome/releases/download/v1.0.0-rc.1/SHA256SUMS)
-· [Certyfikat podpisu](https://github.com/Franek2009/OpenMetronome/releases/download/v1.0.0-rc.1/SIGNING-CERT-SHA256.txt)
+[Opis wydania](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.0.0-rc.2)
+· [Sumy SHA-256](https://github.com/Franek2009/OpenMetronome/releases/download/v1.0.0-rc.2/SHA256SUMS)
+· [Certyfikat podpisu](https://github.com/Franek2009/OpenMetronome/releases/download/v1.0.0-rc.2/SIGNING-CERT-SHA256.txt)
 
-**1.0.0-rc.1 jest opublikowanym Release Candidate (Prerelease).**
+**1.0.0-rc.2 jest opublikowanym Release Candidate (Prerelease).**
 To kandydat do pierwszego stabilnego wydania; **stabilne 1.0.0 nie zostało
 jeszcze wydane**.
 
-**Następny kandydat `1.0.0-rc.2` nie jest jeszcze opublikowany.** RC2
-obejmuje zaakceptowane nowe logo: ikonę adaptacyjną, monochromatyczną dla
-Androida 13+ i klasyczne PNG. Nie dodaje funkcji ani brzmień; „Drewniany”
-został odłożony do 1.0.1. Istnienie tagu i przygotowanego podpisanego draftu
-nie oznacza publikacji. Główny link powyżej nadal prowadzi do ostatniego
-publicznego APK, czyli RC1. Po zatwierdzeniu publikacji RC2 linki do APK,
-opisu i sum kontrolnych zostaną zaktualizowane razem.
 [Raport przygotowania RC2](docs/V1.0-RC2-VALIDATION.md).
 
 Wymagany Android **8.0 lub nowszy**. Aplikacja obsługuje telefony i tablety
@@ -41,7 +34,11 @@ niezgodność — [szczegóły podpisywania i aktualizacji](docs/RELEASING.md).
 
 ## Co zmienia RC?
 
-Wersja 1.0.0-rc.1 skupia się na stabilności i zachowaniu danych:
+RC2 wprowadza zaakceptowane nowe logo: ikonę adaptacyjną, monochromatyczną
+Androida 13+ oraz klasyczne PNG. Nie dodaje funkcji ani brzmień; sześć
+dotychczasowych barw pozostaje bez zmian. „Drewniany” jest planowany na 1.0.1.
+
+Zachowuje poprawki stabilności i ochrony danych z RC1:
 
 - Niezawodniejsze kończenie sesji i obsługa błędów uruchamiania odtwarzania.
 - Ponawianie nieudanych zapisów i odzyskiwanie utrwalonych zapisów sesji
@@ -50,7 +47,7 @@ Wersja 1.0.0-rc.1 skupia się na stabilności i zachowaniu danych:
   dziennych na podstawie sesji.
 
 RC zachowuje dotychczasowe funkcje metronomu i treningu.
-[Pełny opis zmian i wyniki weryfikacji wydania](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.0.0-rc.1).
+[Pełny opis zmian i wyniki weryfikacji wydania](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.0.0-rc.2).
 
 ## Co potrafi?
 
