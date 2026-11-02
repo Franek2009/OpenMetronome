@@ -16,24 +16,23 @@ Aktualizacja odbioru, zgłoszona przez użytkownika:
 - Akcenty oraz funkcje treningowe.
 - Wibracje.
 
-**NIE SPRAWDZONO:** reakcja na przerwanie audio, w szczególności utratę
-audio focus lub odłączenie słuchawek i brak samoczynnego wznowienia.
-Ten punkt pozostaje otwarty; nie oznaczamy całego M6 jako PASS.
+**Dodatkowe manualne PASS użytkownika:** ostatni test przerwania audio na
+oficjalnym RC2 na Samsungu Galaxy A56 przebiegł prawidłowo, bez zauważonych
+problemów. Nie podano szczegółów tego testu. Nie twierdzimy, że osobno
+sprawdzono wszystkie warianty utraty audio focus, odłączania słuchawek lub
+inne możliwe przerwania. Całego M6 nie oznaczamy jako PASS.
 
 Nie podano dokładnego czasu praktyki/blokady ani parametrów trasy audio.
 Nie dopisujemy szczegółów, pomiarów, zer underrunów czy porównania bajtów.
 Jitter i latencja fizycznego wyjścia nadal **niezmierzone**. Wcześniejsza
 godzinna praktyka o niepotwierdzonej wersji pozostaje osobnym zgłoszeniem.
-Manualny odbiór wibracji nie jest zgodą na kolejne próby automatyczne.
+Manualny odbiór nie jest zgodą na kolejne próby automatyczne lub operacje
+na telefonach.
 
-Krótka brakująca próba użytkownika: na znanym RC2 sprawdzić przerwanie audio
-(utratę focus oraz odłączenie słuchawek, jeśli używane) i potwierdzić brak
-samoczynnego wznowienia. Zapisać faktyczny scenariusz i wynik; nie wykonywać
-samodzielnie operacji na telefonie ani automatycznych prób audio/wibracji.
-
-Publiczne stable pozostaje wstrzymane do tego potwierdzenia, weryfikacji
-podpisanego APK 1.0 i sześciu oficjalnych ścieżek aktualizacji. Zgłoszenie
-nie udziela zgody na tag, podpisywanie lub publikację.
+Użytkownik osobno zatwierdził po zielonym CI scalenie dokumentacji, tag
+v1.0.0 i oficjalny workflow tworzący wyłącznie niepubliczny draft. Publikacja
+stable nadal wymaga kontroli podpisanego APK, sześciu oficjalnych aktualizacji
+i kolejnej osobnej zgody. Sam manualny wynik nie zastępuje tych kontroli.
 [Krótka checklista GO/NO-GO](V1.0-VALIDATION.md#checklista-tag-v100-i-oficjalny-workflow).
 
 ## Bieżący odbiór i rzeczywiste bramki 1.0
