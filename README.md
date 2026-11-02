@@ -16,6 +16,15 @@ Bez reklam, subskrypcji, kont i Google Play Services.
 To kandydat do pierwszego stabilnego wydania; **stabilne 1.0.0 nie zostało
 jeszcze wydane**.
 
+**Następny kandydat `1.0.0-rc.2` nie jest jeszcze opublikowany.** RC2
+obejmuje zaakceptowane nowe logo: ikonę adaptacyjną, monochromatyczną dla
+Androida 13+ i klasyczne PNG. Nie dodaje funkcji ani brzmień; „Drewniany”
+został odłożony do 1.0.1. Istnienie tagu i przygotowanego podpisanego draftu
+nie oznacza publikacji. Główny link powyżej nadal prowadzi do ostatniego
+publicznego APK, czyli RC1. Po zatwierdzeniu publikacji RC2 linki do APK,
+opisu i sum kontrolnych zostaną zaktualizowane razem.
+[Raport przygotowania RC2](docs/V1.0-RC2-VALIDATION.md).
+
 Wymagany Android **8.0 lub nowszy**. Aplikacja obsługuje telefony i tablety
 w pionie i poziomie. Interfejs jest po polsku.
 
@@ -81,6 +90,11 @@ stabilnego 1.0.0.
 [Checklista odbioru M6](docs/M6-ACCEPTANCE.md)
 · [Raport stabilizacji i oficjalnego RC1](docs/V1.0-RC1-VALIDATION.md)
 · [Przygotowania RC2 i kryteria stabilnego 1.0](docs/V1.0-RC2-READINESS.md)
+
+Aktualizacja oficjalnej beta.3 do RC1 na Samsungu A56 zachowała dane według
+manualnego potwierdzenia użytkownika. Nie jest to pełny odbiór RC2 ani pomiar
+fizycznej precyzji audio. Stabilne 1.0.0 nadal wymaga praktycznego odbioru
+końcowego RC i osobnej zgody na publikację.
 
 Znalazłeś problem? [Zgłoś go na GitHubie](https://github.com/Franek2009/OpenMetronome/issues),
 podając wersję aplikacji, model urządzenia, wersję Androida i kroki odtworzenia.
