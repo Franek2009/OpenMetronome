@@ -3,37 +3,27 @@
 Każdy etap kończy się weryfikacją i wspólnym przeglądem. Samo przygotowanie
 plików nie oznacza przejścia testów ani ukończenia etapu.
 
-## Bieżący etap — przygotowania RC2 i zamknięcie stabilizacji 1.0
+## Bieżący etap — PR pierwszego stabilnego 1.0.0
 
-[RC1 jest opublikowanym Prerelease](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.0.0-rc.1),
-nie stabilnym 1.0. Oficjalny podpis i aktualizacja beta.3→RC1 na świeżych
-emulatorach API 26/35 zostały sprawdzone; [uzupełniony raport](V1.0-RC1-VALIDATION.md).
-Użytkownik potwierdził ręcznie zachowanie danych przy tej aktualizacji na A56.
-To nie jest odbiór nieistniejącego jeszcze RC2.
+[RC2 jest opublikowanym Prerelease](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.0.0-rc.2).
+Tag wskazuje 6dec160acdba60120aa449a139dc1c7081ae63a9; oficjalny workflow
+41361922989 zakończył się 5/5 PASS. Cztery aktualizacje oryginalnych APK
+beta.3/RC1→RC2 na API26/35 zaliczono bez przepodpisywania.
+Main po README PR #9: 4a7d610e57b3723b75109df9f40dd562f2c809db, CI 5/5 PASS.
 
-Nowa ikona (PR #5) została zaakceptowana i scalona. Main
-`0de19ed98d0900699dafde1094d4aa8e5518acf6`: CI 5/5 PASS, lokalnie
-144 JVM PASS, po 64 ciche PASS i 6 audio SKIPPED na API 26/35.
-Nie wracamy do geometrii logo bez wykazanego błędu.
+Użytkownik potwierdził na A56 aktualizację, uruchomienie, nowe logo i ogólne
+działanie RC2 bez zauważonych problemów. Inne scenariusze nie są przez to
+zaliczone; [brakujące próby M6](M6-ACCEPTANCE.md).
 
-RC2 obejmuje nowe logo, bez dodatkowych brzmień i zmian funkcjonalnych.
-„Drewniany” z własnym akcentem odłożony decyzją użytkownika do 1.0.1;
-[dotychczasowy audyt](SAMPLE-QUALIFICATION.md) pozostaje materiałem przyszłych
-prac. Brak oryginalnych WAV-ów nie blokuje RC2 ani stabilnego 1.0.0.
-Nie zmieniamy identyfikatorów brzmień, Room, pakietu ani klucza.
+Osobny PR przygotowuje 1.0.0 / code 18. Jedyna zmiana aplikacji względem RC2
+to metadane wersji; kod, logo, brzmienia, pakiet, Room i `.ombak` pozostają
+niezmienione. „Drewniany” odłożony do 1.0.1; [audyt zachowany](SAMPLE-QUALIFICATION.md).
+[Regresja i plan oficjalnych aktualizacji 1.0](V1.0-VALIDATION.md).
 
-Osobny PR wydawniczy przygotowuje 1.0.0-rc.2 / versionCode 17 bez zmian
-funkcjonalnych; [raport](V1.0-RC2-VALIDATION.md).
-Blokery RC2: akceptacja tego PR i pełna regresja, następnie osobno
-zatwierdzony proces podpisania i weryfikacja oficjalnego artefaktu.
-Stabilne 1.0 wymaga dodatkowo
-praktycznego odbioru znanego RC i osobnej zgody na wydanie.
-[Checklista i plan publikacji](V1.0-RC2-READINESS.md).
-
-Około godzinna praktyka z blokadą przez nieustalony czas pozostaje manualnym
-potwierdzeniem użytkownika, z niepotwierdzoną wersją APK. Jitter i latencja
-pozostają niezmierzone. [M6](M6-ACCEPTANCE.md) nie jest zamknięte; Lenovo
-pominięte decyzją użytkownika, bez nowych automatycznych prób audio/wibracji.
+Brak tagu stable, oficjalnego podpisania i publikacji. Pozostają osobne zgody,
+weryfikacja nowego podpisanego APK i brakujące potwierdzenia M6 lub jawne
+decyzje użytkownika o pozostałych ograniczeniach. Bez automatycznego audio,
+wibracji i operacji na fizycznych urządzeniach. Nie deklarujemy ukończenia M6.
 
 Poniżej historia etapów i wyników; aktualny stan odbioru opisano powyżej.
 
