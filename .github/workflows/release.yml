@@ -53,7 +53,7 @@ jobs:
         run: |
           bash scripts/test-verification-parser.sh
           bash scripts/test-release-tools.sh
-          ./gradlew --no-daemon --console=plain :app:testDebugUnitTest :app:lintDebug :app:lintRelease :app:assembleDebug :app:assembleDebugAndroidTest :app:assembleRelease
+          ./gradlew --no-daemon --console=plain :app:testProdDebugUnitTest :app:lintProdDebug :app:lintProdRelease :app:assembleProdDebug :app:assembleProdDebugAndroidTest :app:assembleProdRelease
           python3 scripts/analyze-click-bank.py
       - uses: actions/upload-artifact@v4
         if: always()
@@ -68,8 +68,8 @@ jobs:
         with:
           name: quiet-test-apks
           path: |
-            app/build/outputs/apk/debug/app-debug.apk
-            app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            app/build/outputs/apk/prod/debug/app-prod-debug.apk
+            app/build/outputs/apk/androidTest/prod/debug/app-prod-debug-androidTest.apk
           if-no-files-found: error
           retention-days: 14
 
@@ -146,7 +146,7 @@ jobs:
           trap 'rm -f -- "$OM_KEYSTORE_PATH"' EXIT
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$OM_KEYSTORE_PATH"
           unset KEYSTORE_BASE64
-          ./gradlew --no-daemon --console=plain -PrequireReleaseSigning=true :app:assembleRelease
+          ./gradlew --no-daemon --console=plain -PrequireReleaseSigning=true :app:assembleProdRelease
           bash scripts/package-release.sh
       - uses: actions/upload-artifact@v4
         with:

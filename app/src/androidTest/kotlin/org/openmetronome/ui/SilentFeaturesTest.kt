@@ -438,7 +438,14 @@ class SilentFeaturesTest {
             compose.onAllNodesWithContentDescription(description).fetchSemanticsNodes().size == 1
         }
     }
-    private fun toggle(label: String) = compose.onNodeWithContentDescription(label).performScrollTo().performClick()
+    private fun toggle(label: String) {
+        val node = compose.onNodeWithContentDescription(label)
+        val wasOn = node.fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.ToggleableState] ==
+            androidx.compose.ui.state.ToggleableState.On
+        // Like the other controls, switches can move while the IME/scroll settles.
+        clickWhenStationary(node)
+        if (wasOn) node.assertIsOff() else node.assertIsOn()
+    }
     private fun field(label: String, value: String) {
         compose.onNodeWithText(label).performScrollTo().performClick().performTextReplacement(value)
         compose.waitForIdle()

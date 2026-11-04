@@ -24,26 +24,47 @@ android {
         targetCompatibility = JavaVersion.VERSION_21
     }
 
-    val signingValues = listOf("OM_KEYSTORE_PATH", "OM_KEYSTORE_PASSWORD", "OM_KEY_ALIAS", "OM_KEY_PASSWORD")
-        .associateWith { providers.environmentVariable(it).orNull }
-    val hasSigning = signingValues.values.all { !it.isNullOrBlank() }
-    require(hasSigning || signingValues.values.all { it == null }) { "Incomplete release signing environment" }
-    require(providers.gradleProperty("requireReleaseSigning").orNull != "true" || hasSigning) {
-        "Official releases require all OM_KEYSTORE_* / OM_KEY_* signing variables"
+    // Each distribution owns its signing credentials. Never fall back from DEV to prod.
+    fun configureSigning(name: String, prefix: String, requiredProperty: String): Boolean {
+        val values = listOf("KEYSTORE_PATH", "KEYSTORE_PASSWORD", "KEY_ALIAS", "KEY_PASSWORD")
+            .associateWith { providers.environmentVariable("${prefix}_$it").orNull }
+        val complete = values.values.all { !it.isNullOrBlank() }
+        require(complete || values.values.all { it == null }) { "Incomplete $name signing environment" }
+        require(providers.gradleProperty(requiredProperty).orNull != "true" || complete) {
+            "$name signing requires all ${prefix}_KEYSTORE_* / ${prefix}_KEY_* variables"
+        }
+        if (complete) signingConfigs.create(name) {
+            storeFile = file(values.getValue("KEYSTORE_PATH")!!)
+            storePassword = values.getValue("KEYSTORE_PASSWORD")
+            keyAlias = values.getValue("KEY_ALIAS")
+            keyPassword = values.getValue("KEY_PASSWORD")
+        }
+        return complete
     }
-    if (hasSigning) {
-        signingConfigs.create("official") {
-            storeFile = file(signingValues.getValue("OM_KEYSTORE_PATH")!!)
-            storePassword = signingValues.getValue("OM_KEYSTORE_PASSWORD")
-            keyAlias = signingValues.getValue("OM_KEY_ALIAS")
-            keyPassword = signingValues.getValue("OM_KEY_PASSWORD")
+
+    val hasOfficialSigning = configureSigning("official", "OM", "requireReleaseSigning")
+    val hasDevSigning = configureSigning("development", "OM_DEV", "requireDevSigning")
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("prod") {
+            dimension = "distribution"
+            if (hasOfficialSigning) signingConfig = signingConfigs.getByName("official")
+        }
+        create("dev") {
+            dimension = "distribution"
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            if (hasDevSigning) signingConfig = signingConfigs.getByName("development")
         }
     }
+
     buildTypes {
+        getByName("debug") {
+            applicationIdSuffix = ".debug"
+        }
         getByName("release") {
             isDebuggable = false
             isMinifyEnabled = false
-            if (hasSigning) signingConfig = signingConfigs.getByName("official")
         }
     }
 

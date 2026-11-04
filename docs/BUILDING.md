@@ -128,18 +128,18 @@ Z katalogu projektu:
 
 ```bash
 ./gradlew --version
-./gradlew :app:testDebugUnitTest :app:lintDebug \
-  :app:assembleDebug :app:assembleDebugAndroidTest
+./gradlew :app:testProdDebugUnitTest :app:lintProdDebug \
+  :app:assembleProdDebug :app:assembleProdDebugAndroidTest
 ```
 
 Wrapper weryfikuje SHA-256 dystrybucji Gradle. Pierwsze uruchomienie pobiera
 Gradle oraz zależności; kolejne kompilacje mogą korzystać z cache. Tryb
 `--offline` działa dopiero po pobraniu wszystkich potrzebnych artefaktów.
 
-- APK aplikacji: `app/build/outputs/apk/debug/app-debug.apk`.
-- APK testów: `app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk`.
-- Raport testów JVM: `app/build/reports/tests/testDebugUnitTest/index.html`.
-- Raport Lint: `app/build/reports/lint-results-debug.html`.
+- APK aplikacji (osobny pakiet `org.openmetronome.debug`): `app/build/outputs/apk/prod/debug/app-prod-debug.apk`.
+- APK testów: `app/build/outputs/apk/androidTest/prod/debug/app-prod-debug-androidTest.apk`.
+- Raport testów JVM: `app/build/reports/tests/testProdDebugUnitTest/index.html`.
+- Raport Lint: `app/build/reports/lint-results-prodDebug.html`.
 
 Testy JVM obejmują modele, scheduler (również symulację 24 godzin), renderer PCM,
 silnik na atrapach urządzenia, kontroler i ViewModel. Nie wymagają emulatora,
@@ -149,7 +149,7 @@ a aplikacja testowa blokuje audio i wibracje niezależnie od oznaczeń testów.
 Testy Compose wymagają odblokowanego ekranu i zaakceptowanego debugowania USB:
 
 ```bash
-ANDROID_SERIAL=NUMER_URZADZENIA ./gradlew :app:connectedDebugAndroidTest
+ANDROID_SERIAL=NUMER_URZADZENIA ./gradlew :app:connectedProdDebugAndroidTest
 ```
 
 Testy generują 10-sekundowy WAV 137 BPM w `app/build/reports/audio/m1-137bpm.wav`.
@@ -162,7 +162,7 @@ Opcjonalny test 30-minutowy jest domyślnie pomijany. Poniższe polecenie jest
 wyłącznie instrukcją na później, po nowej, wyraźnej zgodzie na odtwarzanie:
 
 ```bash
-ANDROID_SERIAL=NUMER_URZADZENIA ./gradlew :app:connectedDebugAndroidTest \
+ANDROID_SERIAL=NUMER_URZADZENIA ./gradlew :app:connectedProdDebugAndroidTest \
   '-Pandroid.testInstrumentationRunnerArguments.class=org.openmetronome.ui.LongAudioSessionTest#thirtyMinutesWithScreenOffWithoutUnderruns' \
   -Pandroid.testInstrumentationRunnerArguments.allowAudio=true \
   -Pandroid.testInstrumentationRunnerArguments.longAudio=true
@@ -170,7 +170,7 @@ ANDROID_SERIAL=NUMER_URZADZENIA ./gradlew :app:connectedDebugAndroidTest \
 
 Test wyłącza ekran i kontroluje PLAYING, brak underrunów oraz postęp odtwarzania.
 Raport zapisuje w cache jako `audio-screen-off-session.txt`; można go odczytać
-przez `adb shell run-as org.openmetronome cat cache/audio-screen-off-session.txt`.
+przez `adb shell run-as org.openmetronome.debug cat cache/audio-screen-off-session.txt`.
 Osobny test `#thirtyMinutesWithoutUnderruns` utrzymuje ekran włączony.
 Procedura, niezależna zgoda na wibracje i bramki odbioru:
 [cicha stabilizacja](QUIET-STABILIZATION.md).
@@ -178,7 +178,7 @@ Procedura, niezależna zgoda na wibracje i bramki odbioru:
 Testy zapisu bez uruchamiania audio ani ekranu aplikacji:
 
 ```bash
-ANDROID_SERIAL=NUMER_URZADZENIA ./gradlew :app:connectedDebugAndroidTest \
+ANDROID_SERIAL=NUMER_URZADZENIA ./gradlew :app:connectedProdDebugAndroidTest \
   -Pandroid.testInstrumentationRunnerArguments.class=org.openmetronome.data.StorageTest
 ```
 
@@ -187,7 +187,7 @@ nie nadpisują ustawień ani bazy użytkownika. Schemat Room jest wersjonowany
 w `app/schemas/`; nie stosujemy `fallbackToDestructiveMigration`.
 Cała instrumentacja (również UI/audio) korzysta z `OpenMetronomeTestRunner`
 i izolowanej aplikacji testowej. Przy ręcznym `am instrument` używaj komponentu
-`org.openmetronome.test/org.openmetronome.OpenMetronomeTestRunner`.
+`org.openmetronome.debug.test/org.openmetronome.OpenMetronomeTestRunner`.
 
 Zwykłe GitHub Actions wykonuje testy JVM, skryptów, Lint debug/release oraz
 kompilację debug, instrumentacji i niepodpisanego release. Debug APK i raporty
@@ -197,7 +197,7 @@ Nie uruchamia audio i nie korzysta z fizycznych urządzeń.
 Osobny ręczny proces wydawniczy podpisuje APK i wykonuje cichą próbę na świeżym
 emulatorze przed utworzeniem draftu. [Wydawanie](RELEASING.md).
 
-## Instalacja na Samsungu
+## Instalacja robocza na Samsungu — tylko po zgodzie
 
 1. Włącz Opcje programisty i Debugowanie USB na telefonie.
 2. Podłącz telefon przewodem obsługującym dane i zaakceptuj klucz RSA komputera.
@@ -205,8 +205,8 @@ emulatorze przed utworzeniem draftu. [Wydawanie](RELEASING.md).
 
 ```bash
 adb devices -l
-adb -s NUMER_SAMSUNGA install -r app/build/outputs/apk/debug/app-debug.apk
-adb -s NUMER_SAMSUNGA shell am start -n org.openmetronome/.MainActivity
+adb -s NUMER_SAMSUNGA install -r app/build/outputs/apk/prod/debug/app-prod-debug.apk
+adb -s NUMER_SAMSUNGA shell am start -n org.openmetronome.debug/org.openmetronome.MainActivity
 ```
 
 Zastąp `NUMER_SAMSUNGA` numerem z pierwszego polecenia. `-r` aktualizuje
@@ -256,7 +256,7 @@ sprawdzający katalogi UUID pod cache. Nie zabija runnera ani aplikacji użytkow
 Nowe klasy zachowują allowAudio=false i allowHaptics=false.
 
 Osobny test aktualizacji uruchamia się wyłącznie na świeżym emulatorze bez
-org.openmetronome. Bazą jest stały publiczny APK v0.13.0-beta.2; nowy kandydat
+org.openmetronome. Bazą jest stały publiczny APK v0.13.0-beta.3; nowy kandydat
 jest niedebugowalnym unsigned release. Skrypt sprawdza certyfikat bazy, tworzy
 kopie obu APK z jednorazowym kluczem testowym, importuje syntetyczny `.ombak`
 przez systemowy picker, aktualizuje przez install -r, eksportuje i porównuje
@@ -266,11 +266,16 @@ oficjalnymi wydaniami. Zgodność oficjalnego podpisu nadal sprawdza release wor
 
 ```bash
 ANDROID_SERIAL=emulator-5554 bash scripts/verify-upgrade.sh \
-  poprzedni-oficjalny-0.13.0-beta.2.apk \
-  app/build/outputs/apk/release/app-release-unsigned.apk
+  poprzedni-oficjalny-0.13.0-beta.3.apk \
+  app/build/outputs/apk/prod/release/app-prod-release-unsigned.apk
 python3 scripts/test-upgrade-tools.py
 ```
 
 Skrypt odmawia działania na urządzeniu fizycznym. Raporty: app/build/reports/upgrade-validation/.
 Odtworzenie dziennika nie oznacza sprzętowego testu odcięcia zasilania;
 [zakres i ograniczenia](RESTORE-RECOVERY.md).
+
+## Warianty prod i DEV
+
+Aktualne zadania, pakiety, podpisy i test izolacji: [BUILD-VARIANTS.md](BUILD-VARIANTS.md).
+Pełna diagnostyka DEV jest kolejnym etapem, nie częścią pierwszej zmiany buildów.

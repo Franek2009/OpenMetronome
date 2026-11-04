@@ -188,7 +188,7 @@ class BackupUiTest {
             return false
         }
         val isFixtureRoot: (android.view.accessibility.AccessibilityNodeInfo) -> Boolean = {
-            it.text?.toString() == "OpenMetronome test backup" && inSystemList(it)
+            it.text?.toString() == "OpenMetronome test backup (${instrumentation.targetContext.packageName})" && inSystemList(it)
         }
         if (systemNode(isFixtureRoot) == null) {
             clickSystem {
