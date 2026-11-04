@@ -32,7 +32,12 @@ class LauncherIconTest {
                 assertEquals("Background must be opaque uniform green", Color.GREEN, background.getPixel(point.first, point.second))
         } finally { background.recycle() }
         if (Build.VERSION.SDK_INT >= 33) assertNotNull("Themed icons need their own transparent silhouette", icon.monochrome)
-        assertEquals("OpenMetronome", context.applicationInfo.loadLabel(context.packageManager).toString())
+        val expectedLabel = when (context.packageName) {
+            "org.openmetronome.debug" -> "OpenMetronome"
+            "org.openmetronome.dev.debug" -> "OpenMetronome DEV"
+            else -> error("Unexpected instrumentation target: ${context.packageName}")
+        }
+        assertEquals(expectedLabel, context.applicationInfo.loadLabel(context.packageManager).toString())
     }
 
     @Test fun silhouettesShareAlphaAndKeepAllDetailsInsideTheSafeCircle() {
