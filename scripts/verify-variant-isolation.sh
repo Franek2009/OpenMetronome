@@ -29,7 +29,7 @@ done
 [[ "${isolation_uids[0]}" != "${isolation_uids[1]}" && "${isolation_uids[0]}" != "${isolation_uids[2]}" && "${isolation_uids[1]}" != "${isolation_uids[2]}" ]]
 for isolation_package in org.openmetronome.debug org.openmetronome.dev.debug; do
     "${isolation_adb[@]}" shell "run-as $isolation_package mkdir -p files"
-    [[ "$("${isolation_adb[@]}" shell "run-as $isolation_package test -e files/variant-isolation.txt; echo \$?" | tr -d '\r')" == 1 ]]
+    [[ "$("${isolation_adb[@]}" shell "run-as $isolation_package sh -c 'test -e files/variant-isolation.txt'; echo \$?" | tr -d '\r')" == 1 ]]
     "${isolation_adb[@]}" shell "run-as $isolation_package sh -c 'printf %s $isolation_package > files/variant-isolation.txt'"
     [[ "$("${isolation_adb[@]}" exec-out run-as "$isolation_package" cat files/variant-isolation.txt)" == "$isolation_package" ]]
 done
