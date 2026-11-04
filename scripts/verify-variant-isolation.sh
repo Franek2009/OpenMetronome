@@ -22,8 +22,11 @@ isolation_uids=()
 for isolation_package in org.openmetronome org.openmetronome.debug org.openmetronome.dev.debug; do
     "${isolation_adb[@]}" shell pm path "$isolation_package" | grep -q '^package:'
     "${isolation_adb[@]}" shell dumpsys package "$isolation_package" > "$isolation_report/$isolation_package.txt"
-    isolation_uid="$(sed -n 's/.*userId=\([0-9]*\).*/\1/p' "$isolation_report/$isolation_package.txt" | head -1)"
-    [[ "$isolation_uid" =~ ^[0-9]+$ ]]
+    # Android 26 prints userId; Android 35 calls the same user-0 value appId.
+    isolation_uid="$(sed -n 's/^[[:space:]]*\(userId\|appId\)=\([0-9]*\).*/\2/p' "$isolation_report/$isolation_package.txt" | head -1)"
+    [[ "$isolation_uid" =~ ^[0-9]+$ ]] || {
+        echo "Cannot determine package UID: $isolation_package" >&2; exit 1;
+    }
     isolation_uids+=("$isolation_uid")
 done
 [[ "${isolation_uids[0]}" != "${isolation_uids[1]}" && "${isolation_uids[0]}" != "${isolation_uids[2]}" && "${isolation_uids[1]}" != "${isolation_uids[2]}" ]]

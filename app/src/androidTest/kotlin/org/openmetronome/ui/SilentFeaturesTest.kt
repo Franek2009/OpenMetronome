@@ -205,6 +205,7 @@ class SilentFeaturesTest {
             start.assertIsDisplayed()
         }
         val orientation = compose.activity.requestedOrientation
+        val originalConfigurationOrientation = compose.activity.resources.configuration.orientation
         try {
             compose.activityRule.scenario.onActivity {
                 it.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
@@ -217,7 +218,17 @@ class SilentFeaturesTest {
             start.assertIsDisplayed()
             captureUi("landscape")
         } finally {
+            val landscapeActivity = compose.activity
             compose.activityRule.scenario.onActivity { it.requestedOrientation = orientation }
+            // Restoring orientation schedules another Activity recreation. Do not
+            // ask Espresso for an idle frame while the old window is disappearing.
+            compose.waitUntil(10000) {
+                val current = compose.activity
+                (originalConfigurationOrientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE ||
+                    current !== landscapeActivity) &&
+                    current.resources.configuration.orientation == originalConfigurationOrientation &&
+                    current.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
+            }
         }
         compose.runOnIdle { assertEquals(PlaybackStatus.STOPPED, model.state.value.audio.status) }
     }
