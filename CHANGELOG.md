@@ -1,13 +1,16 @@
 # Zmiany
 
-## Niewydane — pierwszy etap 1.1
+## Niewydane — etapy 1.1
 
 - Osobne warianty prod/dev oraz debug/release: izolowane pakiety i dane,
   nazwa OpenMetronome DEV oraz niezależna konfiguracja klucza DEV.
 - CI buduje i kontroluje wszystkie warianty; ciche zestawy prod/dev na API26/35.
 - Pakowanie produkcji odrzuca DEV/debug niezależnie od nazwy APK.
-- Pełna diagnostyka DEV, nowy UI i procenty pozostają kolejnymi etapami;
-  ten PR nie zmienia silnika, brzmień, Room ani `.ombak`.
+- Podstawa diagnostyki PCM: opcjonalny obserwator pulsu/podziałów, konfiguracji,
+  renderowania i wszystkich prób zapisu; bufor tylko DEV, jawne straty i ochrona
+  odtwarzania przed błędem obserwatora. Brak aktywacji zbierania w aplikacji.
+- Pełna diagnostyka z zapisem/ZIP, nowy UI i procenty pozostają kolejnymi etapami.
+  Bez zmian harmonogramu, brzmień, Room i `.ombak`.
 
 ## 1.0.0 — opublikowane stabilne wydanie
 

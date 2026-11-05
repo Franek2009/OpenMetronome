@@ -12,6 +12,9 @@ import kotlinx.coroutines.withTimeout
 import org.junit.Assert.*
 import org.junit.Test
 import org.openmetronome.domain.model.MetronomeConfig
+import org.openmetronome.domain.audio.CollectingPcmTrace
+import org.openmetronome.domain.audio.PcmTrace
+import org.openmetronome.domain.audio.PcmTraceKind
 
 class PcmAudioEngineTest {
     private open class Sink : PcmSink {
@@ -82,8 +85,14 @@ class PcmAudioEngineTest {
             }
         }
         val pcm = shortArrayOf(10, 20, 30, 40, 50, 60, 70)
-        assertTrue(PcmAudioEngine.writeFully(sink, pcm, pcm.size, AtomicBoolean()))
+        val trace = CollectingPcmTrace()
+        assertTrue(PcmAudioEngine.writeFully(sink, pcm, pcm.size, AtomicBoolean(), trace, 100))
         assertEquals(pcm.toList(), written)
+        assertEquals(listOf(100L, 103L, 106L), trace.entries.filter { it.kind == PcmTraceKind.WRITE_BEGIN }.map { it.frame })
+        val results = trace.entries.filter { it.kind == PcmTraceKind.WRITE_RESULT }
+        assertEquals(listOf(3L, 3L, 1L), results.map { it.b })
+        assertEquals(listOf(7L, 4L, 1L), results.map { it.a })
+        assertEquals(6L, trace.health()!!.accepted)
     }
 
     @Test fun `zero or negative writes fail instead of spinning`() {
@@ -245,6 +254,89 @@ class PcmAudioEngineTest {
             assertTrue(advancedDiagnostics.framesWritten > advancedDiagnostics.framesPlayed)
             engine.stop()
             assertEquals(8L, await(engine, PlaybackStatus.STOPPED).diagnostics!!.framesPlayed)
+        } finally { engine.close() }
+    }
+
+    @Test fun `trace session closes after cancellation unblocks a partial write`() {
+        val sink = Sink()
+        val trace = CollectingPcmTrace()
+        val engine = PcmAudioEngine({ sink }, { AutoCloseable {} }, traceFactory = { trace })
+        try {
+            engine.start(MetronomeConfig())
+            await(engine, PlaybackStatus.PLAYING)
+            assertTrue(sink.entered.await(5, TimeUnit.SECONDS))
+            engine.stop()
+            assertNull(await(engine, PlaybackStatus.STOPPED).failure)
+            assertTrue(sink.released.get())
+            assertEquals(PcmTraceKind.SESSION_BEGIN, trace.entries.first().kind)
+            assertEquals(PcmTraceKind.SESSION_END, trace.entries.last().kind)
+            assertEquals(1L, trace.entries.last().a)
+            assertEquals(-1L, trace.entries.last().frame) // no invented presentation position
+            assertTrue(trace.entries.any { it.kind == PcmTraceKind.WRITE_RESULT && it.b == 0L })
+            assertFalse(trace.entries.any { it.kind == PcmTraceKind.ERROR })
+            assertTrue(trace.health()!!.closed)
+            assertEquals(0L, trace.health()!!.dropped)
+        } finally { engine.close() }
+    }
+
+    @Test fun `broken recording cannot stop playback or retain the sample lease`() {
+        val sink = Sink()
+        val released = AtomicBoolean()
+        val trace = object : PcmTrace() {
+            override fun append(sequence: Long, nanos: Long, kind: PcmTraceKind, frame: Long,
+                a: Long, b: Long, c: Long, d: Long, config: MetronomeConfig?): Boolean = error("recorder failed")
+        }
+        val engine = PcmAudioEngine({ sink }, { AutoCloseable {} },
+            sampleBanks = SampleBankSource { SampleBankLease(emptyMap()) { released.set(true) } },
+            traceFactory = { trace })
+        try {
+            engine.start(MetronomeConfig())
+            await(engine, PlaybackStatus.PLAYING)
+            engine.stop()
+            assertNull(await(engine, PlaybackStatus.STOPPED).failure)
+            assertTrue(sink.released.get())
+            assertTrue(released.get())
+            val health = trace.health()!!
+            assertTrue(health.closed)
+            assertTrue(health.faulted)
+            assertEquals(health.attempted, health.dropped)
+        } finally { engine.close() }
+    }
+
+    @Test fun `failure to allocate tracing is reported without preventing an explicit start`() {
+        val reported = AtomicBoolean()
+        val engine = PcmAudioEngine({ Sink() }, { AutoCloseable {} },
+            log = { text, _ -> if (text == "diagnostic capture unavailable") reported.set(true) },
+            traceFactory = { error("capture unavailable") })
+        try {
+            engine.start(MetronomeConfig())
+            await(engine, PlaybackStatus.PLAYING)
+            assertTrue(reported.get())
+            engine.stop()
+            assertNull(await(engine, PlaybackStatus.STOPPED).failure)
+        } finally { engine.close() }
+    }
+
+    @Test fun `write error and broken cleanup are retained in the closed trace`() {
+        val trace = CollectingPcmTrace()
+        val focusReleased = AtomicBoolean()
+        val sink = object : Sink() {
+            override fun write(samples: ShortArray, offset: Int, count: Int): Int {
+                if (playing) throw AudioEngineException(AudioFailure.DEVICE_LOST)
+                return count
+            }
+            override fun close() { super.close(); error("cleanup failed") }
+        }
+        val engine = PcmAudioEngine({ sink }, { AutoCloseable { focusReleased.set(true) } }, traceFactory = { trace })
+        try {
+            engine.start(MetronomeConfig())
+            assertEquals(AudioFailure.DEVICE_LOST, await(engine, PlaybackStatus.ERROR).failure)
+            assertTrue(focusReleased.get())
+            assertTrue(trace.entries.any { it.kind == PcmTraceKind.WRITE_THROW })
+            assertEquals(AudioFailure.DEVICE_LOST.ordinal.toLong(), trace.entries.single { it.kind == PcmTraceKind.ERROR }.a)
+            assertEquals(2L, trace.entries.single { it.kind == PcmTraceKind.CLEANUP_FAILURE }.a)
+            assertEquals(PcmTraceKind.SESSION_END, trace.entries.last().kind)
+            assertTrue(trace.health()!!.closed)
         } finally { engine.close() }
     }
 }
