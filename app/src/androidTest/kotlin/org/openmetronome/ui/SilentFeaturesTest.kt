@@ -217,20 +217,26 @@ class SilentFeaturesTest {
             compose.activityRule.scenario.recreate()
             start.assertIsDisplayed()
             captureUi("landscape")
-        } finally {
-            val landscapeActivity = compose.activity
-            compose.activityRule.scenario.onActivity { it.requestedOrientation = orientation }
-            // Restoring orientation schedules another Activity recreation. Do not
-            // ask Espresso for an idle frame while the old window is disappearing.
+            // Restore the original layout explicitly before checking it. Restoring
+            // UNSPECIFIED alone follows the sensor and need not return to portrait.
+            compose.activityRule.scenario.onActivity {
+                it.requestedOrientation = if (originalConfigurationOrientation ==
+                    android.content.res.Configuration.ORIENTATION_LANDSCAPE
+                ) android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                else android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            }
             compose.waitUntil(10000) {
                 val current = compose.activity
-                (originalConfigurationOrientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE ||
-                    current !== landscapeActivity) &&
-                    current.resources.configuration.orientation == originalConfigurationOrientation &&
+                current.resources.configuration.orientation == originalConfigurationOrientation &&
                     current.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
             }
+            start.assertIsDisplayed()
+            compose.runOnIdle { assertEquals(PlaybackStatus.STOPPED, model.state.value.audio.status) }
+        } finally {
+            // Restore the user's policy without asserting a sensor-selected layout
+            // or asking Espresso to idle on a window that may be disappearing.
+            compose.activityRule.scenario.onActivity { it.requestedOrientation = orientation }
         }
-        compose.runOnIdle { assertEquals(PlaybackStatus.STOPPED, model.state.value.audio.status) }
     }
 
     @Test fun archivedSoundRemainsUsableButIsNotInTheCuratedPicker() {
