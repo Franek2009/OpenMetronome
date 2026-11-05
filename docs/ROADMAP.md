@@ -3,29 +3,24 @@
 Każdy etap kończy się weryfikacją i wspólnym przeglądem. Samo przygotowanie
 plików nie oznacza przejścia testów ani ukończenia etapu.
 
-## Bieżący etap — PR pierwszego stabilnego 1.0.0
+## Bieżący etap — rozwój po stabilnym 1.0.0
 
-[RC2 jest opublikowanym Prerelease](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.0.0-rc.2).
-Tag wskazuje 6dec160acdba60120aa449a139dc1c7081ae63a9; oficjalny workflow
-41361922989 zakończył się 5/5 PASS. Cztery aktualizacje oryginalnych APK
-beta.3/RC1→RC2 na API26/35 zaliczono bez przepodpisywania.
-Main po README PR #9: 4a7d610e57b3723b75109df9f40dd562f2c809db, CI 5/5 PASS.
+[Stabilne 1.0.0 jest opublikowane](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.0.0).
+Opublikowane APK i tag pozostają niezmienne. Odbiór manualny i niezmierzone
+parametry fizycznego audio nadal opisuje [M6](M6-ACCEPTANCE.md).
 
-Użytkownik potwierdził na A56 aktualizację, uruchomienie, nowe logo i ogólne
-działanie RC2 bez zauważonych problemów. Inne scenariusze nie są przez to
-zaliczone; [brakujące próby M6](M6-ACCEPTANCE.md).
+[Zatwierdzony plan 1.1/1.2](POST-1.0-PLAN.md): najpierw izolacja wariantów,
+DEV, pełny ekran, UI i procenty; następnie statystyki, progi 20 s/5 min,
+bezpieczna zmiana od pulsu i trening. „Drewniany” pozostaje niezależnym
+zadaniem 1.0.1 po kwalifikacji źródeł.
 
-Osobny PR przygotowuje 1.0.0 / code 18. Jedyna zmiana aplikacji względem RC2
-to metadane wersji; kod, logo, brzmienia, pakiet, Room i `.ombak` pozostają
-niezmienione. „Drewniany” odłożony do 1.0.1; [audyt zachowany](SAMPLE-QUALIFICATION.md).
-[Regresja i plan oficjalnych aktualizacji 1.0](V1.0-VALIDATION.md).
+Pierwszy PR wdraża tylko [warianty i ochronę publikacji](BUILD-VARIANTS.md).
+Nie zawiera jeszcze pełnej diagnostyki ani nowych funkcji metronomu.
+Brak zgody na scalenie, tagi i podpisanie/publikację kolejnego wydania.
+Nie uruchamiamy fizycznego audio, wibracji ani operacji na telefonach.
 
-Brak tagu stable, oficjalnego podpisania i publikacji. Pozostają osobne zgody,
-weryfikacja nowego podpisanego APK i brakujące potwierdzenia M6 lub jawne
-decyzje użytkownika o pozostałych ograniczeniach. Bez automatycznego audio,
-wibracji i operacji na fizycznych urządzeniach. Nie deklarujemy ukończenia M6.
-
-Poniżej historia etapów i wyników; aktualny stan odbioru opisano powyżej.
+Poniżej historyczne etapy; ich otwarte bramki nie zastępują aktualnego
+udokumentowanego zakresu manualnego odbioru.
 
 | Etap | Zakres | Kryterium odbioru |
 | --- | --- | --- |

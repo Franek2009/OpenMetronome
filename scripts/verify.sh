@@ -31,19 +31,19 @@ verification_report="app/build/reports/verification-$(date -u +%Y%m%dT%H%M%SZ)"
 mkdir -p -- "$verification_report"
 echo "Raporty: $verification_report"
 ./gradlew --no-daemon --console=plain "${verification_offline[@]}" \
-    :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest \
+    :app:testProdDebugUnitTest :app:lintProdDebug :app:assembleProdDebug :app:assembleProdDebugAndroidTest \
     2>&1 | tee "$verification_report/build.log"
 if [[ -z "$verification_device" ]]; then
     echo 'Weryfikacja lokalna zakończona. Nie uruchamiano testów urządzeniowych.'
     exit 0
 fi
 [[ "$(adb -s "$verification_device" get-state)" == device ]] || { echo 'Utracono urządzenie.' >&2; exit 2; }
-adb -s "$verification_device" install -r app/build/outputs/apk/debug/app-debug.apk
-adb -s "$verification_device" install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+adb -s "$verification_device" install -r app/build/outputs/apk/prod/debug/app-prod-debug.apk
+adb -s "$verification_device" install -r app/build/outputs/apk/androidTest/prod/debug/app-prod-debug-androidTest.apk
 echo 'Cicha instrumentacja. Zablokowany ekran spowoduje pominięcie UI, nie PASS.'
 adb -s "$verification_device" shell am instrument -w -r \
     -e allowAudio false -e allowHaptics false \
-    org.openmetronome.test/org.openmetronome.OpenMetronomeTestRunner \
+    org.openmetronome.debug.test/org.openmetronome.OpenMetronomeTestRunner \
     2>&1 | tee "$verification_report/instrumentation.log"
 awk -f scripts/instrumentation-summary.awk "$verification_report/instrumentation.log" \
     | tee "$verification_report/summary.txt"

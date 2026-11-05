@@ -2,13 +2,13 @@
 
 Kanał początkowy: publiczny GitHub Releases. Format instalacyjny Androida:
 APK, nie AppImage. Aktualne oficjalne wydanie to
-[1.0.0-rc.2 — Prerelease](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.0.0-rc.2),
-nie stabilne 1.0. [Checklista RC2 i plan finalnej publikacji](V1.0-RC2-READINESS.md).
+[stabilne 1.0.0](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.0.0).
+Opublikowane pliki i tagi pozostają niezmienne.
 Nie uruchamiać tagowania, podpisywania ani publikacji bez osobnej zgody.
 
 ## Tożsamość i klucz
 
-Identyfikator aplikacji: `org.openmetronome`. Zmiana nazwy lub ikony nie
+Oficjalny wariant: `prodRelease`. Identyfikator aplikacji: `org.openmetronome`. Zmiana nazwy lub ikony nie
 zmienia identyfikatora. Oficjalne aktualizacje muszą używać tego samego
 klucza podpisu i rosnącego versionCode. Utrata klucza uniemożliwi zwykłe
 aktualizacje z GitHuba. Nie używamy klucza debug jako wydawniczego.
@@ -98,7 +98,7 @@ Pełna kolejność i kryteria: [RC2 i 1.0](V1.0-RC2-READINESS.md).
 
 Gradle przyjmuje cztery zmienne środowiskowe: `OM_KEYSTORE_PATH`,
 `OM_KEYSTORE_PASSWORD`, `OM_KEY_ALIAS`, `OM_KEY_PASSWORD`. Dla oficjalnego
-builda użyj `-PrequireReleaseSigning=true :app:assembleRelease`.
+builda użyj `-PrequireReleaseSigning=true :app:assembleProdRelease`.
 Bez kompletu zmiennych taki build kończy się błędem, nie podpisem debug.
 Nie podawaj haseł jako argumentów poleceń. Przed pakowaniem ustaw publiczne
 `OM_CERT_SHA256` i uruchom `bash scripts/package-release.sh`.
@@ -129,3 +129,14 @@ F-Droid wymaga osobnego zgłoszenia i konfiguracji budowania; przyjęcie nie
 jest automatyczne. Zgodność aktualizacji między kanałami zależy od podpisów.
 Również dystrybucja poza Play podlega ewoluującym zasadom Androida:
 [weryfikacja deweloperów](https://developer.android.com/developer-verification).
+
+## DEV i izolacja wariantów
+
+[Warianty aplikacji](BUILD-VARIANTS.md) rozdzielają pakiety, dane i klucze.
+Oficjalny workflow buduje wyłącznie `assembleProdRelease`; `package-release.sh`
+odrzuca DEV/debug również po zmianie nazwy pliku oraz sprawdza certyfikat.
+DEV używa osobnych zmiennych `OM_DEV_*`. Nigdy nie podstawiamy `OM_*`
+w razie braku klucza DEV. Klucza DEV nie generujemy ani nie używamy
+w zwykłym CI; unsigned `devRelease` nie jest artefaktem do dystrybucji.
+Włączenie oficjalnego podpisania, przygotowanie trwałego klucza DEV i publikacja
+wymagają osobnego zatwierdzenia; ten etap ich nie wykonuje.

@@ -1,14 +1,24 @@
 # Zmiany
 
-## 1.0.0 — przygotowanie stabilnego wydania, nieopublikowane
+## Niewydane — pierwszy etap 1.1
+
+- Osobne warianty prod/dev oraz debug/release: izolowane pakiety i dane,
+  nazwa OpenMetronome DEV oraz niezależna konfiguracja klucza DEV.
+- CI buduje i kontroluje wszystkie warianty; ciche zestawy prod/dev na API26/35.
+- Pakowanie produkcji odrzuca DEV/debug niezależnie od nazwy APK.
+- Pełna diagnostyka DEV, nowy UI i procenty pozostają kolejnymi etapami;
+  ten PR nie zmienia silnika, brzmień, Room ani `.ombak`.
+
+## 1.0.0 — opublikowane stabilne wydanie
 
 - Metadane wersji: versionName 1.0.0, versionCode 18.
 - Bez zmian funkcjonalnych względem oficjalnego RC2: ten sam silnik audio,
   brzmienia, logo, Room 2, format `.ombak` v1 i identyfikatory danych.
 - Zapisano manualne potwierdzenie aktualizacji, uruchomienia, logo i ogólnego
   działania RC2 na A56; pozostałe scenariusze M6 nie są automatycznie zaliczone.
-- Przygotowano regresję i plan aktualizacji oryginalnych oficjalnych APK.
-  Tag, podpisanie i publikacja wymagają osobnych decyzji.
+- Oficjalnie podpisany APK opublikowano po osobnych zgodach i sześciu
+  aktualizacjach beta.3/RC1/RC2→1.0 na API26/35. Wyniki i ograniczenia:
+  [opis wydania](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.0.0).
 
 ## 1.0.0-rc.2 — opublikowany Prerelease
 

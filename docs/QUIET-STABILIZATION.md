@@ -1,5 +1,10 @@
 # Cicha stabilizacja M2–M5
 
+Bieżące pakiety i kompilacje: [warianty prod/DEV](BUILD-VARIANTS.md).
+Poniżej pozostaje historia prób i zgód; potwierdzenia późniejszych wersji
+opisuje [odbiór M6](M6-ACCEPTANCE.md). Nowa zgoda na implementację nie
+zezwala na operacje na fizycznych urządzeniach, audio ani wibracje.
+
 Aktualizacja 0.12: domyślny przebieg pozostaje cichy. Cztery krótkie testy
 audio i dwa 30-minutowe są pomijane bez zgody. Zgoda użytkownika z 2026-10-21
 objęła wyłącznie opisany w [raporcie 0.12](V0.12-VALIDATION.md) krótki przebieg
@@ -51,14 +56,14 @@ Nie publikujemy 1.0. Dalsze kroki: [odbiór M6](M6-ACCEPTANCE.md).
 
 ```bash
 source scripts/dev-env.sh
-./gradlew :app:testDebugUnitTest :app:lintDebug \
-  :app:assembleDebug :app:assembleDebugAndroidTest
+./gradlew :app:testProdDebugUnitTest :app:lintProdDebug \
+  :app:assembleProdDebug :app:assembleProdDebugAndroidTest
 ```
 
 Po sprawdzeniu `adb devices -l`, przy odblokowanym ekranie:
 
 ```bash
-ANDROID_SERIAL=NUMER_SAMSUNGA ./gradlew :app:connectedDebugAndroidTest
+ANDROID_SERIAL=NUMER_SAMSUNGA ./gradlew :app:connectedProdDebugAndroidTest
 ```
 
 Bez parametrów audio cały zestaw jest cichy. Sprawdź liczbę pominiętych testów:
@@ -87,7 +92,7 @@ nie tylko repozytorium. Nie jest to test ubicia procesu całej aplikacji.
 Wyłącznie po zgodzie na taki długi test:
 
 ```bash
-ANDROID_SERIAL=NUMER_SAMSUNGA ./gradlew :app:connectedDebugAndroidTest \
+ANDROID_SERIAL=NUMER_SAMSUNGA ./gradlew :app:connectedProdDebugAndroidTest \
   '-Pandroid.testInstrumentationRunnerArguments.class=org.openmetronome.ui.LongAudioSessionTest#thirtyMinutesWithScreenOffWithoutUnderruns' \
   -Pandroid.testInstrumentationRunnerArguments.allowAudio=true \
   -Pandroid.testInstrumentationRunnerArguments.longAudio=true
@@ -99,7 +104,7 @@ i wyłączonego ekranu podczas całego monitorowania. W `finally` zatrzymuje
 silnik i wybudza ekran, bez obchodzenia zabezpieczeń blokady. Raport:
 
 ```bash
-adb -s NUMER_SAMSUNGA shell run-as org.openmetronome cat cache/audio-screen-off-session.txt
+adb -s NUMER_SAMSUNGA shell run-as org.openmetronome.debug cat cache/audio-screen-off-session.txt
 ```
 
 Dotychczasowy test `#thirtyMinutesWithoutUnderruns` pozostaje opcjonalną

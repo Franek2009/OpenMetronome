@@ -205,6 +205,7 @@ class SilentFeaturesTest {
             start.assertIsDisplayed()
         }
         val orientation = compose.activity.requestedOrientation
+        val originalConfigurationOrientation = compose.activity.resources.configuration.orientation
         try {
             compose.activityRule.scenario.onActivity {
                 it.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
@@ -217,7 +218,17 @@ class SilentFeaturesTest {
             start.assertIsDisplayed()
             captureUi("landscape")
         } finally {
+            val landscapeActivity = compose.activity
             compose.activityRule.scenario.onActivity { it.requestedOrientation = orientation }
+            // Restoring orientation schedules another Activity recreation. Do not
+            // ask Espresso for an idle frame while the old window is disappearing.
+            compose.waitUntil(10000) {
+                val current = compose.activity
+                (originalConfigurationOrientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE ||
+                    current !== landscapeActivity) &&
+                    current.resources.configuration.orientation == originalConfigurationOrientation &&
+                    current.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
+            }
         }
         compose.runOnIdle { assertEquals(PlaybackStatus.STOPPED, model.state.value.audio.status) }
     }
@@ -438,7 +449,14 @@ class SilentFeaturesTest {
             compose.onAllNodesWithContentDescription(description).fetchSemanticsNodes().size == 1
         }
     }
-    private fun toggle(label: String) = compose.onNodeWithContentDescription(label).performScrollTo().performClick()
+    private fun toggle(label: String) {
+        val node = compose.onNodeWithContentDescription(label)
+        val wasOn = node.fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.ToggleableState] ==
+            androidx.compose.ui.state.ToggleableState.On
+        // Like the other controls, switches can move while the IME/scroll settles.
+        clickWhenStationary(node)
+        if (wasOn) node.assertIsOff() else node.assertIsOn()
+    }
     private fun field(label: String, value: String) {
         compose.onNodeWithText(label).performScrollTo().performClick().performTextReplacement(value)
         compose.waitForIdle()

@@ -6,5 +6,9 @@ release_code="$(sed -n 's/^[[:space:]]*versionCode = \([0-9]*\)/\1/p' "$release_
 [[ "$release_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-z]+\.[0-9]+)?$ && "$release_code" =~ ^[1-9][0-9]*$ ]] || {
     echo 'Invalid release version metadata' >&2; return 1 2>/dev/null || exit 1;
 }
+# Only the production release is eligible for official packaging. Flavor suffixes
+# must never be inferred from an input filename or an aggregate Gradle task.
+release_variant=prodRelease
+release_package=org.openmetronome
 release_tag="v$release_version"
 release_apk_name="OpenMetronome-$release_version.apk"

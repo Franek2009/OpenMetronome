@@ -11,6 +11,7 @@ import java.io.File
 
 /** Debug APK only. A real DocumentsProvider serving just two synthetic archive fixtures. */
 class BackupDocumentsProvider : DocumentsProvider() {
+    private val title get() = "OpenMetronome test backup (${context!!.packageName})"
     private val directory get() = File(context!!.cacheDir, "backup-documents").also { it.mkdirs() }
     override fun onCreate() = true
     private fun file(id: String): File {
@@ -22,7 +23,7 @@ class BackupDocumentsProvider : DocumentsProvider() {
             Root.COLUMN_TITLE, Root.COLUMN_FLAGS, Root.COLUMN_MIME_TYPES)
         return MatrixCursor(columns).apply { newRow().apply {
             add(Root.COLUMN_ROOT_ID, "fixtures"); add(Root.COLUMN_DOCUMENT_ID, "root")
-            add(Root.COLUMN_TITLE, "OpenMetronome test backup")
+            add(Root.COLUMN_TITLE, title)
             add(Root.COLUMN_FLAGS, Root.FLAG_SUPPORTS_CREATE or Root.FLAG_LOCAL_ONLY)
             add(Root.COLUMN_MIME_TYPES, "application/octet-stream")
         } }
@@ -30,7 +31,7 @@ class BackupDocumentsProvider : DocumentsProvider() {
     private fun row(cursor: MatrixCursor, id: String) {
         cursor.newRow().apply {
             add(Document.COLUMN_DOCUMENT_ID, id)
-            add(Document.COLUMN_DISPLAY_NAME, if (id == "root") "OpenMetronome test backup" else id)
+            add(Document.COLUMN_DISPLAY_NAME, if (id == "root") title else id)
             add(Document.COLUMN_MIME_TYPE, if (id == "root") Document.MIME_TYPE_DIR else "application/octet-stream")
             add(Document.COLUMN_FLAGS, if (id == "root") Document.FLAG_DIR_SUPPORTS_CREATE else Document.FLAG_SUPPORTS_WRITE)
             add(Document.COLUMN_SIZE, if (id == "root") 0 else file(id).length())

@@ -6,6 +6,7 @@ for release_test_script in scripts/*.sh; do bash -n "$release_test_script"; done
 source scripts/release-info.sh
 [[ "$release_tag" == "v$release_version" && "$release_code" -gt 0 ]]
 [[ "$release_apk_name" == "OpenMetronome-$release_version.apk" ]]
+[[ "$release_variant" == prodRelease && "$release_package" == org.openmetronome ]]
 release_test_dir="$(mktemp -d "${TMPDIR:-/tmp}/openmetronome-release-test.XXXXXXXX")"
 # Existing directories must be refused before any key is generated or modified.
 if OM_SIGNING_DIR="$release_test_dir" bash scripts/prepare-release-key.sh > "$release_test_dir/refusal.log" 2>&1; then
@@ -54,3 +55,41 @@ for release_debug_apk in old.apk new.apk; do
     grep -q 'requires non-debuggable release APKs' "$release_test_dir/debug-$release_debug_apk.log"
 done
 echo 'Release tools: syntax, metadata, key overwrite, missing-SDK, physical-device and debuggable-upgrade guards PASS.'
+# Wrong flavor/package, debug status and wrong certificate are refused even when
+# the input is named like a production APK. No real signing material is used.
+cat > "$release_test_dir/sdk/build-tools/36.0.0/aapt" <<'STUB'
+#!/usr/bin/env bash
+printf "package: name='%s' versionCode='%s' versionName='%s' platformBuildVersionName='x'\n" "$STUB_PACKAGE" "$STUB_RELEASE_CODE" "$STUB_RELEASE_VERSION"
+[[ "${STUB_DEBUGGABLE:-false}" != true ]] || echo application-debuggable
+exit 0
+STUB
+cat > "$release_test_dir/sdk/build-tools/36.0.0/apksigner" <<'STUB'
+#!/usr/bin/env bash
+printf 'Signer #1 certificate DN: CN=Packaging Test\nSigner #1 certificate SHA-256 digest: %s\n' "${STUB_CERT:-different-certificate}"
+STUB
+chmod +x "$release_test_dir/sdk/build-tools/36.0.0/"{aapt,apksigner}
+for release_rejected_package in org.openmetronome.dev org.openmetronome.dev.debug org.openmetronome.debug; do
+    if ANDROID_HOME="$release_test_dir/sdk" STUB_PACKAGE="$release_rejected_package" \
+        STUB_RELEASE_CODE="$release_code" STUB_RELEASE_VERSION="$release_version" \
+        bash scripts/package-release.sh app-prod-release.apk > "$release_test_dir/reject-$release_rejected_package.log" 2>&1; then
+        echo 'FAIL: packaging accepted a non-production variant' >&2; exit 1
+    fi
+    grep -q 'Refusing a non-production package' "$release_test_dir/reject-$release_rejected_package.log"
+done
+if ANDROID_HOME="$release_test_dir/sdk" STUB_PACKAGE=org.openmetronome \
+    STUB_RELEASE_CODE="$release_code" STUB_RELEASE_VERSION="$release_version" STUB_DEBUGGABLE=true \
+    bash scripts/package-release.sh app-prod-release.apk > "$release_test_dir/package-debug.log" 2>&1; then
+    echo 'FAIL: packaging accepted a debuggable production package' >&2; exit 1
+fi
+grep -q 'Refusing a debuggable APK' "$release_test_dir/package-debug.log"
+if ANDROID_HOME="$release_test_dir/sdk" STUB_PACKAGE=org.openmetronome \
+    STUB_RELEASE_CODE="$release_code" STUB_RELEASE_VERSION="$release_version" OM_CERT_SHA256=expected-certificate \
+    bash scripts/package-release.sh app-prod-release.apk > "$release_test_dir/package-certificate.log" 2>&1; then
+    echo 'FAIL: packaging accepted a wrong signing certificate' >&2; exit 1
+fi
+grep -q 'Signing certificate mismatch' "$release_test_dir/package-certificate.log"
+if ANDROID_SERIAL=physical-device bash scripts/verify-variant-isolation.sh > "$release_test_dir/isolation-physical.log" 2>&1; then
+    echo 'FAIL: variant isolation accepted a physical device' >&2; exit 1
+fi
+grep -q 'Refusing a physical device' "$release_test_dir/isolation-physical.log"
+echo 'Production packaging: wrong flavor, renamed DEV, debug, signing certificate and isolation device guards PASS.'
