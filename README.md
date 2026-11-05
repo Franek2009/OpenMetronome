@@ -18,6 +18,8 @@ Zachowuje funkcjonalność RC2, dotychczasowy podpis i zgodność danych.
 Nowy UI i DEV rozwijamy etapami w 1.1/1.2 — [plan prac](docs/POST-1.0-PLAN.md).
 Pierwszy etap izoluje [warianty kompilacji](docs/BUILD-VARIANTS.md);
 pełna diagnostyka DEV nie jest jeszcze dostępna.
+[Podstawa rejestracji PCM](docs/DEV-DIAGNOSTICS.md) jest testowana osobno;
+zbieranie danych w aplikacji pozostaje wyłączone do przygotowania zapisu i eksportu.
 
 Wymagany Android **8.0 lub nowszy**. Aplikacja obsługuje telefony i tablety
 w pionie i poziomie. Interfejs jest po polsku.

@@ -2,6 +2,8 @@
 
 Pierwszy etap po stabilnym 1.0.0: izolacja kompilacji i danych. Pełna diagnostyka
 DEV, redesign oraz procentowe tempo nie są jeszcze zaimplementowane.
+[Etap 2](DEV-DIAGNOSTICS.md) dodaje testowaną obserwację PCM i ograniczony bufor,
+ale nie włącza zbierania w uruchamianej aplikacji.
 
 | Wariant | Pakiet | Nazwa | Podpis |
 | --- | --- | --- | --- |

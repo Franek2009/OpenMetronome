@@ -42,6 +42,12 @@ for flavor in ('prod', 'dev'):
                 dex = b''.join(archive.read(name) for name in archive.namelist() if re.fullmatch(r'classes\d*\.dex', name))
             if any(word in dex or word.decode() in manifest for word in forbidden):
                 raise SystemExit(f'Test components leaked: {apk}')
+            dev_recorder = (b'Lorg/openmetronome/diagnostics/BoundedPcmTrace;',
+                            b'Lorg/openmetronome/diagnostics/PcmTraceRecord;')
+            if flavor == 'prod' and any(name in dex for name in dev_recorder):
+                raise SystemExit(f'DEV recorder leaked into production: {apk}')
+            if flavor == 'dev' and not all(name in dex for name in dev_recorder):
+                raise SystemExit(f'DEV recorder missing from DEV artifact: {apk}')
         else:
             tests = ROOT / f'app/build/outputs/apk/androidTest/{flavor}/debug/app-{flavor}-debug-androidTest.apk'
             tree = subprocess.check_output([TOOLS / 'aapt', 'dump', 'xmltree', tests, 'AndroidManifest.xml'], text=True)

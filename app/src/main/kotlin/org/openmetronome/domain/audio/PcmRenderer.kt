@@ -11,6 +11,7 @@ import org.openmetronome.domain.model.RhythmConfig
 class PcmRenderer(
     sampleRate: Int, config: MetronomeConfig, random: Random = Random(System.nanoTime()),
     customSamples: Map<String, ShortArray> = emptyMap(),
+    private val trace: PcmTrace? = null,
     private val onPulse: (BeatEvent, Boolean) -> Unit = { _, _ -> },
 ) {
     private val training = TrainingController(sampleRate)
@@ -33,6 +34,10 @@ class PcmRenderer(
     private var pulseSilent = false
     private var pulseAccent = false
     private var rhythm = RhythmConfig()
+    private var tracedBeat: BeatEvent? = null
+    private var tracedMuteFlags = 0
+    private var tracedApplied: MetronomeConfig? = null
+    private var tracedEffective: MetronomeConfig? = null
     var renderedFrames: Long = 0
         private set
     val activeConfig: MetronomeConfig get() = withCurrentVolume(scheduler.activeConfig)
@@ -45,6 +50,10 @@ class PcmRenderer(
     fun render(target: ShortArray, count: Int = target.size, requested: MetronomeConfig) {
         require(count in 0..target.size)
         scheduler.updateConfig(requested)
+        if (trace != null && requested.sound.volumePercent != volume.targetPercent) {
+            trace.record(PcmTraceKind.VOLUME_TARGET, renderedFrames, volume.targetPercent.toLong(),
+                requested.sound.volumePercent.toLong(), volume.transitionFrames.toLong())
+        }
         volume.target(requested.sound.volumePercent)
         for (index in 0 until count) {
             if (renderedFrames == scheduler.nextFrame) {
@@ -53,14 +62,38 @@ class PcmRenderer(
                 val trainingSilent = silence.isSilent(event.barIndex - training.startBar, activeConfig.silence)
                 pulseSilent = trainingSilent || activeConfig.beatAccentAt(event.beatInBar) == ClickAccent.MUTE
                 pulseAccent = event.accented
+                if (trace != null) {
+                    tracedBeat = event
+                    tracedMuteFlags = (if (trainingSilent) PcmTraceFlags.TRAINING_MUTE else 0) or
+                        (if (activeConfig.beatAccentAt(event.beatInBar) == ClickAccent.MUTE) PcmTraceFlags.BEAT_MUTE else 0)
+                    val applied = appliedConfig
+                    if (applied != tracedApplied) {
+                        trace.record(PcmTraceKind.CONFIG_APPLIED, renderedFrames, config = applied)
+                        tracedApplied = applied
+                    }
+                    val effective = activeConfig
+                    if (effective != tracedEffective) {
+                        trace.record(PcmTraceKind.EFFECTIVE_CONFIG, renderedFrames, config = effective)
+                        tracedEffective = effective
+                    }
+                }
                 slots = rhythm.subdivision.offsets.map { (n, d) -> scheduler.subdivisionFrame(n, d) }.toLongArray()
                 slot = 0
                 onPulse(event, pulseSilent || rhythm.accents.let { it.isNotEmpty() && it.all { accent -> accent == ClickAccent.MUTE } })
             }
             if (slot < slots.size && renderedFrames == slots[slot]) {
                 val accent = rhythm.accentAt(slot)
+                val accented = accent == ClickAccent.ACCENT || (slot == 0 && pulseAccent)
+                if (trace != null) {
+                    val beat = checkNotNull(tracedBeat)
+                    val flags = tracedMuteFlags or
+                        (if (accent == ClickAccent.MUTE) PcmTraceFlags.SUBDIVISION_MUTE else 0) or
+                        (if (accented) PcmTraceFlags.ACCENT else 0)
+                    trace.record(PcmTraceKind.BEAT, renderedFrames, beat.barIndex,
+                        beat.beatInBar.toLong(), slot.toLong(), flags.toLong())
+                }
                 val bank = bank(scheduler.activeConfig)
-                click = if (accent == ClickAccent.ACCENT || (slot == 0 && pulseAccent)) bank.second else bank.first
+                click = if (accented) bank.second else bank.first
                 clickOffset = if (pulseSilent || accent == ClickAccent.MUTE) click.size else 0
                 slot++
             }

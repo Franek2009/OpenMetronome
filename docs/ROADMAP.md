@@ -14,9 +14,11 @@ DEV, pełny ekran, UI i procenty; następnie statystyki, progi 20 s/5 min,
 bezpieczna zmiana od pulsu i trening. „Drewniany” pozostaje niezależnym
 zadaniem 1.0.1 po kwalifikacji źródeł.
 
-Pierwszy PR wdraża tylko [warianty i ochronę publikacji](BUILD-VARIANTS.md).
-Nie zawiera jeszcze pełnej diagnostyki ani nowych funkcji metronomu.
-Brak zgody na scalenie, tagi i podpisanie/publikację kolejnego wydania.
+PR #13 z [wariantami i ochroną publikacji](BUILD-VARIANTS.md) scalono po zgodzie.
+Main `506fc69c00ae7393e045ed08dddfc6968bc276d7` ma CI 5/5 PASS.
+Kolejny PR dodaje [obserwację PCM i bufor DEV](DEV-DIAGNOSTICS.md), bez aktywacji
+zbierania w aplikacji, zapisu IO i eksportu. Pełna diagnostyka pozostaje otwarta.
+Nie ma zgody na scalenie kolejnego PR, tagi ani podpisanie/publikację wydania.
 Nie uruchamiamy fizycznego audio, wibracji ani operacji na telefonach.
 
 Poniżej historyczne etapy; ich otwarte bramki nie zastępują aktualnego
