@@ -14,6 +14,11 @@ ANDROID = 'http://schemas.android.com/apk/res/android'
 A = '{' + ANDROID + '}'
 ET.register_namespace('android', ANDROID)
 RECT = 'M30,58 H78 V76 H30 Z'
+# Four non-overlapping outside rectangles. Android's VectorDrawable clip-path
+# does not honor fillType consistently; an even-odd rectangle hole leaves some
+# original artwork under the transparent themed letters on API 26/35.
+OUTSIDE_BADGE = ('M0,0 H108 V58 H0 Z M0,58 H30 V76 H0 Z '
+                 'M78,58 H108 V76 H78 Z M0,76 H108 V108 H0 Z')
 LETTERS = ('M35,62 H40 Q46,62 46,67 Q46,72 40,72 H35 Z '
            'M38,64.5 V69.5 H40 Q43,69.5 43,67 Q43,64.5 40,64.5 Z '
            'M48,62 H58 V64.5 H51 V65.8 H57 V68.2 H51 V69.5 H58 V72 H48 Z '
@@ -47,15 +52,17 @@ def main():
     original = read_foreground(MAIN / 'drawable/ic_launcher_foreground.xml')
     for name, monochrome in [('ic_launcher_foreground', False), ('ic_launcher_monochrome', True)]:
         tree = copy.deepcopy(original)
-        if monochrome:
-            # Remove original symbols under the badge; letters must remain transparent.
-            content = ET.Element('group')
-            ET.SubElement(content, 'clip-path', {A+'pathData': 'M0,0 H108 V108 H0 Z '+RECT, A+'fillType': 'evenOdd'})
-            for child in list(tree):
-                tree.remove(child)
+        # Clip both layers identically to preserve edge rasterization as well as
+        # geometry. The color badge is opaque; the themed letters are cutouts.
+        content = ET.Element('group')
+        ET.SubElement(content, 'clip-path', {A+'pathData': OUTSIDE_BADGE})
+        for child in list(tree):
+            tree.remove(child)
+            if monochrome:
                 for path in child.iter('path'): path.set(A+'fillColor', '#FFFFFF')
-                content.append(child)
-            tree.append(content)
+            content.append(child)
+        tree.append(content)
+        if monochrome:
             ET.SubElement(tree, 'path', {A+'fillColor': '#FFFFFF', A+'fillType': 'evenOdd', A+'pathData': RECT+' '+LETTERS})
         else:
             ET.SubElement(tree, 'path', {A+'fillColor': AMBER, A+'pathData': RECT})
@@ -83,7 +90,7 @@ def main():
         definitions = f'<clipPath id="mask{token}">{mask}</clipPath>'
         if dev:
             if themed:
-                definitions += f'<clipPath id="cut{token}"><path clip-rule="evenodd" d="M0,0 H108 V108 H0 Z {RECT}"/></clipPath>'
+                definitions += f'<clipPath id="cut{token}"><path d="{OUTSIDE_BADGE}"/></clipPath>'
                 ink = f'<g clip-path="url(#cut{token})">{ink}</g>'
                 badge = f'<path fill="{foreground}" fill-rule="evenodd" d="{RECT} {LETTERS}"/>'
             else:

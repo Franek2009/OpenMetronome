@@ -67,7 +67,10 @@ Napis nie używa fontu ani dodatkowego zasobu zewnętrznego. Wyniki trafiają
 wyłącznie do `app/src/dev/res`: dwa VectorDrawable oraz pięć PNG.
 Adaptive XML odziedziczone z main wybiera te zasoby przez nakładkę flavoru.
 Monochrome ma wycięte litery i usuwa symbole spod plakietki, aby napis
-pozostał czytelny po nadaniu koloru przez launcher. Cała plakietka mieści
+pozostał czytelny po nadaniu koloru przez launcher. Maska używa czterech
+prostokątów poza plakietką, bez polegania na `fillType` w `clip-path`,
+który pozostawiał grafikę pod literą V podczas rasteryzacji Androida.
+Cała plakietka mieści
 się w strefie o promieniu 33 dp. Oryginały i zasoby produkcyjne są niezmienne.
 [Porównanie stable/DEV, 48 i 72 px](../docs/images/dev-launcher-preview.png).
 Po regeneracji głównej ikony uruchom również generator DEV, aby obie wersje

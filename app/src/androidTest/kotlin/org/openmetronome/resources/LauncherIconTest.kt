@@ -77,7 +77,7 @@ class LauncherIconTest {
                 assertEquals(255, Color.alpha(mono.getPixel(129, 241)))
                 for ((x, y) in listOf(145 to 269, 197 to 269, 266 to 281)) {
                     assertEquals("DEV letter must be black", Color.BLACK, foreground.getPixel(x, y))
-                    assertEquals("Themed letter must be a transparent cutout", 0, Color.alpha(mono.getPixel(x, y)))
+                    assertEquals("Themed letter must be a transparent cutout at $x,$y", 0, Color.alpha(mono.getPixel(x, y)))
                 }
             }
             assertTrue("Missing or fully opaque square silhouette", ink in 1000 until foreground.width * foreground.height / 2)

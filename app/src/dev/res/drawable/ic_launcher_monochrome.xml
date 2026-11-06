@@ -2,7 +2,7 @@
 <!-- Generated DEV-only badge; see scripts/generate-dev-launcher-icons.py. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
   <group>
-    <clip-path android:pathData="M0,0 H108 V108 H0 Z M30,58 H78 V76 H30 Z" android:fillType="evenOdd" />
+    <clip-path android:pathData="M0,0 H108 V58 H0 Z M0,58 H30 V76 H0 Z M78,58 H108 V76 H78 Z M0,76 H108 V108 H0 Z" />
     <group android:scaleX="0.0309033567" android:scaleY="0.0309033567" android:translateX="28.3950166283" android:translateY="26.8775713366">
       <path android:fillColor="#FFFFFF" android:pathData="M 503.319,5.939 C 497.813,1.234 490.536,-0.828 483.361,0.304 L 169.555,49.852 c -12.04,1.901 -20.909,12.28 -20.909,24.47 v 99.097 156.903 H 99.097 C 44.455,330.323 0,371.073 0,421.161 0,471.25 44.455,512 99.097,512 c 54.642,0 99.097,-40.75 99.097,-90.839 V 355.096 194.588 l 264.258,-41.725 v 136.169 h -49.548 c -54.642,0 -99.097,40.75 -99.097,90.839 0,50.089 44.455,90.839 99.097,90.839 54.642,0 99.096,-40.751 99.096,-90.839 V 313.806 123.871 24.774 c 0,-7.245 -3.173,-14.128 -8.681,-18.835 z" />
     </group>
