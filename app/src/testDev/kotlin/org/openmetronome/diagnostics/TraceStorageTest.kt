@@ -184,6 +184,23 @@ class TraceStorageTest {
         assertEquals("1", failed.getProperty("dropped"))
     }
 
+    @Test fun startupRecoveryDoesNotEraseWarningAboutAnUnrecordedStart() {
+        val root = root(); val journal = TraceJournal(root); journal.recover()
+        journal.open(UUID.randomUUID()).close() // incomplete session requires recovery metadata
+        val entered = CountDownLatch(1); val release = CountDownLatch(1)
+        val store = TraceSessionStore(root, fault = {
+            if (it == "metadata") { entered.countDown(); check(release.await(10, TimeUnit.SECONDS)) }
+        })
+        try {
+            assertTrue(entered.await(5, TimeUnit.SECONDS))
+            assertNull(store.start(1))
+            release.countDown()
+            await { store.status.value.ready }
+            assertEquals("diagnostics_unavailable", store.status.value.notice)
+        } finally { release.countDown(); store.close() }
+        assertTrue(store.awaitTermination())
+    }
+
     @Test fun unavailableDirectoryDoesNotAcceptCaptureOrLeaveExecutorRunning() {
         val file = temporary.newFile()
         val store = TraceSessionStore(file)

@@ -6,6 +6,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import org.openmetronome.domain.audio.PcmTrace
 
 /** Process-owned, bounded DEV recorder. Constructor/start do no synchronous disk IO. */
@@ -35,8 +36,8 @@ class TraceSessionStore internal constructor(
     init {
         require(capacity in 1..BoundedPcmTrace.MAX_CAPACITY && capacity and (capacity - 1) == 0)
         io.execute {
-            try { journal.recover(); mutableStatus.value = Status(ready = true) }
-            catch (_: Exception) { mutableStatus.value = Status(notice = "recovery_failed") }
+            try { journal.recover(); mutableStatus.update { it.copy(ready = true) } }
+            catch (_: Exception) { mutableStatus.update { it.copy(ready = false, notice = "recovery_failed") } }
         }
         io.scheduleWithFixedDelay(::pumpSafely, 10, 10, TimeUnit.MILLISECONDS)
     }
@@ -44,20 +45,20 @@ class TraceSessionStore internal constructor(
     /** Called by Start before the audio worker. No filesystem access or worker wait. */
     fun start(engineId: Long): PcmTrace? = synchronized(lock) {
         if (closing || !mutableStatus.value.ready) {
-            mutableStatus.value = mutableStatus.value.copy(notice = "diagnostics_unavailable")
+            mutableStatus.update { it.copy(notice = "diagnostics_unavailable") }
             return@synchronized null
         }
         // Include IO buffers and leave room for the following control lane stage.
         val bytes = capacity.toLong() * 68 + 1312 + 512 * 1024
         if (reserved + bytes > BoundedPcmTrace.BUFFER_BUDGET_BYTES) {
-            mutableStatus.value = mutableStatus.value.copy(notice = "memory_limit")
+            mutableStatus.update { it.copy(notice = "memory_limit") }
             return@synchronized null
         }
         val trace = BoundedPcmTrace(capacity)
         val session = Session(UUID.randomUUID(), engineId, trace)
         reserved += bytes
         sessions.add(session)
-        mutableStatus.value = mutableStatus.value.copy(active = sessions.size, notice = null)
+        mutableStatus.update { it.copy(active = sessions.size, notice = null) }
         trace
     }
 
@@ -79,7 +80,7 @@ class TraceSessionStore internal constructor(
         }
         runCatching { session.writer?.close() }
         session.writer = null
-        mutableStatus.value = mutableStatus.value.copy(notice = session.failure)
+        mutableStatus.update { it.copy(notice = session.failure) }
     }
 
     private fun pump(session: Session) {
@@ -121,7 +122,7 @@ class TraceSessionStore internal constructor(
             synchronized(lock) {
                 sessions.remove(session)
                 reserved -= capacity.toLong() * 68 + 1312 + 512 * 1024
-                mutableStatus.value = mutableStatus.value.copy(active = sessions.size)
+                mutableStatus.update { it.copy(active = sessions.size) }
             }
         }
     }
