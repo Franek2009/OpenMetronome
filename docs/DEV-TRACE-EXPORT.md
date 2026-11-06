@@ -132,7 +132,11 @@ liczby rekordów i jawne straty. Brakujący licznik zostawia jako null.
 Nie zastępuje testów dokładności PCM ani pomiaru fizycznego wyjścia.
 CI kopiuje wyłącznie ZIP syntetycznego fixture z nowego testu instrumentacyjnego
 DEV i uruchamia na nim analizator. Raport to `trace-export-fixture.zip`
-plus `trace-export-summary.json` w artefakcie API26/35. Bez danych użytkownika.
+plus `trace-export-summary.json` w artefakcie API26/35. Metadata oznacza
+pochodzenie `offline_fixture`; to syntetyczne rekordy, bez odtwarzania.
+Eksport weryfikuje też spójność kolejnych odczytów podczas strumieniowania;
+wykryte uszkodzenie po pierwszym skanowaniu kończy się błędem, nie sukcesem.
+Bez danych użytkownika.
 
 ## Walidacja i otwarte bramki
 

@@ -78,8 +78,9 @@ class TraceCapture internal constructor(
 data class TraceEnvironment(
     val versionName: String = "unknown", val versionCode: Long? = null, val sourceRevision: String = "unknown",
     val manufacturer: String = "unknown", val model: String = "unknown", val api: Int? = null,
+    val captureOrigin: String = "unknown",
 ) {
     internal fun fields() = mapOf("versionName" to versionName.take(160), "versionCode" to (versionCode?.toString() ?: "unknown"),
         "sourceRevision" to sourceRevision.take(160), "manufacturer" to manufacturer.take(160),
-        "model" to model.take(160), "api" to (api?.toString() ?: "unknown"))
+        "model" to model.take(160), "api" to (api?.toString() ?: "unknown"), "captureOrigin" to captureOrigin.take(160))
 }

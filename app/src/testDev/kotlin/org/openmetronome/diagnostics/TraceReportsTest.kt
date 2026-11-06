@@ -215,6 +215,25 @@ class TraceReportsTest {
         } finally { restored.close(); assertTrue(restored.awaitTermination()) }
     }
 
+    @Test fun sourceDamageDetectedDuringStreamingNeverReturnsSuccessfulExport() = runBlocking<Unit> {
+        val store = store()
+        try {
+            val capture = complete(store)
+            val source = File(store.root, "${capture.reportId}/records.bin")
+            val before = source.readBytes()
+            try {
+                assertThrows(IOException::class.java) { runBlocking {
+                    TraceReports(store).export(capture.reportId) {
+                        // Simulate an IO source changing after the preflight scan.
+                        source.writeBytes(byteArrayOf(1, 2))
+                        ByteArrayOutputStream()
+                    }
+                } }
+            } finally { source.writeBytes(before) }
+            assertEquals(1, TraceReports(store).list().size) // operation lease released
+        } finally { store.close(); assertTrue(store.awaitTermination()) }
+    }
+
     @Test fun invalidFinalCountersCannotProduceACompleteExport() = runBlocking<Unit> {
         val store = store()
         try {

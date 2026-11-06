@@ -99,13 +99,21 @@ class TraceReports(
         val incomplete = metadata.getProperty("state") != "complete" || audio.damagedTail || control.damagedTail ||
             missingAudio || missingControl || countsMismatch || historyConflict || !pcmCountersKnown || !controlCountersKnown || hasLoss
         checkRunning()
+        fun scanStable(file: File, consume: (JournalRecord) -> Unit): TraceJournal.Scan {
+            val expected = if (file == audioFile) audio else control
+            val expectedPresent = if (file == audioFile) !missingAudio else !missingControl
+            if (file.isFile != expectedPresent) throw IOException("source_changed_during_export")
+            val actual = store.journal.scanRecords(file, consume)
+            if (actual != expected) throw IOException("source_changed_during_export")
+            return actual
+        }
         ZipOutputStream(BufferedOutputStream(open(), 64 * 1024)).use { zip ->
             fun csv(name: String, source: String, file: File, accept: (JournalRecord) -> Boolean) {
                 checkRunning()
                 zip.putNextEntry(ZipEntry(name))
                 val out = OutputStreamWriter(zip, Charsets.UTF_8)
                 out.write("source,sequence,nanos,kind_code,kind,frame,a,b,c,d,config\r\n")
-                store.journal.scanRecords(file) { row ->
+                scanStable(file) { row ->
                     checkRunning()
                     if (accept(row)) {
                         val kind = if (source == "pcm") PcmTraceKind.entries.find { it.code == row.kindCode }?.name
@@ -132,8 +140,8 @@ class TraceReports(
                     row.c.toString(), row.d.toString(), row.config?.let(ConfigCodec::encode) ?: "").joinToString(",") { csvField(it) })
                 events.write("\r\n")
             }
-            store.journal.scanRecords(audioFile) { if (it.kindCode in EVENT_CODES) eventRow("pcm", it) else checkRunning() }
-            store.journal.scanRecords(controlFile) { eventRow("control", it) }
+            scanStable(audioFile) { if (it.kindCode in EVENT_CODES) eventRow("pcm", it) else checkRunning() }
+            scanStable(controlFile) { eventRow("control", it) }
             events.flush(); zip.closeEntry()
             csv("audio.csv", "pcm", audioFile) { it.kindCode != PcmTraceKind.BEAT.code && it.kindCode !in EVENT_CODES }
             checkRunning()

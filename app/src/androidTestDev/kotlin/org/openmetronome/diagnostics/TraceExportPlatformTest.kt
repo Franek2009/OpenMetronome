@@ -35,7 +35,7 @@ class TraceExportPlatformTest {
             capture = store.begin(TraceSessionKey(UUID.randomUUID(), 1), TraceEnvironment(
                 versionName = info.versionName ?: "unknown", versionCode = code,
                 manufacturer = android.os.Build.MANUFACTURER, model = android.os.Build.MODEL,
-                api = android.os.Build.VERSION.SDK_INT,
+                api = android.os.Build.VERSION.SDK_INT, captureOrigin = "offline_fixture",
             ))!!
             capture.event(TraceControlKind.START_REQUESTED)
             capture.trace.record(PcmTraceKind.BEAT, 123, d = 256)
