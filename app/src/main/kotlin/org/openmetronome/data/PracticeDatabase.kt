@@ -37,6 +37,8 @@ abstract class PracticeDao {
     @Query("SELECT * FROM practice_days ORDER BY sessionId, date") abstract suspend fun allPracticeDays(): List<PracticeDay>
     @Query("SELECT COUNT(*) AS sessions, COALESCE(SUM(durationMs), 0) AS durationMs FROM practice_sessions") abstract fun total(): Flow<PracticeTotal>
     @Query("SELECT date, SUM(durationMs) AS durationMs FROM practice_days GROUP BY date ORDER BY date DESC") abstract fun days(): Flow<List<DayTotal>>
+    @Query("SELECT COALESCE(SUM(durationMs), 0) FROM practice_days WHERE date = :date")
+    abstract fun durationOn(date: String): Flow<Long>
     @Upsert abstract suspend fun saveSession(session: PracticeSession)
     @Insert(onConflict = OnConflictStrategy.REPLACE) abstract suspend fun saveDays(days: List<PracticeDay>)
     @Query("DELETE FROM practice_days WHERE sessionId = :id") abstract suspend fun clearDays(id: String)

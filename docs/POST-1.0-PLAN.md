@@ -5,22 +5,37 @@ Akceptacja planu nie oznacza zgody na merge, tagi, oficjalne klucze i publikacj�
 Stabilne wydanie 1.0.0 pozostaje niezmienne. Nie wykonujemy operacji na telefonach,
 audio ani wibracji bez nowej zgody; nie usuwamy danych.
 
-## 1.1.0
+## Najbliższa poprawka użytkowa — proponowane 1.0.1
 
-1. Warianty prod/dev i debug/release: osobne pakiety i magazyny, osobny trwały
-   klucz DEV, ochrona oficjalnego pakowania. [Konfiguracja](BUILD-VARIANTS.md).
-2. Pełna diagnostyka DEV: wszystkie pulsy, podziały i zapisy AudioTrack;
-   events/beat/audio CSV oraz metadata JSON w ZIP. Ograniczone bufory 4 MiB,
-   limit 512 MiB/sesję i 2 GiB łącznie, bez automatycznego usuwania raportów.
-   Asynchroniczny zapis, jawne straty, brak blokowania audio przy błędach dysku.
-3. Pełny ekran: kropki, BPM, puls/takt, Start/Stop; ta sama sesja i silnik.
-   Blokada edycji pozostawia Stop, opcje utrzymywania ekranu i redukcji animacji.
-4. Hybrydowy UI: tempo wynikowe i baza, szybkie sterowanie, rozwijany trening,
-   dostęp do presetów/metrum/brzmień; układy telefonu/tabletu, pion/poziom.
-5. Procenty: baza 20–300, 100/75/50/25%, dokładny wynik 5–300 BPM. Tap zmienia
+Pierwszeństwo ma karta **Dzisiaj** na górze Statystyk, z całym zapisanym czasem
+praktyki i aktualizacją z istniejących checkpointów około co 5 sekund.
+Bez nowego timera sesji, progów, migracji Room i zmian .ombak. Ładowanie,
+błąd i rzeczywiste zero pozostają rozróżnione. [Zakres](DAILY-PRACTICE.md).
+Nowe wydanie, metadane, podpisanie i publikacja wymagają osobnego zatwierdzenia.
+
+## 1.1.0 — pierwszeństwo funkcji użytkowych
+
+1. Pełny ekran: kropki, BPM, puls/takt, Start/Stop; ta sama sesja i silnik.
+   Blokada pozostawia Stop i Odblokuj; opcje utrzymywania ekranu i redukcji
+   animacji. Domyślnie blokada i utrzymywanie ekranu wyłączone. Bez wizualizacji kołowej.
+2. Procenty: baza 20–300, 100/75/50/25%, dokładny wynik 5–300 BPM. Tap zmienia
    bazę; mnożnik w ustawieniach/presetach, brak pola = 100%. Rampa zmienia bazę,
    zmiana procentu nie resetuje treningu. W 1.1 stosowanie na granicy taktu.
    Zachowujemy `.ombak` v1; aplikacja 1.0 ignoruje mnożnik, co jawnie opisujemy.
+3. Hybrydowy UI: tempo wynikowe i baza, szybkie sterowanie, rozwijany trening,
+   dostęp do presetów/metrum/brzmień; układy telefonu/tabletu, pion/poziom.
+   Makieta przed implementacją; korzystamy z gotowego pełnego ekranu i procentów.
+
+Diagnostyka DEV jest osobnym torem i nie blokuje powyższych funkcji:
+
+- Warianty prod/dev i debug/release: izolowane pakiety i magazyny oraz osobna
+  konfiguracja podpisu DEV. [Konfiguracja](BUILD-VARIANTS.md).
+- Pełna diagnostyka: wszystkie pulsy, podziały i zapisy AudioTrack;
+  events/beat/audio CSV oraz metadata JSON w ZIP. Ograniczone bufory 4 MiB,
+  limit 512 MiB/sesję i 2 GiB łącznie, bez automatycznego usuwania raportów.
+  Asynchroniczny zapis, jawne straty, brak blokowania audio przy błędach dysku.
+- Przegląd czasu i pokrycia testów po integracji diagnostyki: szybki zestaw
+  do iteracji, pełna bramka scalenia/wydania. Usuwamy tylko wykazane duplikaty.
 
 Powyższe obszary są kolejnymi PR, nie jednym dużym refaktorem. Narzuty DEV
 mierzymy porównawczo; PCM musi pozostać identyczny, standardowy scenariusz bez
@@ -47,7 +62,7 @@ optymalizacji lub jawnej decyzji, nie ukrycia wyników.
 ## Niezależnie i bramki
 
 „Drewniany” możliwy w 1.0.1 po dostarczeniu i kwalifikacji oryginałów oraz
-osobnym odsłuchu użytkownika; nie blokuje 1.1/1.2. Bez stroika, kamertonu,
+osobnym odsłuchu użytkownika; nie blokuje poprawki Dzisiaj ani 1.1/1.2. Bez stroika, kamertonu,
 chmury, PDF i edytora planów. Bez nieuzasadnionego NDK/Oboe lub frameworków.
 
 Każdy PR: JVM, odpowiednie PCM/Lint/buildy, raport PASS/FAIL/SKIPPED i audyt.

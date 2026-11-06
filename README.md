@@ -15,6 +15,8 @@ Bez reklam, subskrypcji, kont i Google Play Services.
 **1.0.0 jest pierwszym opublikowanym wydaniem stabilnym.**
 Zachowuje funkcjonalność RC2, dotychczasowy podpis i zgodność danych.
 „Drewniany” pozostaje niezależnym planem na 1.0.1.
+W kodzie przygotowujemy małą poprawkę [„Dzisiaj” w Statystykach](docs/DAILY-PRACTICE.md);
+nie jest jeszcze częścią opublikowanego APK 1.0.0.
 Nowy UI i DEV rozwijamy etapami w 1.1/1.2 — [plan prac](docs/POST-1.0-PLAN.md).
 Pierwszy etap izoluje [warianty kompilacji](docs/BUILD-VARIANTS.md);
 pełna diagnostyka DEV nie jest jeszcze dostępna.

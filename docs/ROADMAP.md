@@ -9,8 +9,9 @@ plików nie oznacza przejścia testów ani ukończenia etapu.
 Opublikowane APK i tag pozostają niezmienne. Odbiór manualny i niezmierzone
 parametry fizycznego audio nadal opisuje [M6](M6-ACCEPTANCE.md).
 
-[Zatwierdzony plan 1.1/1.2](POST-1.0-PLAN.md): najpierw izolacja wariantów,
-DEV, pełny ekran, UI i procenty; następnie statystyki, progi 20 s/5 min,
+[Zatwierdzony plan](POST-1.0-PLAN.md): najpierw mała poprawka
+[Dzisiaj w Statystykach](DAILY-PRACTICE.md), potem pełny ekran, procenty i UI.
+Diagnostyka DEV jest osobnym torem. Następnie Statystyki 2.0, progi 20 s/5 min,
 bezpieczna zmiana od pulsu i trening. „Drewniany” pozostaje niezależnym
 zadaniem 1.0.1 po kwalifikacji źródeł.
 

@@ -206,13 +206,14 @@ private fun StatisticsScreen(data: AppData, model: MetronomeViewModel) {
         else -> "${ms / 1000} s"
     }
     fun dayCount(value: Int) = if (value == 1) "1 dzień" else "$value dni"
-    val today = LocalDate.now()
+    val today by rememberPracticeDate()
     val summary = remember(days, total, today) { PracticeStats.summary(days, total, today) }
     var periodName by rememberSaveable { mutableStateOf(StatisticsPeriod.DAYS_7.name) }
     val period = StatisticsPeriod.valueOf(periodName)
     val chart = remember(days, period, today) { PracticeStats.chart(days, period, today) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Statystyki", style = MaterialTheme.typography.headlineMedium)
+        DailyPracticeCard(data, today)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             SummaryCard("Łącznie", duration(total.durationMs), Modifier.weight(1f))
             SummaryCard("Sesje", total.sessions.toString(), Modifier.weight(1f))
