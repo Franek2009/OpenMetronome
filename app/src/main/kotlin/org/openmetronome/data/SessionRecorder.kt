@@ -8,9 +8,10 @@ import kotlinx.coroutines.sync.withLock
 
 /** Called on a storage coroutine, not on the AudioTrack worker. */
 class SessionRecorder internal constructor(
+    private val onObservation: ((HistoryObservation) -> Unit)? = null,
     private val checkpoint: suspend (PracticeSession, List<PracticeDay>) -> Unit,
 ) {
-    constructor(data: AppData) : this({ session, _ ->
+    constructor(data: AppData, onObservation: ((HistoryObservation) -> Unit)? = null) : this(onObservation, { session, _ ->
         data.recordSession(session)
     })
     private var session: PracticeSession? = null
@@ -27,6 +28,7 @@ class SessionRecorder internal constructor(
             session = PracticeSession(UUID.randomUUID().toString(), now - played, now, 0, false, false,
                 ZoneId.systemDefault().id, ConfigCodec.encode(state.config))
             lastSavedMs = -5000
+            observe(diagnostics?.sessionId, session!!, HistoryObservationStage.CREATED)
         }
         val old = session ?: return@withLock
         val duration = maxOf(old.durationMs, played)
@@ -34,7 +36,14 @@ class SessionRecorder internal constructor(
             finished = final, interrupted = state.audio.status == PlaybackStatus.ERROR)
         session = current
         if (final || duration - lastSavedMs >= 5000) {
-            checkpoint(current, PracticeTimeline.days(current.id, current.startedAt, duration, ZoneId.of(current.zoneId)))
+            observe(diagnostics?.sessionId, current, HistoryObservationStage.CHECKPOINT_REQUESTED)
+            try {
+                checkpoint(current, PracticeTimeline.days(current.id, current.startedAt, duration, ZoneId.of(current.zoneId)))
+            } catch (error: Exception) {
+                observe(diagnostics?.sessionId, current, HistoryObservationStage.CHECKPOINT_FAILED)
+                throw error
+            }
+            observe(diagnostics?.sessionId, current, HistoryObservationStage.CHECKPOINT_RETURNED)
             lastSavedMs = duration
             if (final) {
                 lastClosedSessionId = diagnostics?.sessionId
@@ -42,5 +51,12 @@ class SessionRecorder internal constructor(
             }
         }
         if (final) session = null
+    }
+    /** Optional diagnostics cannot fail the history recorder or change its UUIDs. */
+    private fun observe(engineId: Long?, session: PracticeSession, stage: HistoryObservationStage) {
+        val observer = onObservation ?: return
+        if (engineId == null) return
+        try { observer(HistoryObservation(engineId, session.id, stage, session.finished, session.interrupted)) }
+        catch (_: Exception) { /* diagnostics failure never rejects a checkpoint */ }
     }
 }

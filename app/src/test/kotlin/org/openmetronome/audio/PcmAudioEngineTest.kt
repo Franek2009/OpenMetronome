@@ -44,6 +44,105 @@ class PcmAudioEngineTest {
         withTimeout(5000) { engine.state.first { it.status == status } }
     }
 
+    @Test fun `a stalled stop observer cannot delay cancellation or resource cleanup`() {
+        val entered = CountDownLatch(1); val released = CountDownLatch(1)
+        val sink = Sink()
+        val observer = object : org.openmetronome.diagnostics.ControlObservation() {
+            override fun append(sessionId: Long, kind: org.openmetronome.diagnostics.TraceControlKind,
+                a: Long, b: Long, c: Long, d: Long, config: MetronomeConfig?) {
+                if (kind == org.openmetronome.diagnostics.TraceControlKind.STOP_REQUESTED) {
+                    entered.countDown(); check(released.await(10, TimeUnit.SECONDS))
+                }
+            }
+        }
+        val engine = PcmAudioEngine({ sink }, { AutoCloseable {} }, controls = observer)
+        var stopping: Thread? = null
+        try {
+            engine.start(MetronomeConfig()); await(engine, PlaybackStatus.PLAYING)
+            stopping = Thread { engine.stop() }.also(Thread::start)
+            assertTrue(entered.await(5, TimeUnit.SECONDS))
+            await(engine, PlaybackStatus.STOPPED)
+            assertTrue(sink.released.get())
+        } finally { released.countDown(); stopping?.join(1000); engine.close() }
+    }
+
+    @Test fun `control observer failures cannot change start update or stop`() {
+        for (broken in listOf(false, true)) {
+            val observed = mutableListOf<org.openmetronome.diagnostics.TraceControlKind>()
+            val observer = object : org.openmetronome.diagnostics.ControlObservation() {
+                override fun append(sessionId: Long, kind: org.openmetronome.diagnostics.TraceControlKind,
+                    a: Long, b: Long, c: Long, d: Long, config: MetronomeConfig?) {
+                    if (broken) error("observer failed")
+                    observed.add(kind)
+                }
+            }
+            val engine = PcmAudioEngine({ Sink() }, { AutoCloseable {} }, controls = observer)
+            try {
+                engine.start(MetronomeConfig()); await(engine, PlaybackStatus.PLAYING)
+                engine.updateConfig(MetronomeConfig(tempo = org.openmetronome.domain.model.Tempo(91)))
+                engine.stop(); await(engine, PlaybackStatus.STOPPED)
+                if (broken) assertEquals(3L, observer.failures)
+                else assertEquals(listOf(org.openmetronome.diagnostics.TraceControlKind.START_REQUESTED,
+                    org.openmetronome.diagnostics.TraceControlKind.CONFIG_REQUESTED,
+                    org.openmetronome.diagnostics.TraceControlKind.STOP_REQUESTED), observed)
+            } finally { engine.close() }
+        }
+    }
+
+    @Test fun `focus startup uses PCM lane and asynchronous changes use guarded control lane`() {
+        val trace = CollectingPcmTrace()
+        val callback = java.util.concurrent.atomic.AtomicReference<((org.openmetronome.diagnostics.TraceControlKind, Long) -> Unit)?>()
+        val received = java.util.concurrent.ConcurrentLinkedQueue<Long>()
+        val observer = object : org.openmetronome.diagnostics.ControlObservation() {
+            override fun append(sessionId: Long, kind: org.openmetronome.diagnostics.TraceControlKind,
+                a: Long, b: Long, c: Long, d: Long, config: MetronomeConfig?) {
+                assertNotEquals("OpenMetronome-Audio", Thread.currentThread().name)
+                if (kind == org.openmetronome.diagnostics.TraceControlKind.FOCUS_CHANGE) received.add(a)
+            }
+        }
+        val focus = object : AudioFocusGate {
+            override fun acquire(onLoss: () -> Unit): AutoCloseable? = error("new observation overload was not used")
+            override fun acquire(onLoss: () -> Unit, trace: PcmTrace?,
+                control: ((org.openmetronome.diagnostics.TraceControlKind, Long) -> Unit)?): AutoCloseable {
+                assertEquals("OpenMetronome-Audio", Thread.currentThread().name)
+                trace!!.record(PcmTraceKind.FOCUS_REQUESTED)
+                trace.record(PcmTraceKind.FOCUS_RESULT, a = 1)
+                callback.set(control)
+                return AutoCloseable { trace.record(PcmTraceKind.FOCUS_RELEASE, a = 1) }
+            }
+        }
+        val engine = PcmAudioEngine({ Sink() }, focus, controls = observer, traceFactory = { trace })
+        try {
+            engine.start(MetronomeConfig()); await(engine, PlaybackStatus.PLAYING)
+            callback.get()!!.invoke(org.openmetronome.diagnostics.TraceControlKind.FOCUS_CHANGE, -2)
+            engine.stop(); await(engine, PlaybackStatus.STOPPED)
+            assertEquals(listOf(-2L), received.toList())
+            assertEquals(listOf(PcmTraceKind.FOCUS_REQUESTED, PcmTraceKind.FOCUS_RESULT, PcmTraceKind.FOCUS_RELEASE),
+                trace.entries.filter { it.kind.code in 18..20 }.map { it.kind })
+        } finally { engine.close() }
+    }
+
+    @Test fun `native write error code is preserved without treating missing code as zero`() {
+        for (code in listOf(-6, null)) {
+            val trace = CollectingPcmTrace()
+            val sink = object : Sink() {
+                override fun write(samples: ShortArray, offset: Int, count: Int): Int =
+                    throw AudioEngineException(AudioFailure.WRITE_FAILED, platformCode = code)
+            }
+            val engine = PcmAudioEngine({ sink }, { AutoCloseable {} }, traceFactory = { trace })
+            try {
+                engine.start(MetronomeConfig()); assertEquals(AudioFailure.WRITE_FAILED, await(engine, PlaybackStatus.ERROR).failure)
+                val error = trace.entries.single { it.kind == PcmTraceKind.ERROR }
+                assertEquals(code?.toLong() ?: 0L, error.b)
+                assertEquals(if (code == null) 0L else 1L, error.c)
+                val write = trace.entries.single { it.kind == PcmTraceKind.WRITE_THROW }
+                assertEquals(code?.toLong() ?: 0L, write.c)
+                assertEquals(if (code == null) 0L else 1L, write.d)
+                assertTrue(sink.released.get())
+            } finally { engine.close() }
+        }
+    }
+
     @Test fun `busy sample library does not acquire focus or construct an audio sink`() {
         val touched = AtomicInteger()
         val engine = PcmAudioEngine({ touched.incrementAndGet(); Sink() }, { touched.incrementAndGet(); AutoCloseable {} },

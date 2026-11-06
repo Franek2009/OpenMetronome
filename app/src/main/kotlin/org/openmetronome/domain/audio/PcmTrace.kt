@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicLongArray
 enum class PcmTraceKind(val code: Int) {
     SESSION_BEGIN(1), OUTPUT_OPENED(2), CONFIG_OBSERVED(3), CONFIG_APPLIED(4), EFFECTIVE_CONFIG(5),
     BEAT(6), RENDER(7), WRITE_BEGIN(8), WRITE_RESULT(9), WRITE_THROW(10), PLAY(11),
-    HEAD(12), OUTPUT_STATUS(13), ERROR(14), CLEANUP_FAILURE(15), SESSION_END(16), VOLUME_TARGET(17),
+    HEAD(12), OUTPUT_STATUS(13), ERROR(14), CLEANUP_FAILURE(15), SESSION_END(16), VOLUME_TARGET(17), FOCUS_REQUESTED(18), FOCUS_RESULT(19), FOCUS_RELEASE(20),
 }
 
 /** Bit flags: several reasons can silence the same planned subdivision. */

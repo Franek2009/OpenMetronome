@@ -11,7 +11,9 @@
   odtwarzania przed błędem obserwatora. Brak aktywacji zbierania w aplikacji.
 - Magazyn DEV: asynchroniczny dziennik z CRC, checkpointy i odzyskiwanie,
   limity pamięci/dysku oraz izolacja awarii. Nadal bez aktywacji w aplikacji.
-- Integracja pełnej diagnostyki i eksport ZIP, nowy UI i procenty pozostają kolejnymi etapami.
+- Raporty DEV: osobne zdarzenia sterowania, korelacja historii, ZIP v1,
+  lista/eksport/usuwanie raportów i analizator offline. Bez aktywacji zbierania.
+- Integracja pełnej diagnostyki i kwalifikacja ART, nowy UI i procenty pozostają kolejnymi etapami.
   Bez zmian harmonogramu, brzmień, Room i `.ombak`.
 
 ## 1.0.0 — opublikowane stabilne wydanie

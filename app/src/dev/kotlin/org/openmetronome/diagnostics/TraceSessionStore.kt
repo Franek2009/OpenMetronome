@@ -11,7 +11,7 @@ import org.openmetronome.domain.audio.PcmTrace
 
 /** Process-owned, bounded DEV recorder. Constructor/start do no synchronous disk IO. */
 class TraceSessionStore internal constructor(
-    root: File,
+    internal val root: File,
     private val capacity: Int = BoundedPcmTrace.MAX_CAPACITY,
     sessionLimit: Long = 512L * 1024 * 1024,
     totalLimit: Long = 2L * 1024 * 1024 * 1024,
@@ -20,12 +20,16 @@ class TraceSessionStore internal constructor(
     data class Status(val ready: Boolean = false, val active: Int = 0, val notice: String? = null)
     private val mutableStatus = MutableStateFlow(Status())
     val status = mutableStatus.asStateFlow()
-    private val journal = TraceJournal(root, sessionLimit, totalLimit, fault)
+    internal val journal = TraceJournal(root, sessionLimit, totalLimit, fault)
     private val lock = Any()
     private val sessions = mutableListOf<Session>()
     private var reserved = 0L
     private var closing = false
-    private class Session(val id: UUID, val engineId: Long, val trace: BoundedPcmTrace) {
+    private var reportOperation = false
+    private class Session(val capture: TraceCapture, val fields: Map<String, String>, val autoCloseControls: Boolean) {
+        val id get() = capture.reportId
+        val engineId get() = capture.key.sessionId
+        val trace get() = capture.trace
         var writer: TraceJournal.Writer? = null
         var opened = false
         var failure: String? = null
@@ -43,9 +47,20 @@ class TraceSessionStore internal constructor(
     }
 
     /** Called by Start before the audio worker. No filesystem access or worker wait. */
-    fun start(engineId: Long): PcmTrace? = synchronized(lock) {
+    fun start(engineId: Long): PcmTrace? = begin(TraceSessionKey(UUID.randomUUID(), engineId),
+        autoCloseControls = true)?.trace
+
+    fun begin(key: TraceSessionKey, environment: TraceEnvironment = TraceEnvironment()): TraceCapture? =
+        begin(key, environment, false)
+
+    private fun begin(key: TraceSessionKey, environment: TraceEnvironment = TraceEnvironment(),
+                      autoCloseControls: Boolean): TraceCapture? = synchronized(lock) {
         if (closing || !mutableStatus.value.ready) {
             mutableStatus.update { it.copy(notice = "diagnostics_unavailable") }
+            return@synchronized null
+        }
+        if (reportOperation) {
+            mutableStatus.update { it.copy(notice = "report_operation_in_progress") }
             return@synchronized null
         }
         // Include IO buffers and leave room for the following control lane stage.
@@ -55,11 +70,14 @@ class TraceSessionStore internal constructor(
             return@synchronized null
         }
         val trace = BoundedPcmTrace(capacity)
-        val session = Session(UUID.randomUUID(), engineId, trace)
+        val capture = TraceCapture(key, trace)
+        val session = Session(capture, environment.fields() + mapOf(
+            "engineInstance" to key.engineInstance.toString(), "startedAtEpochMs" to System.currentTimeMillis().toString(),
+            "startedAtMonotonicNs" to System.nanoTime().toString()), autoCloseControls)
         reserved += bytes
         sessions.add(session)
         mutableStatus.update { it.copy(active = sessions.size, notice = null) }
-        trace
+        capture
     }
 
     private fun pumpSafely() {
@@ -74,6 +92,7 @@ class TraceSessionStore internal constructor(
 
     private fun fail(session: Session, error: Exception) {
         session.trace.stopCapture()
+        session.capture.controls.disable()
         session.failure = when (error.message) {
             "session_limit", "total_limit" -> error.message
             else -> "storage_failed"
@@ -86,7 +105,7 @@ class TraceSessionStore internal constructor(
     private fun pump(session: Session) {
         if (!session.opened) {
             session.opened = true
-            session.writer = journal.open(session.id, session.engineId)
+            session.writer = journal.open(session.id, session.engineId, session.fields)
         }
         // Bound one pass; a session cannot starve another session's finalization.
         var drained = 0
@@ -95,10 +114,19 @@ class TraceSessionStore internal constructor(
             session.writer?.append(record)
             drained++
         }
+        var controlDrained = 0
+        while (controlDrained < 256) {
+            val record = session.capture.controls.poll() ?: break
+            session.writer?.appendControl(record)
+            controlDrained++
+        }
         val health = session.trace.health()
+        if (session.autoCloseControls && health?.closed == true) session.capture.finishControls()
+        val controls = session.capture.controls.health()
         // Observe closed before checking empty: a producer may publish after an
         // earlier empty poll, but never after close's volatile publication.
-        val finished = health?.closed == true && drained < 256
+        val finished = health?.closed == true && drained < 256 && controls.closed &&
+            session.capture.controls.isEmpty()
         if (finished) {
             val last = session.trace.poll()
             if (last != null) { session.writer?.append(last); return }
@@ -106,16 +134,17 @@ class TraceSessionStore internal constructor(
         val now = System.nanoTime()
         if (session.writer != null && (finished || now - session.lastSync >= 2_000_000_000L)) {
             val incomplete = session.failure != null || health?.faulted == true || (health?.dropped ?: 0) > 0 ||
-                (finished && health?.accepted != session.writer!!.persistedRecords)
+                (finished && health.accepted != session.writer!!.persistedRecords) || controls.dropped > 0 ||
+                (finished && controls.accepted != session.writer!!.persistedControls)
             session.writer!!.checkpoint(health,
-                if (!finished) "recording" else if (incomplete) "incomplete" else "complete", session.failure)
+                if (!finished) "recording" else if (incomplete) "incomplete" else "complete", session.failure, controls)
             session.lastSync = now
         }
         if (finished) {
             if (session.writer == null && session.failure != null) {
                 // A best-effort final manifest is independent of the failed writer.
                 // Failure here leaves a recoverable interrupted journal, not success.
-                runCatching { journal.finishFailed(session.id, health, session.failure!!) }
+                runCatching { journal.finishFailed(session.id, health, session.failure!!, controls) }
             }
             session.writer?.close()
             session.writer = null
@@ -126,6 +155,13 @@ class TraceSessionStore internal constructor(
             }
         }
     }
+
+    /** A report operation must never race an audio/control producer or another operation. */
+    internal fun reserveReportOperation(): Boolean = synchronized(lock) {
+        if (closing || !mutableStatus.value.ready || sessions.isNotEmpty() || reportOperation) false
+        else { reportOperation = true; true }
+    }
+    internal fun releaseReportOperation() = synchronized(lock) { reportOperation = false }
 
     /** Does not cancel finalization or block a caller while a producer is active. */
     override fun close() = synchronized(lock) { closing = true }

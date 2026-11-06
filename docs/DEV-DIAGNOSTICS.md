@@ -1,9 +1,10 @@
-# Diagnostyka DEV — etap 2: obserwacja PCM i transport w pamięci
+# Diagnostyka DEV — PCM, magazyn i raporty
 
-Status: przygotowana podstawa i testy, **bez aktywacji w uruchamianej aplikacji**.
-`OpenMetronomeApplication` nie przekazuje jeszcze `traceFactory`. Zbieranie,
-zapis IO, rejestr sesji i eksport ZIP są następnym etapem. Nie ogłaszamy
-ukończenia pełnej diagnostyki DEV.
+Status: obserwator PCM, magazyn i eksport są przygotowane i testowane osobno,
+**bez aktywacji w uruchamianej aplikacji**. `OpenMetronomeApplication` nie
+przekazuje jeszcze traceFactory ani ControlObservation. Integracja usługi,
+storage i kwalifikacja całego toru ART pozostają kolejnym etapem.
+[Zdarzenia i ZIP v1](DEV-TRACE-EXPORT.md). Nie ogłaszamy ukończenia pełnej diagnostyki DEV.
 
 ## Granica produkcji i DEV
 
@@ -46,14 +47,17 @@ Nie oznacza, że slot został wyrenderowany, wysłany, odtworzony lub usłyszany
 | 7 RENDER | początek bloku | liczba ramek / koniec wyłączny |
 | 8 WRITE_BEGIN | początek próby transferu | żądana liczba / offset w bloku |
 | 9 WRITE_RESULT | początek próby transferu | żądana liczba / zwrócona liczba / offset w bloku |
-| 10 WRITE_THROW | początek próby transferu | żądana liczba / offset w bloku; brak fikcyjnego wyniku transferu |
+| 10 WRITE_THROW | początek próby transferu | żądana liczba / offset w bloku / raw code / flaga dostępności |
 | 11 PLAY | 0 | ramki pełnych bloków wypełniających bufor przed play |
 | 12 HEAD | playback head | ramki pełnych bloków zapisanych przez silnik |
 | 13 OUTPUT_STATUS | playback head | ramki pełnych bloków / przyrost underrunów od startu |
-| 14 ERROR | -1 | kod AudioFailure (ordinal tego builda, do opisania w metadanych) |
+| 14 ERROR | -1 | kod AudioFailure (słownik builda w metadata.json) / raw code / flaga dostępności |
 | 15 CLEANUP_FAILURE | -1 | zasób: pause=0, flush=1, track=2, focus=3, bank=4 |
 | 16 SESSION_END | -1 | flaga anulowania 0/1 / kod AudioFailure lub -1 |
 | 17 VOLUME_TARGET | początek przejścia gain | poprzedni cel % / nowy cel % / długość przejścia w ramkach |
+| 18 FOCUS_REQUESTED | -1 | żądanie platformy (worker) |
+| 19 FOCUS_RESULT | -1 | surowy wynik żądania (worker) |
+| 20 FOCUS_RELEASE | -1 | surowy wynik zwolnienia focus (worker) |
 
 CONFIG_APPLIED/EFFECTIVE_CONFIG to snapshoty na pulsie. Program zmienia się na
 najbliższej niewyrenderowanej granicy taktu, lecz głośność ma odrębne przejście
@@ -92,8 +96,8 @@ odpytywania platformy przy każdym podziale.
 - W pierścieniu może pozostawać najwyżej 512 rekordów z referencją konfiguracji,
   niezależnie od liczby slotów. Odrzucenie deskryptora jest raportowaną stratą;
   nie blokuje przyjmowania BEAT. Konsument usuwa referencję przy odczycie.
-- W tym PR nie ma dysku, retencji ani ZIP. Limity 512 MiB/sesję i 2 GiB łącznie,
-  bez automatycznego kasowania, zostają wdrożone przed aktywacją w kolejnym PR.
+- Etap 2 nie obejmował dysku ani ZIP. Obecne etapy 3a/3b przygotowują magazyn
+  i eksport z limitami 512 MiB/sesję oraz 2 GiB łącznie, bez automatycznego kasowania.
 
 ## Testy i pozostałe prace
 
@@ -103,11 +107,9 @@ anulowanie, błędy sinka/cleanup, wyjątek fabryki/obserwatora/zegara, przepeł
 luki, obieg slotów, limit referencji, zatrzymanego konsumenta oraz współbieżny odczyt.
 Test HotSpot mierzy alokacje producenta po rozgrzaniu; nie zastępuje pomiaru ART.
 
-Pozostają: asynchroniczny konsument, korelacja UUID z historią, wszystkie żądania
-konfiguracji (ten etap widzi tylko ostatnie żądanie odczytane przez worker),
-przyczyny focus/noisy/Stop na platformie, surowe błędy AudioTrack, zdarzenia storage,
-metryki środowiska, trwałość i eksport czterech plików ZIP. Lokalny numer sesji
-resetuje się z procesem i nie jest jeszcze globalnym identyfikatorem raportu.
+Zapis i eksport przygotowano w etapach 3a/3b. Pozostaje podłączenie do aplikacji:
+UUID instancji silnika i historii, sterowanie, focus/noisy oraz storage/retry.
+Punkty obserwacji i słowniki nie oznaczają aktywnego rejestrowania tych danych.
 
 Przed aktywacją: globalna kontrola budżetu dla wszystkich kanałów i sesji,
 pomiary całego toru i pamięci na ART; budżet p99 renderowania
@@ -123,3 +125,11 @@ checkpointy, CRC rekordów i odzyskiwanie niedokończonych raportów.
 [Zakres, protokół i walidacja](V1.1-DEV-STORAGE-VALIDATION.md).
 Nie podłączono jeszcze magazynu do aplikacji ani nie wdrożono eksportu ZIP;
 pełna kwalifikacja ART pozostaje warunkiem aktywacji.
+
+## Etap 3b — sterowanie i eksport (bez aktywacji)
+
+[Protokół ZIP, API, ograniczenia i walidacja](DEV-TRACE-EXPORT.md).
+Dodano osobny kanał sterowania, powiązanie historii, zachowanie native error
+codes i focus, eksport CSV/JSON ZIP oraz listę raportów wyłącznie DEV.
+Aplikacja nadal nie przekazuje obserwatorów do silnika. Integracja usługi,
+storage i kwalifikacja narzutu pozostają kolejnym PR.

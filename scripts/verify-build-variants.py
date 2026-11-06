@@ -45,7 +45,11 @@ for flavor in ('prod', 'dev'):
             dev_recorder = (b'Lorg/openmetronome/diagnostics/BoundedPcmTrace;',
                             b'Lorg/openmetronome/diagnostics/PcmTraceRecord;',
                             b'Lorg/openmetronome/diagnostics/TraceSessionStore;',
-                            b'Lorg/openmetronome/diagnostics/TraceJournal;')
+                            b'Lorg/openmetronome/diagnostics/TraceJournal;',
+                            b'Lorg/openmetronome/diagnostics/TraceReports;',
+                            b'Lorg/openmetronome/diagnostics/TraceControlQueue;',
+                            b'Lorg/openmetronome/diagnostics/TraceCapture;',
+                            b'Lorg/openmetronome/ui/DevReportStorage;')
             if flavor == 'prod' and any(name in dex for name in dev_recorder):
                 raise SystemExit(f'DEV recorder leaked into production: {apk}')
             if flavor == 'dev' and not all(name in dex for name in dev_recorder):

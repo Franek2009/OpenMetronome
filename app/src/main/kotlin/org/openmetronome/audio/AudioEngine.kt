@@ -51,7 +51,12 @@ interface PcmSink : AutoCloseable {
 }
 
 fun interface PcmSinkFactory { fun create(): PcmSink }
-fun interface AudioFocusGate { fun acquire(onLoss: () -> Unit): AutoCloseable? }
+fun interface AudioFocusGate {
+    fun acquire(onLoss: () -> Unit): AutoCloseable?
+    /** PCM events stay on their producer; asynchronous focus changes use the control lane. */
+    fun acquire(onLoss: () -> Unit, trace: org.openmetronome.domain.audio.PcmTrace?,
+                control: ((org.openmetronome.diagnostics.TraceControlKind, Long) -> Unit)?): AutoCloseable? = acquire(onLoss)
+}
 
-class AudioEngineException(val reason: AudioFailure, cause: Throwable? = null) :
+class AudioEngineException(val reason: AudioFailure, cause: Throwable? = null, val platformCode: Int? = null) :
     RuntimeException(reason.name, cause)

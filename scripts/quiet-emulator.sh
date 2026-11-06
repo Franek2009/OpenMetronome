@@ -24,3 +24,8 @@ awk -f scripts/instrumentation-summary.awk "$quiet_report/instrumentation.log" |
 for quiet_capture in initial landscape sound-controls sound-picker sample-library; do
     "${quiet_adb[@]}" exec-out run-as "$quiet_package" cat "cache/ui-v012-$quiet_capture.png" > "$quiet_report/$quiet_capture.png"
 done
+
+if [[ "$quiet_flavor" == dev ]]; then
+    "${quiet_adb[@]}" exec-out run-as "$quiet_package" cat cache/instrumentation-trace-export.zip > "$quiet_report/trace-export-fixture.zip"
+    python3 scripts/analyze-dev-trace.py "$quiet_report/trace-export-fixture.zip" > "$quiet_report/trace-export-summary.json"
+fi

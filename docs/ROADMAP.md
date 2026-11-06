@@ -19,7 +19,9 @@ Main `506fc69c00ae7393e045ed08dddfc6968bc276d7` ma CI 5/5 PASS.
 PR #14 z [obserwacją PCM i buforem DEV](DEV-DIAGNOSTICS.md) scalono;
 main `4d40d73be903f7ca08290512afb7eedb4fc783c0` ma CI 5/5 PASS.
 Kolejny PR przygotowuje [trwały magazyn DEV](V1.1-DEV-STORAGE-VALIDATION.md),
-bez aktywacji zbierania w aplikacji i eksportu. Pełna diagnostyka pozostaje otwarta.
+bez aktywacji zbierania w aplikacji. Zależny etap przygotowuje
+[zdarzenia, powiązanie historii i ZIP](DEV-TRACE-EXPORT.md).
+Integracja oraz kwalifikacja całego toru ART pozostają otwarte.
 Nie ma zgody na scalenie kolejnego PR, tagi ani podpisanie/publikację wydania.
 Nie uruchamiamy fizycznego audio, wibracji ani operacji na telefonach.
 
