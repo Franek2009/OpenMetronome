@@ -51,6 +51,7 @@ internal fun DistributionDiagnostics(data: AppData) {
     var working by remember { mutableStateOf(false) }
     var canCancel by remember { mutableStateOf(true) }
     fun runOperation(allowCancel: Boolean = true, block: suspend () -> Unit) {
+        if (working) return
         canCancel = allowCancel
         working = true
         task = scope.launch { try { block() } finally { working = false } }
