@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """DEV-only badge over the existing launcher geometry; never edits the user's SVG."""
 import copy
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -26,8 +27,24 @@ def export(source, target, size):
                     '--export-background-opacity=0', f'--export-filename={target}'], check=True, capture_output=True)
 
 
+def read_foreground(path):
+    # Fixed, repository-owned VectorDrawable only. Bound input and forbid DTDs/entities
+    # before parsing; no extra parser dependency or external resource resolution.
+    with path.open('rb') as source:
+        data = source.read(128 * 1024 + 1)
+    if len(data) > 128 * 1024:
+        raise ValueError('Foreground XML exceeds the input limit')
+    text = data.decode('utf-8-sig')
+    if re.search(r'<!\s*(DOCTYPE|ENTITY)\b', text, re.IGNORECASE):
+        raise ValueError('DTDs and entity declarations are not allowed')
+    root = ET.fromstring(text)
+    if root.tag != 'vector':
+        raise ValueError('Expected the repository VectorDrawable')
+    return root
+
+
 def main():
-    original = ET.parse(MAIN / 'drawable/ic_launcher_foreground.xml').getroot()
+    original = read_foreground(MAIN / 'drawable/ic_launcher_foreground.xml')
     for name, monochrome in [('ic_launcher_foreground', False), ('ic_launcher_monochrome', True)]:
         tree = copy.deepcopy(original)
         if monochrome:

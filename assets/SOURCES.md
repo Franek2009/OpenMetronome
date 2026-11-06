@@ -72,3 +72,8 @@ się w strefie o promieniu 33 dp. Oryginały i zasoby produkcyjne są niezmienne
 [Porównanie stable/DEV, 48 i 72 px](../docs/images/dev-launcher-preview.png).
 Po regeneracji głównej ikony uruchom również generator DEV, aby obie wersje
 korzystały z tej samej aktualnej geometrii logo.
+
+Generator DEV odczytuje wyłącznie lokalny VectorDrawable z repozytorium,
+ogranicza wejście do 128 KiB UTF-8 i odrzuca DTD oraz deklaracje encji przed
+parsowaniem. Nie pobiera zewnętrznego XML i nie wymaga nowej biblioteki.
+Regresja wejścia: `python3 scripts/test-dev-icon-input.py`.

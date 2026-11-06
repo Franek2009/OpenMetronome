@@ -44,19 +44,40 @@ class LauncherIconTest {
         val foreground = render(context.getDrawable(R.drawable.ic_launcher_foreground)!!)
         val mono = render(context.getDrawable(R.drawable.ic_launcher_monochrome)!!)
         try {
+            val dev = context.packageName == "org.openmetronome.dev.debug"
             var ink = 0
+            var letterCutouts = 0
             for (y in 0 until foreground.height) for (x in 0 until foreground.width) {
                 val pixel = foreground.getPixel(x, y)
                 val alpha = Color.alpha(pixel)
                 // Android's black/white rasterization may round antialiased alpha by 1/255.
                 val monoAlpha = Color.alpha(mono.getPixel(x, y))
-                assertTrue("Monochrome silhouette differs at $x,$y: $alpha vs $monoAlpha",
+                val badge = dev && x in 120 until 312 && y in 232 until 304
+                if (!badge) assertTrue("Monochrome silhouette differs outside the badge at $x,$y: $alpha vs $monoAlpha",
                     kotlin.math.abs(alpha - monoAlpha) <= 1)
+                else {
+                    assertEquals("Color badge must be opaque", 255, alpha)
+                    if (monoAlpha == 0) letterCutouts++
+                }
                 if (alpha > 0) {
                     ink++
-                    assertEquals("Foreground must contain only black symbols", 0, pixel and 0x00ffffff)
-                    assertTrue("Artwork clipped outside the 66dp safe circle at $x,$y",
-                        hypot(x + .5 - 216, y + .5 - 216) <= 33 * 4 + 1)
+                    if (!badge) assertEquals("Artwork outside DEV badge must remain black", 0, pixel and 0x00ffffff)
+                    else {
+                        assertEquals(0, Color.blue(pixel))
+                        assertTrue("Badge must contain only amber/black including antialiasing",
+                            kotlin.math.abs(179 * Color.red(pixel) - 255 * Color.green(pixel)) <= 256)
+                    }
+                }
+                if (alpha > 0 || monoAlpha > 0) assertTrue("Artwork clipped outside the 66dp safe circle at $x,$y",
+                    hypot(x + .5 - 216, y + .5 - 216) <= 33 * 4 + 1)
+            }
+            if (dev) {
+                assertTrue("Missing themed DEV lettering", letterCutouts > 100)
+                assertEquals(0xffffb300.toInt(), foreground.getPixel(129, 241))
+                assertEquals(255, Color.alpha(mono.getPixel(129, 241)))
+                for ((x, y) in listOf(145 to 269, 197 to 269, 266 to 281)) {
+                    assertEquals("DEV letter must be black", Color.BLACK, foreground.getPixel(x, y))
+                    assertEquals("Themed letter must be a transparent cutout", 0, Color.alpha(mono.getPixel(x, y)))
                 }
             }
             assertTrue("Missing or fully opaque square silhouette", ink in 1000 until foreground.width * foreground.height / 2)
