@@ -115,3 +115,11 @@ pomiary całego toru i pamięci na ART; budżet p99 renderowania
 zaliczone. Pomiary fizycznego audio i wibracje wymagają osobnej zgody.
 
 [Raport walidacji etapu 2](V1.1-PCM-TRACE-VALIDATION.md).
+
+## Etap 3a — trwały magazyn bez aktywacji
+
+Dodano procesowy konsument IO, ograniczoną rezerwację pamięci i dysku,
+checkpointy, CRC rekordów i odzyskiwanie niedokończonych raportów.
+[Zakres, protokół i walidacja](V1.1-DEV-STORAGE-VALIDATION.md).
+Nie podłączono jeszcze magazynu do aplikacji ani nie wdrożono eksportu ZIP;
+pełna kwalifikacja ART pozostaje warunkiem aktywacji.

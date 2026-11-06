@@ -16,8 +16,10 @@ zadaniem 1.0.1 po kwalifikacji źródeł.
 
 PR #13 z [wariantami i ochroną publikacji](BUILD-VARIANTS.md) scalono po zgodzie.
 Main `506fc69c00ae7393e045ed08dddfc6968bc276d7` ma CI 5/5 PASS.
-Kolejny PR dodaje [obserwację PCM i bufor DEV](DEV-DIAGNOSTICS.md), bez aktywacji
-zbierania w aplikacji, zapisu IO i eksportu. Pełna diagnostyka pozostaje otwarta.
+PR #14 z [obserwacją PCM i buforem DEV](DEV-DIAGNOSTICS.md) scalono;
+main `4d40d73be903f7ca08290512afb7eedb4fc783c0` ma CI 5/5 PASS.
+Kolejny PR przygotowuje [trwały magazyn DEV](V1.1-DEV-STORAGE-VALIDATION.md),
+bez aktywacji zbierania w aplikacji i eksportu. Pełna diagnostyka pozostaje otwarta.
 Nie ma zgody na scalenie kolejnego PR, tagi ani podpisanie/publikację wydania.
 Nie uruchamiamy fizycznego audio, wibracji ani operacji na telefonach.
 
