@@ -51,7 +51,10 @@ internal class TraceJournal(
                 metadata.setProperty("controlRecoveredRecords", controlScan.records.toString())
                 metadata.setProperty("controlDamagedTail", controlScan.damagedTail.toString())
                 metadata.setProperty("controlFinalCountersKnown", "false")
-                saveMetadata(directory, metadata)
+                if (metadata.getProperty("metadataUnavailable") != "true") {
+                    metadata.setProperty("schemaVersion", "1"); metadata.setProperty("id", directory.name)
+                    saveMetadata(directory, metadata)
+                }
             }
             reservedTotal += reservation(directory)
         }
@@ -154,6 +157,7 @@ internal class TraceJournal(
         val directory = File(root, id.toString())
         if (!directory.isDirectory) return // admission failed before a reservation
         val metadata = readMetadata(directory)
+        if (metadata.getProperty("metadataUnavailable") == "true") return // preserve unreadable evidence
         val scan = scan(File(directory, "records.bin"))
         metadata.setProperty("schemaVersion", "1")
         metadata.setProperty("id", id.toString())
@@ -201,14 +205,23 @@ internal class TraceJournal(
         directory.walkTopDown().onFail { _, error -> throw error }.filter { it.isFile }.sumOf { it.length() },
         File(directory, "records.bin").length() + File(directory, "control.bin").length() + METADATA_RESERVE)
 
-    fun readMetadata(directory: File): Properties = Properties().apply {
+    fun readMetadata(directory: File): Properties {
         require(!Files.isSymbolicLink(directory.toPath())) { "report_symlink" }
         val file = File(directory, "metadata.properties")
         require(!Files.isSymbolicLink(file.toPath())) { "report_symlink" }
-        if (file.isFile) {
-            require(file.length() <= METADATA_RESERVE / 2) { "metadata_too_large" }
-            FileInputStream(file).use { load(it) }
+        if (!file.isFile) return Properties()
+        fun unavailable() = Properties().apply {
+            setProperty("id", directory.name); setProperty("schemaVersion", "1")
+            setProperty("state", "interrupted"); setProperty("reason", "metadata_unreadable")
+            setProperty("metadataUnavailable", "true")
+            setProperty("finalCountersKnown", "false"); setProperty("controlFinalCountersKnown", "false")
         }
+        if (file.length() > METADATA_RESERVE / 2) return unavailable()
+        val properties = try { Properties().apply { FileInputStream(file).use { load(it) } } }
+            catch (_: IllegalArgumentException) { return unavailable() }
+        if (properties.getProperty("state") !in listOf("recording", "complete", "incomplete", "interrupted") ||
+            properties.getProperty("schemaVersion")?.let { it != "1" } == true) return unavailable()
+        return properties
     }
 
     private fun saveMetadata(directory: File, properties: Properties) {

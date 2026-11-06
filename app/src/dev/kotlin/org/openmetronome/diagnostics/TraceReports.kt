@@ -66,7 +66,19 @@ class TraceReports(
         val audioFile = File(directory, "records.bin")
         val controlFile = File(directory, "control.bin")
         val audio = store.journal.scanRecords(audioFile) { checkRunning() }
-        val control = store.journal.scanRecords(controlFile) { checkRunning() }
+        var recordedHistory: UUID? = null
+        var historyConflict = false
+        val control = store.journal.scanRecords(controlFile) { row ->
+            checkRunning()
+            if (row.kindCode == TraceControlKind.HISTORY_CREATED.code) {
+                val id = UUID(row.a, row.b)
+                if (recordedHistory != null && recordedHistory != id) historyConflict = true
+                recordedHistory = id
+            }
+        }
+        val manifestHistory = metadata.getProperty("historyId")?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+        if (recordedHistory != null && manifestHistory != null && recordedHistory != manifestHistory) historyConflict = true
+        val historyId = if (historyConflict) null else recordedHistory ?: manifestHistory
         val missingAudio = !audioFile.isFile
         val missingControl = !controlFile.isFile
         fun validCounters(prefix: String): Boolean {
@@ -85,7 +97,7 @@ class TraceReports(
         val hasLoss = (metadata.getProperty("dropped")?.toLongOrNull() ?: 0) > 0 ||
             (metadata.getProperty("controlDropped")?.toLongOrNull() ?: 0) > 0 || metadata.getProperty("observerFaulted") == "true"
         val incomplete = metadata.getProperty("state") != "complete" || audio.damagedTail || control.damagedTail ||
-            missingAudio || missingControl || countsMismatch || !pcmCountersKnown || !controlCountersKnown || hasLoss
+            missingAudio || missingControl || countsMismatch || historyConflict || !pcmCountersKnown || !controlCountersKnown || hasLoss
         checkRunning()
         ZipOutputStream(BufferedOutputStream(open(), 64 * 1024)).use { zip ->
             fun csv(name: String, source: String, file: File, accept: (JournalRecord) -> Boolean) {
@@ -138,7 +150,9 @@ class TraceReports(
             json["physicalJitter"] = null; json["physicalLatency"] = null
             json["ordering"] = "independent_lane_sequences; events.csv groups pcm then control; compare nanos"
             json["missingFrame"] = "empty_csv_field"
-            json["historyId"] = metadata.getProperty("historyId")
+            json["historyId"] = historyId?.toString()
+            json["historyLinkConflict"] = historyConflict.toString()
+            json["historyLinkSource"] = if (historyConflict) "conflicting_records" else if (recordedHistory != null) "control" else if (manifestHistory != null) "manifest" else null
             json["finalCountersKnown"] = pcmCountersKnown.toString()
             json["controlFinalCountersKnown"] = controlCountersKnown.toString()
             metadata.stringPropertyNames().sorted().forEach { key ->
@@ -179,7 +193,7 @@ class TraceReports(
         private val MANIFEST_KEYS = setOf("engineSessionId", "reason", "attempted", "accepted", "dropped", "observerFaulted",
             "writtenRecords", "recoveredRecords", "storageLostRecords", "validBytes", "damagedTail", "controlRecoveredRecords",
             "controlDamagedTail", "controlAttempted", "controlAccepted", "controlDropped", "controlWrittenRecords", "controlStorageLostRecords")
-        private val BOOLEAN_KEYS = setOf("audioAvailable", "controlAvailable", "countsMismatch", "countersVerified", "audioDamagedTail", "controlDamagedTail", "damagedTail", "finalCountersKnown", "controlFinalCountersKnown", "observerFaulted")
+        private val BOOLEAN_KEYS = setOf("historyLinkConflict", "audioAvailable", "controlAvailable", "countsMismatch", "countersVerified", "audioDamagedTail", "controlDamagedTail", "damagedTail", "finalCountersKnown", "controlFinalCountersKnown", "observerFaulted")
         private val NUMBER_KEYS = MANIFEST_KEYS - setOf("reason", "observerFaulted", "damagedTail", "controlDamagedTail") +
             setOf("schemaVersion", "audioRecords", "controlRecords", "environment.versionCode", "environment.api", "environment.startedAtEpochMs", "environment.startedAtMonotonicNs")
         private val EVENT_CODES = setOf(1, 3, 4, 5, 14, 15, 16, 17, 18, 19, 20)

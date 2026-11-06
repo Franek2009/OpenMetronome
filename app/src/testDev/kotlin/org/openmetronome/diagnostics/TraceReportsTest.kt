@@ -160,6 +160,61 @@ class TraceReportsTest {
         } finally { store.close(); assertTrue(store.awaitTermination()) }
     }
 
+    @Test fun intactHistoryEventRepairsOnlyExportViewAndConflictingLinksStayUnknown() = runBlocking<Unit> {
+        val store = store()
+        try {
+            for (conflicting in listOf(false, true)) {
+                val capture = store.begin(TraceSessionKey(UUID.randomUUID(), 1))!!
+                val history = UUID.randomUUID()
+                capture.historyCreated(history)
+                if (conflicting) capture.historyCreated(UUID.randomUUID())
+                capture.trace.close(); capture.finishControls(); await { store.status.value.active == 0 }
+                val directory = File(store.root, capture.reportId.toString())
+                val metadata = store.journal.readMetadata(directory)
+                metadata.remove("historyId")
+                File(directory, "metadata.properties").outputStream().use { metadata.store(it, null) }
+                val before = File(directory, "metadata.properties").readBytes()
+                val bytes = ByteArrayOutputStream()
+                val result = TraceReports(store).export(capture.reportId) { bytes }
+                val json = entries(bytes.toByteArray()).getValue("metadata.json")
+                if (conflicting) {
+                    assertTrue(result.incomplete)
+                    assertTrue(json.contains("\"historyId\": null"))
+                    assertTrue(json.contains("\"historyLinkConflict\": true"))
+                } else {
+                    assertFalse(result.incomplete)
+                    assertTrue(json.contains(history.toString()))
+                    assertTrue(json.contains("\"historyLinkSource\": \"control\""))
+                }
+                assertArrayEquals(before, File(directory, "metadata.properties").readBytes())
+            }
+        } finally { store.close(); assertTrue(store.awaitTermination()) }
+    }
+
+    @Test fun corruptManifestDoesNotPermanentlyDisableStoreAndRawHistoryRemainsExportable() = runBlocking<Unit> {
+        val root = temporary.newFolder(); val first = store(root)
+        val capture = first.begin(TraceSessionKey(UUID.randomUUID(), 1))!!
+        val history = UUID.randomUUID()
+        capture.historyCreated(history); capture.trace.record(PcmTraceKind.BEAT)
+        capture.trace.close(); capture.finishControls(); await { first.status.value.active == 0 }
+        first.close(); assertTrue(first.awaitTermination())
+        val manifest = File(root, "${capture.reportId}/metadata.properties")
+        val corrupt = byteArrayOf(92, 117, 49, 50) // truncated Properties unicode escape
+        manifest.writeBytes(corrupt)
+        val restored = store(root)
+        try {
+            val reports = TraceReports(restored)
+            assertEquals("metadata_unreadable", reports.list().single().reason)
+            val bytes = ByteArrayOutputStream()
+            assertTrue(reports.export(capture.reportId) { bytes }.incomplete)
+            val json = entries(bytes.toByteArray()).getValue("metadata.json")
+            assertTrue(json.contains(history.toString()))
+            assertTrue(json.contains("\"finalCountersKnown\": false"))
+            assertArrayEquals(corrupt, manifest.readBytes())
+            complete(restored) // a bad report must not poison the next capture
+        } finally { restored.close(); assertTrue(restored.awaitTermination()) }
+    }
+
     @Test fun invalidFinalCountersCannotProduceACompleteExport() = runBlocking<Unit> {
         val store = store()
         try {

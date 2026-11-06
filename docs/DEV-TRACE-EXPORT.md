@@ -49,7 +49,10 @@ Integracja komunikatów błędów/retry AppData i finalizacji usługi pozostaje
 w kolejnym PR. Nie zmieniono Room ani formatu `.ombak`.
 
 `records.bin` i `control.bin` używają tego samego ograniczonego framingu OMD1
-z CRC, ale mają niezależne sekwencje. Jedna rezerwacja dyskowa i jeden limit
+z CRC, ale mają niezależne sekwencje. Nieczytelny manifest pojedynczego
+raportu pozostaje zachowany; widok odzyskiwania oznacza go interrupted
+z nieznanymi licznikami. Nie blokuje to kolejnych rejestracji ani eksportu
+poprawnego prefiksu dziennika. Jedna rezerwacja dyskowa i jeden limit
 512 MiB obejmują obydwa pliki oraz manifest. Stare dzienniki bez control.bin
 pozostają eksportowalne, z jawnym brakiem kanału i liczników. Nie dopisujemy zer
 za brakującą historię zdarzeń. Limity 2 GiB łącznie i brak automatycznego
@@ -97,7 +100,10 @@ Historia: a/b to bity UUID (signed Long), c=finished, d=interrupted.
 zapis historii ani zaliczone audio. Raport może zawierać poprawnie zapisany
 błąd silnika. Uszkodzony koniec, brak pliku, niepoprawne liczniki lub straty
 powodują oznaczenie incomplete/interrupted; kompletne rekordy nadal są
-eksportowane. Nie naprawiamy ani nie kasujemy źródeł podczas eksportu.
+eksportowane. Powiązanie historii można odtworzyć z jednoznacznego, poprawnego rekordu
+HISTORY_CREATED, gdy manifest go nie zachował. Sprzeczne powiązania dają
+null oraz historyLinkConflict=true, nie arbitralny wybór UUID.
+Nie naprawiamy ani nie kasujemy źródeł podczas eksportu.
 
 ## DEV UI i automatyzacja
 
