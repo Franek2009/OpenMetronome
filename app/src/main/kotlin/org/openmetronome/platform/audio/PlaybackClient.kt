@@ -25,6 +25,7 @@ class PlaybackClient(context: Context) : MetronomePort {
     private var waitingForEngine = false
     private var edited = false
     private var closed = false
+    private var visible = false
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName, binder: IBinder) {
             if (closed) return
@@ -33,6 +34,7 @@ class PlaybackClient(context: Context) : MetronomePort {
             stopRemote = local::stopPlayback
             startRemote = local::startPlayback
             controller = remote
+            remote.visibility(visible)
             if (edited) remote.editConfig { mutableState.value.config }
             else mutableState.value = remote.state.value
             collector?.cancel()
@@ -86,6 +88,7 @@ class PlaybackClient(context: Context) : MetronomePort {
         stopRemote?.invoke()
         mutableState.update { it.copy(audio = controller?.state?.value?.audio ?: AudioEngineState()) }
     }
+    override fun visibility(visible: Boolean) { this.visible = visible; controller?.visibility(visible) }
     override fun close() {
         if (closed) return
         closed = true

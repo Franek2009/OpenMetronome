@@ -21,6 +21,8 @@ class PcmAudioEngine(
     private val sampleBanks: SampleBankSource = SampleBankSource { SampleBankLease(emptyMap()) },
     private val traceFactory: ((Long) -> PcmTrace?)? = null,
     private val controls: ControlObservation? = null,
+    private val renderProbe: ((Long) -> Unit)? = null,
+    private val renderClock: () -> Long = System::nanoTime,
 ) : AudioEngine {
     private class Session(val id: Long, val bank: SampleBankLease, val trace: PcmTrace?) {
         val cancelled = AtomicBoolean(false)
@@ -38,6 +40,8 @@ class PcmAudioEngine(
     private var closed = false
     private var sequence = 0L
     @Volatile private var observedSessionId = 0L
+    override val observations get() = controls
+    override val diagnosticSessionId get() = observedSessionId
 
     override fun start(config: MetronomeConfig) = synchronized(lock) {
         if (closed || session != null) {
@@ -119,6 +123,10 @@ class PcmAudioEngine(
             trace?.record(PcmTraceKind.OUTPUT_OPENED, 0, sink.sampleRate.toLong(),
                 sink.blockFrames.toLong(), sink.bufferFrames.toLong(), initialUnderruns.toLong())
             var tracedRequested: MetronomeConfig? = null
+            var probe = renderProbe
+            var clockAvailable = true
+            fun renderTime(): Long? = if (!clockAvailable) null else try { renderClock() }
+                catch (_: Exception) { clockAvailable = false; null }
             fun withVolume(config: MetronomeConfig): MetronomeConfig {
                 val percent = renderer.appliedConfig.sound.volumePercent
                 return if (config.sound.volumePercent == percent) config else config.copy(sound = config.sound.copy(volumePercent = percent))
@@ -126,17 +134,26 @@ class PcmAudioEngine(
 
             fun renderBlock(count: Int) {
                 val config = requested.get()
-                if (trace == null) {
+                if (trace == null && probe == null) {
                     renderer.render(block, count, config)
                     return
                 }
+                val started = renderTime()
                 val firstFrame = renderer.renderedFrames
-                if (config != tracedRequested) {
+                if (trace != null && config != tracedRequested) {
                     trace.record(PcmTraceKind.CONFIG_OBSERVED, firstFrame, config = config)
                     tracedRequested = config
                 }
                 renderer.render(block, count, config)
-                trace.record(PcmTraceKind.RENDER, firstFrame, count.toLong(), renderer.renderedFrames)
+                val ended = renderTime()
+                val elapsed = if (started != null && ended != null && ended >= started) ended - started else -1L
+                trace?.record(PcmTraceKind.RENDER, firstFrame, count.toLong(), renderer.renderedFrames, elapsed)
+                // Qualification includes the diagnostic append in its render-path budget.
+                if (probe != null) {
+                    val completed = renderTime()
+                    if (started != null && completed != null && completed >= started)
+                        try { probe?.invoke(completed - started) } catch (_: Exception) { probe = null }
+                }
             }
 
             fun snapshot(): AudioDiagnostics {

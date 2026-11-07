@@ -20,7 +20,13 @@ mkdir -p "$quiet_report"
 "${quiet_adb[@]}" install "$quiet_apks/androidTest/$quiet_flavor/debug/app-$quiet_flavor-debug-androidTest.apk"
 "${quiet_adb[@]}" shell am instrument -w -r -e allowAudio false -e allowHaptics false -e captureUi true \
     "$quiet_package.test/org.openmetronome.OpenMetronomeTestRunner" | tee "$quiet_report/instrumentation.log"
+if [[ "$quiet_flavor" == dev ]]; then
+    if ! "${quiet_adb[@]}" exec-out run-as "$quiet_package" cat cache/dev-qualification.json > "$quiet_report/dev-qualification.json"; then
+        rm -f "$quiet_report/dev-qualification.json"
+    fi
+fi
 awk -f scripts/instrumentation-summary.awk "$quiet_report/instrumentation.log" | tee "$quiet_report/summary.txt"
+if [[ "$quiet_flavor" == dev ]]; then test -s "$quiet_report/dev-qualification.json"; fi
 for quiet_capture in initial landscape sound-controls sound-picker sample-library; do
     "${quiet_adb[@]}" exec-out run-as "$quiet_package" cat "cache/ui-v012-$quiet_capture.png" > "$quiet_report/$quiet_capture.png"
 done

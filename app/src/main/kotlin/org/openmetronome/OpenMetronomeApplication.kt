@@ -19,6 +19,7 @@ open class OpenMetronomeApplication : Application() {
     /** Platform composition root; instrumentation can guard or replace hardware output. */
     open fun createAudioEngine(context: Context): AudioEngine {
         val manager = context.getSystemService(AudioManager::class.java)
+        val diagnosticHooks = org.openmetronome.diagnostics.engineDiagnosticHooks(context, data)
         return PcmAudioEngine(
             AndroidPcmSinkFactory(manager), AndroidAudioFocusGate(context, manager),
             configureThread = { Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO) },
@@ -27,6 +28,7 @@ open class OpenMetronomeApplication : Application() {
                 else Log.e("OpenMetronomeAudio", message, error)
             },
             sampleBanks = data.samples,
+            traceFactory = diagnosticHooks.traceFactory, controls = diagnosticHooks.controls,
         )
     }
 

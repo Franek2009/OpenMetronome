@@ -30,18 +30,22 @@ internal class TraceControlQueue(private val capacity: Int = 128) {
     private val losses = LongArray(TraceControlKind.entries.size)
 
     @Synchronized fun offer(kind: TraceControlKind, a: Long, b: Long, c: Long, d: Long,
-                            config: MetronomeConfig?): Boolean {
+                            config: MetronomeConfig?, nanos: Long = System.nanoTime()): Boolean {
         // Calls after close are outside the session; its final counters are immutable.
         if (closed) return false
         val sequence = attempted++
         if (!enabled || queue.size == capacity) {
             dropped++; losses[kind.ordinal]++; return false
         }
-        queue.addLast(JournalRecord(sequence, System.nanoTime(), kind.code, -1, a, b, c, d, config))
+        queue.addLast(JournalRecord(sequence, nanos, kind.code, -1, a, b, c, d, config))
         accepted++
         return true
     }
     @Synchronized fun poll(): JournalRecord? = queue.removeFirstOrNull()
+    @Synchronized fun noteDropped(kind: TraceControlKind, count: Long) {
+        require(count >= 0)
+        if (!closed) { attempted += count; dropped += count; losses[kind.ordinal] += count }
+    }
     @Synchronized fun isEmpty(): Boolean = queue.isEmpty()
     @Synchronized fun close() { closed = true }
     @Synchronized fun disable() { enabled = false }
@@ -79,8 +83,10 @@ data class TraceEnvironment(
     val versionName: String = "unknown", val versionCode: Long? = null, val sourceRevision: String = "unknown",
     val manufacturer: String = "unknown", val model: String = "unknown", val api: Int? = null,
     val captureOrigin: String = "unknown",
+    val renderClock: String = "monotonic_nanoseconds",
 ) {
     internal fun fields() = mapOf("versionName" to versionName.take(160), "versionCode" to (versionCode?.toString() ?: "unknown"),
         "sourceRevision" to sourceRevision.take(160), "manufacturer" to manufacturer.take(160),
-        "model" to model.take(160), "api" to (api?.toString() ?: "unknown"), "captureOrigin" to captureOrigin.take(160))
+        "model" to model.take(160), "api" to (api?.toString() ?: "unknown"), "captureOrigin" to captureOrigin.take(160),
+        "renderClock" to renderClock.take(80))
 }

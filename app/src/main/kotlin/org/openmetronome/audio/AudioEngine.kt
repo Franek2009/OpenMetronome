@@ -31,6 +31,8 @@ data class AudioEngineState(
 )
 
 interface AudioEngine : AutoCloseable {
+    val observations: org.openmetronome.diagnostics.ControlObservation? get() = null
+    val diagnosticSessionId: Long get() = 0
     val state: StateFlow<AudioEngineState>
     fun start(config: MetronomeConfig)
     fun updateConfig(config: MetronomeConfig)

@@ -1,10 +1,8 @@
 # Raporty DEV — zdarzenia i ZIP v1 (etap 3b)
 
-Zależność: PR #15 / `69500178ae71be1f234491eb48b48fd0518d25c9`.
-Ten etap przygotowuje zdarzenia, korelację, eksport i zarządzanie raportami.
-**Aplikacja nie przekazuje jeszcze obserwatorów do silnika. Rejestracja sesji
-nie jest aktywowana.** W DEV można odczytać raporty przygotowane przez narzędzia
-lub instrumentację. Kolejny PR połączy te elementy po kwalifikacji narzutu.
+Magazyn, sterowanie i eksport są połączone z rejestracją DEV.
+[Integracja i kwalifikacja ART](V1.1-DEV-INTEGRATION-VALIDATION.md).
+Wariant PROD nie zawiera implementacji rejestratora ani ekranu raportów.
 
 ## Granice wątków i zamykania
 
@@ -13,12 +11,11 @@ PCM zachowuje istniejący bufor SPSC. `TraceCapture` dodaje osobną kolejkę
 Kolejka nie nadpisuje rekordów. Liczniki prób i strat są osobne dla kanałów.
 Rezerwacja transportu 4 MiB obejmuje wszystkie aktywne/zamykane sesje,
 IO i kanał sterowania w istniejącym zapasie 512 KiB/sesję. To nie limit
-PSS całego procesu; pomiary ART nadal są osobną bramką.
+PSS całego procesu; pomiary ART mają osobny raport.
 
 Start/config/Stop mają opcjonalny, chroniony przed Exception port
 `ControlObservation`. Wyjątek obserwatora nie zatrzymuje odtwarzania.
-`failures` tego portu musi zostać uwzględnione przez integrację przed
-ogłoszeniem kompletności raportu. Zatrzymanie i zwalnianie zasobów nie czekają
+Przepełnienie kolejki i prefiksu sprzed Start jest jawnie liczone jako strata. Zatrzymanie i zwalnianie zasobów nie czekają
 na callback Stop; test zatrzymanego obserwatora sprawdza tę kolejność.
 
 Android focus: żądanie/wynik/zwolnienie trafiają na PCM worker do jego bufora;
@@ -45,8 +42,8 @@ Opcjonalny callback `SessionRecorder` podaje CREATED, CHECKPOINT_REQUESTED,
 CHECKPOINT_RETURNED i CHECKPOINT_FAILED oraz istniejący UUID historii.
 RETURNED oznacza powrót funkcji checkpointu, **nie dowód trwałego zapisu**:
 AppData może zachować zapis do ponowienia. Awaria callbacku nie odrzuca historii.
-Integracja komunikatów błędów/retry AppData i finalizacji usługi pozostaje
-w kolejnym PR. Nie zmieniono Room ani formatu `.ombak`.
+Integracja obserwuje błędy zapisu i odzyskiwanie AppData. Finalizacja usługi
+czeka na końcowy snapshot silnika i wynik zapisu przed zamknięciem sterowania.
 
 `records.bin` i `control.bin` używają tego samego ograniczonego framingu OMD1
 z CRC, ale mają niezależne sekwencje. Nieczytelny manifest pojedynczego
@@ -92,8 +89,7 @@ jako rzeczywistego wyniku. AndroidPcmSink zachowuje ujemne kody platformy.
 Sterowanie: 100 Start, 101 odrzucenie, 102 Stop, 103 żądanie konfiguracji;
 110–114 focus/noisy, 120–123 historia/checkpoint, 130–132 usługa/tło,
 140–141 odzyskiwanie/błąd zapisu. Adapter Androida zapisuje wynik focus na
-PCM (18–20); asynchroniczne zmiany/noisy używają 112/114. Pozostałe wejścia
-przygotowano dla integracji, nie są deklaracją ich aktywacji w aplikacji.
+PCM (18–20); asynchroniczne zmiany/noisy używają 112/114. Wejścia historii, usługi, tła i storage są podłączone w DEV.
 Historia: a/b to bity UUID (signed Long), c=finished, d=interrupted.
 
 `complete` oznacza kompletność **rejestracji**, nie udane ćwiczenie, poprawny
@@ -152,7 +148,7 @@ Test błędnych końcowych liczników najpierw wykazał FAIL: eksport błędnie
 zachowywał complete. Poprawiono walidację liczników względem rekordów i
 nieznanych wartości. Końcowe wyniki dokładnego SHA podajemy w PR po odczycie CI.
 
-Nadal nie ma aktywnej rejestracji każdej sesji, integracji usług/storage ani
-kwalifikacji całego toru na ART (p99 +10%, brak strat, pamięć). Przegląd
-redundancji testów nastąpi po tej integracji. Brak tagowania, publikacji,
-operacji na telefonach, fizycznego audio lub wibracji. Jitter/latencja niezmierzone.
+Rejestracja jest aktywna w DEV po kwalifikacji całego toru offline ART.
+Raporty zawierają również odliczanie (flaga BEAT 512) oraz czas renderowania
+w polu c rekordu RENDER; zegar określa metadata.renderClock. Nie jest to pomiar
+wyjścia fizycznego. Jitter i latencja pozostają niezmierzone.

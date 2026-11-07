@@ -173,8 +173,10 @@ class TraceReports(
             listOf("pause", "flush", "track", "focus", "bank").forEachIndexed { index, resource -> json["cleanupResource.$index"] = resource }
             json["beatFlag.1"] = "training_mute"; json["beatFlag.2"] = "beat_mute"
             json["beatFlag.4"] = "subdivision_mute"; json["beatFlag.256"] = "accent_sample"
+            json["beatFlag.512"] = "count_in; negative bar indices precede practice bar zero"
             json["platformErrorAvailability"] = "ERROR: c=1 means b is raw code; WRITE_THROW: d=1 means c is raw code; flag 0 means unavailable"
             json["checkpointReturned"] = "checkpoint function returned; not proof of durable history commit"
+            json["renderTiming"] = "RENDER.c is producer render duration in environment.renderClock units; -1 means unavailable; not physical audio latency"
             json["historyEncoding"] = "HISTORY_CREATED/CHECKPOINT_*: a,b=UUID high/low signed 64-bit; c=finished; d=interrupted"
             json["focusResult.0"] = "failed"; json["focusResult.1"] = "granted"; json["focusResult.2"] = "delayed"
             json["focusChange.1"] = "gain"; json["focusChange.-1"] = "loss"
@@ -182,6 +184,7 @@ class TraceReports(
             json["stopReason.0"] = "explicit_stop"; json["stopReason.1"] = "engine_close"
             json["startRejected.1"] = "engine_closed"; json["startRejected.2"] = "engine_busy"
             json["startRejected.3"] = "sample_lease_failed; b=audioFailure code"
+            json["startRejected.4"] = "foreground_promotion_failed; no audio session was started"
             val encoded = json.entries.joinToString(",\n", "{\n", "\n}\n") { (key, value) ->
                 val encodedValue = when {
                     value == null -> "null"

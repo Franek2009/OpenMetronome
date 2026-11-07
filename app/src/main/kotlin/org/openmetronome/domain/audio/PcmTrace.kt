@@ -16,6 +16,7 @@ object PcmTraceFlags {
     const val BEAT_MUTE = 2
     const val SUBDIVISION_MUTE = 4
     const val ACCENT = 256
+    const val COUNT_IN = 512
 }
 
 data class PcmTraceHealth(

@@ -1,10 +1,10 @@
 # Diagnostyka DEV — PCM, magazyn i raporty
 
-Status: obserwator PCM, magazyn i eksport są przygotowane i testowane osobno,
-**bez aktywacji w uruchamianej aplikacji**. `OpenMetronomeApplication` nie
-przekazuje jeszcze traceFactory ani ControlObservation. Integracja usługi,
-storage i kwalifikacja całego toru ART pozostają kolejnym etapem.
-[Zdarzenia i ZIP v1](DEV-TRACE-EXPORT.md). Nie ogłaszamy ukończenia pełnej diagnostyki DEV.
+Status: pełny tor rejestracji jest podłączony w wariancie DEV: PCM, sterowanie,
+UUID historii, cykl usługi, focus/noisy oraz wyniki checkpointów. PROD dostarcza
+puste punkty integracji i nie zawiera implementacji magazynu DEV.
+[Zdarzenia i ZIP v1](DEV-TRACE-EXPORT.md).
+[Kwalifikacja i granice pomiarów](V1.1-DEV-INTEGRATION-VALIDATION.md).
 
 ## Granica produkcji i DEV
 
@@ -12,8 +12,9 @@ Wspólna warstwa zawiera wyłącznie typy obserwacji i opcjonalne punkty w silni
 Domyślny brak obserwatora nie tworzy bufora ani nie odczytuje zegara diagnostycznego.
 `BoundedPcmTrace` i konsumencki `PcmTraceRecord` są w source set DEV, poza APK prod.
 Inspekcja artefaktów sprawdza ich obecność w devRelease i nieobecność w prodRelease.
-Nie zmieniono Room, `.ombak`, presetów, brzmień, identyfikatorów aplikacji,
-wersji ani konfiguracji kluczy. Nie ma nowych uprawnień.
+Integracja diagnostyki nie zmienia brzmień ani identyfikatorów aplikacji i nie
+dodaje uprawnień. Statystyki 2.0 mają osobno opisaną migrację Room i backup v2.
+DEV używa osobnego trwałego certyfikatu; PROD zachowuje dotychczasowy.
 
 Fabryka bufora jest wywoływana przez `start` przed workerem audio. Jej wyjątek
 jest logowany bez odrzucania Start. Sam obserwator izoluje wyjątki zwykłe
@@ -44,7 +45,7 @@ Nie oznacza, że slot został wyrenderowany, wysłany, odtworzony lub usłyszany
 | 4 CONFIG_APPLIED | bieżący główny puls | snapshot appliedConfig; patrz wyjątek głośności poniżej |
 | 5 EFFECTIVE_CONFIG | bieżący główny puls | snapshot activeConfig, w tym wynik ramp/progresji |
 | 6 BEAT | slot podziału | takt od 0 / puls od 0 / slot od 0 / maska flag |
-| 7 RENDER | początek bloku | liczba ramek / koniec wyłączny |
+| 7 RENDER | początek bloku | liczba ramek / koniec wyłączny / czas renderowania ns lub -1 |
 | 8 WRITE_BEGIN | początek próby transferu | żądana liczba / offset w bloku |
 | 9 WRITE_RESULT | początek próby transferu | żądana liczba / zwrócona liczba / offset w bloku |
 | 10 WRITE_THROW | początek próby transferu | żądana liczba / offset w bloku / raw code / flaga dostępności |
@@ -64,7 +65,7 @@ najbliższej niewyrenderowanej granicy taktu, lecz głośność ma odrębne prze
 od początku bloku. VOLUME_TARGET podaje jego ramkę bez udawania oczekiwania
 na takt. To nadal nie pomiar fizycznej głośności ani dokładnego czasu kliknięcia.
 
-Maska BEAT: trening=1, MUTE pulsu=2, MUTE podziału=4, wybór akcentowanej próbki=256.
+Maska BEAT: trening=1, MUTE pulsu=2, MUTE podziału=4, wybór akcentowanej próbki=256, odliczanie=512.
 Flagi łączą się. Akcent może być zaplanowany na wyciszonej pozycji.
 Trening na tym etapie jest wspólną przyczyną: nie rozróżniamy jeszcze losowej
 ciszy od ciszy cyklicznej. Głośność 0 nie jest flagą treningowej ciszy.
@@ -107,29 +108,18 @@ anulowanie, błędy sinka/cleanup, wyjątek fabryki/obserwatora/zegara, przepeł
 luki, obieg slotów, limit referencji, zatrzymanego konsumenta oraz współbieżny odczyt.
 Test HotSpot mierzy alokacje producenta po rozgrzaniu; nie zastępuje pomiaru ART.
 
-Zapis i eksport przygotowano w etapach 3a/3b. Pozostaje podłączenie do aplikacji:
-UUID instancji silnika i historii, sterowanie, focus/noisy oraz storage/retry.
-Punkty obserwacji i słowniki nie oznaczają aktywnego rejestrowania tych danych.
+Zapis i eksport połączono z aplikacją. Fabryka DEV tworzy jeden magazyn procesu,
+a każda instancja silnika ma osobny UUID. UUID historii pochodzi z SessionRecorder.
+Usługa kończy kanał sterowania po terminalnym stanie silnika i końcowym zapisie;
+anulowanie jej scope nie anuluje skończonego zadania finalizacji aplikacji.
+Błąd dysku nie blokuje audio, a raport podaje straty i stan incomplete/interrupted.
+Odrzucony Start przed powstaniem producenta PCM ma osobny raport próby.
 
-Przed aktywacją: globalna kontrola budżetu dla wszystkich kanałów i sesji,
-pomiary całego toru i pamięci na ART; budżet p99 renderowania
-+10% oraz brak strat w standardowym scenariuszu zgodnie z planem. Nie są jeszcze
-zaliczone. Pomiary fizycznego audio i wibracje wymagają osobnej zgody.
+Kwalifikacja ART: pełny worker i rzeczywisty konsument IO, lecz atrapy sink/focus.
+Trzy pomiary: baza / DEV / baza, niższe bazowe p99 jako odniesienie. Wymagamy
+identycznego PCM, zerowych strat w standardowym scenariuszu oraz wzrostu p99
+renderowania do 10%. Szczegóły i ograniczenia w raporcie powyżej. Nie utożsamiamy
+pomiaru CPU ani PSS emulatora z jitterem, latencją lub narzutem na każdym telefonie.
 
-[Raport walidacji etapu 2](V1.1-PCM-TRACE-VALIDATION.md).
-
-## Etap 3a — trwały magazyn bez aktywacji
-
-Dodano procesowy konsument IO, ograniczoną rezerwację pamięci i dysku,
-checkpointy, CRC rekordów i odzyskiwanie niedokończonych raportów.
-[Zakres, protokół i walidacja](V1.1-DEV-STORAGE-VALIDATION.md).
-Nie podłączono jeszcze magazynu do aplikacji ani nie wdrożono eksportu ZIP;
-pełna kwalifikacja ART pozostaje warunkiem aktywacji.
-
-## Etap 3b — sterowanie i eksport (bez aktywacji)
-
-[Protokół ZIP, API, ograniczenia i walidacja](DEV-TRACE-EXPORT.md).
-Dodano osobny kanał sterowania, powiązanie historii, zachowanie native error
-codes i focus, eksport CSV/JSON ZIP oraz listę raportów wyłącznie DEV.
-Aplikacja nadal nie przekazuje obserwatorów do silnika. Integracja usługi,
-storage i kwalifikacja narzutu pozostają kolejnym PR.
+Historyczne raporty etapów: [PCM](V1.1-PCM-TRACE-VALIDATION.md),
+[magazyn](V1.1-DEV-STORAGE-VALIDATION.md), [eksport](DEV-TRACE-EXPORT.md).

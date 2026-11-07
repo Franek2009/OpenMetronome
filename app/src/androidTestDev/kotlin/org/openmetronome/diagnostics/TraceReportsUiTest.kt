@@ -9,7 +9,6 @@ import org.junit.Test
 import org.junit.rules.RuleChain
 import org.openmetronome.*
 import org.openmetronome.domain.audio.PcmTraceKind
-import org.openmetronome.ui.DevReportStorage
 import java.util.UUID
 
 /** TestApplication blocks hardware; seed and delete only this test's report UUID. */

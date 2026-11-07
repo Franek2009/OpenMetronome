@@ -17,22 +17,6 @@ import org.openmetronome.diagnostics.*
 import java.io.File
 import java.util.UUID
 
-/** DEV-only composition root. Does not wire capture into an engine. */
-internal object DevReportStorage {
-    @Volatile private var instance: TraceSessionStore? = null
-    private var owner: File? = null
-    @Synchronized fun store(directory: File): TraceSessionStore {
-        // Instrumentation supplies its own UUID-scoped directory, never the app's store.
-        if (owner != directory) {
-            check(instance?.status?.value?.active in listOf(null, 0)) { "diagnostic_owner_busy" }
-            instance?.close()
-            instance = TraceSessionStore(directory)
-            owner = directory
-        }
-        return checkNotNull(instance)
-    }
-}
-
 @Composable
 internal fun DistributionDiagnostics(data: AppData) {
     val context = LocalContext.current
@@ -82,7 +66,8 @@ internal fun DistributionDiagnostics(data: AppData) {
     }
     val busy = working || documentPending
     Text("Raporty DEV", style = MaterialTheme.typography.titleLarge)
-    Text("Rejestracja nie jest jeszcze aktywowana. Raporty testowe można eksportować po zatrzymaniu odtwarzania.")
+    Text(if (DEV_CAPTURE_QUALIFIED) "Pełna diagnostyka DEV jest aktywna. Raporty eksportujesz po zatrzymaniu odtwarzania."
+        else "Rejestracja oczekuje na kwalifikację ART. Raporty testowe można eksportować po zatrzymaniu odtwarzania.")
     Text("Pamięć: 4 MiB transportu · dysk: 512 MiB/sesję, 2 GiB łącznie. Bez automatycznego usuwania.")
     status.notice?.let { Text("Diagnostyka: $it", color = MaterialTheme.colorScheme.error) }
     message?.let { Text(it) }

@@ -9,4 +9,5 @@ interface MetronomePort : AutoCloseable {
     fun editConfig(transform: (MetronomeConfig) -> MetronomeConfig)
     fun start()
     fun stop()
+    fun visibility(visible: Boolean) = Unit
 }

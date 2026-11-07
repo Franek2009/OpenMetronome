@@ -17,6 +17,16 @@ import org.openmetronome.domain.audio.PcmTrace
 import org.openmetronome.domain.audio.PcmTraceKind
 
 class PcmAudioEngineTest {
+    @Test fun `failing render probe cannot stop playback or hold the sink`() {
+        val sink = Sink()
+        val engine = PcmAudioEngine({ sink }, { AutoCloseable {} }, renderProbe = { error("probe failed") })
+        try {
+            engine.start(MetronomeConfig())
+            assertNull(await(engine, PlaybackStatus.PLAYING).failure)
+            engine.stop(); await(engine, PlaybackStatus.STOPPED)
+            assertTrue(sink.released.get())
+        } finally { engine.close() }
+    }
     @Test fun `displayed configuration follows played pulses rather than prebuffered ramp`() {
         val permits = Semaphore(0); val head = AtomicLong()
         val sink = object : Sink() {

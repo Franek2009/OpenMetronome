@@ -23,4 +23,20 @@ abstract class ControlObservation {
     }
     protected abstract fun append(sessionId: Long, kind: TraceControlKind, a: Long, b: Long,
                                   c: Long, d: Long, config: MetronomeConfig?)
+    fun finish(sessionId: Long) {
+        try { closeSession(sessionId) } catch (_: Exception) { failed.incrementAndGet() }
+    }
+    protected open fun closeSession(sessionId: Long) = Unit
+
+    fun history(observation: org.openmetronome.data.HistoryObservation) {
+        val id = java.util.UUID.fromString(observation.historyId)
+        val kind = when (observation.stage) {
+            org.openmetronome.data.HistoryObservationStage.CREATED -> TraceControlKind.HISTORY_CREATED
+            org.openmetronome.data.HistoryObservationStage.CHECKPOINT_REQUESTED -> TraceControlKind.CHECKPOINT_REQUESTED
+            org.openmetronome.data.HistoryObservationStage.CHECKPOINT_RETURNED -> TraceControlKind.CHECKPOINT_RETURNED
+            org.openmetronome.data.HistoryObservationStage.CHECKPOINT_FAILED -> TraceControlKind.CHECKPOINT_FAILED
+        }
+        event(observation.engineSessionId, kind, id.mostSignificantBits, id.leastSignificantBits,
+            if (observation.finished) 1 else 0, if (observation.interrupted) 1 else 0)
+    }
 }
