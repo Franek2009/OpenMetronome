@@ -10,7 +10,8 @@ DEFAULTS = dict(version="1", bpm="120", meter="FOUR_FOUR", accent="true", probab
                 cycle="false", audibleBars="2", silentBars="2", visual="true", vibration="false",
                 progression="false", increment="10", interval="60", ramp="false", start="60",
                 target="120", step="5", barsPerStep="4", subdivision="SINGLE", accents="",
-                volumePercent="100", clickSound="CLASSIC", customSampleId="", beatAccents="")
+                volumePercent="100", clickSound="CLASSIC", customSampleId="", beatAccents="",
+                tempoPercent="FULL", tempoChange="NEXT_BAR", countInBars="0")
 
 
 def config(value):

@@ -53,15 +53,17 @@ class FullscreenPracticeTest {
             override fun editConfig(transform: (MetronomeConfig) -> MetronomeConfig) { state.value = state.value.copy(config = transform(state.value.config)) }
         }
         val model = MetronomeViewModel(port)
+        val visible = mutableStateOf(true)
         try {
-            compose.setContent { OpenMetronomeTheme { OpenMetronomeApp(model, data) } }
+            compose.setContent { if (visible.value) OpenMetronomeTheme { OpenMetronomeApp(model, data) } }
             compose.onNodeWithText("Pełny ekran").performScrollTo().performClick()
             compose.onNodeWithText("Puls 3 / 4 · takt 9").assertIsDisplayed()
             compose.onNodeWithText("Wróć").performClick()
             compose.onNodeWithText("Pełny ekran").assertIsDisplayed()
             compose.runOnIdle { assertEquals(snapshot, model.state.value); assertEquals(0, commands) }
         } finally {
-            compose.setContent { }
+            compose.runOnIdle { visible.value = false }
+            compose.waitForIdle()
             kotlinx.coroutines.runBlocking { data.closeTestStorage() }
         }
     }

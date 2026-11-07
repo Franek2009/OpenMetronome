@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Regression tests for the upgrade comparison oracle, using only a synthetic archive."""
 import os
+import runpy
 from pathlib import Path
 import subprocess
 import sys
@@ -17,6 +18,13 @@ class UpgradeOracleTest(unittest.TestCase):
     def run_compare(self, actual):
         return subprocess.run([sys.executable, str(COMPARE), str(FIXTURE), str(actual)],
                               env=os.environ | {"PYTHONOPTIMIZE": "1"}, capture_output=True)
+
+    def test_new_optional_defaults_preserve_semantics_but_nondefaults_do_not(self):
+        canonical = runpy.run_path(str(COMPARE))["config"]
+        legacy = canonical("version=1\nbpm=91")
+        self.assertEqual(legacy, canonical("version=1\nbpm=91\ntempoPercent=FULL\ntempoChange=NEXT_BAR\ncountInBars=0"))
+        for field in ("tempoPercent=HALF", "tempoChange=NEXT_BEAT", "countInBars=1"):
+            self.assertNotEqual(legacy, canonical("version=1\nbpm=91\n" + field))
 
     def test_identical_complete_fixture_passes(self):
         self.assertEqual(0, self.run_compare(FIXTURE).returncode)
