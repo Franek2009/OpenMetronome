@@ -9,6 +9,8 @@ import org.openmetronome.domain.audio.PcmRenderer
 import org.openmetronome.domain.audio.PcmTrace
 import org.openmetronome.domain.audio.PcmTraceKind
 import org.openmetronome.domain.model.MetronomeConfig
+import org.openmetronome.diagnostics.ControlObservation
+import org.openmetronome.diagnostics.TraceControlKind
 
 /** One owned audio worker. Blocking writes provide backpressure, never beat timing. */
 class PcmAudioEngine(
@@ -18,6 +20,9 @@ class PcmAudioEngine(
     private val log: (String, Throwable?) -> Unit = { _, _ -> },
     private val sampleBanks: SampleBankSource = SampleBankSource { SampleBankLease(emptyMap()) },
     private val traceFactory: ((Long) -> PcmTrace?)? = null,
+    private val controls: ControlObservation? = null,
+    private val renderProbe: ((Long) -> Unit)? = null,
+    private val renderClock: () -> Long = System::nanoTime,
 ) : AudioEngine {
     private class Session(val id: Long, val bank: SampleBankLease, val trace: PcmTrace?) {
         val cancelled = AtomicBoolean(false)
@@ -34,16 +39,26 @@ class PcmAudioEngine(
     private var session: Session? = null
     private var closed = false
     private var sequence = 0L
+    @Volatile private var observedSessionId = 0L
+    override val observations get() = controls
+    override val diagnosticSessionId get() = observedSessionId
 
     override fun start(config: MetronomeConfig) = synchronized(lock) {
-        if (closed || session != null) return@synchronized
+        if (closed || session != null) {
+            controls?.event(observedSessionId, TraceControlKind.START_REJECTED, a = if (closed) 1 else 2)
+            return@synchronized
+        }
+        val id = ++sequence
+        observedSessionId = id
+        controls?.event(id, TraceControlKind.START_REQUESTED, config = config)
         requested.set(config)
         val bank = try { sampleBanks.acquire() } catch (error: Exception) {
+            controls?.event(id, TraceControlKind.START_REJECTED, a = 3,
+                b = ((error as? AudioEngineException)?.reason ?: AudioFailure.SAMPLE_UNAVAILABLE).ordinal.toLong())
             mutableState.value = AudioEngineState(PlaybackStatus.ERROR,
                 failure = (error as? AudioEngineException)?.reason ?: AudioFailure.SAMPLE_UNAVAILABLE)
             return@synchronized
         }
-        val id = ++sequence
         // Allocate bounded recording storage on the caller, before the audio worker.
         val trace = try { traceFactory?.invoke(id) } catch (error: Exception) {
             runCatching { log("diagnostic capture unavailable", error) }
@@ -55,9 +70,16 @@ class PcmAudioEngine(
         worker.execute { runSession(next, config) }
     }
 
-    override fun updateConfig(config: MetronomeConfig) { requested.set(config) }
+    override fun updateConfig(config: MetronomeConfig) {
+        requested.set(config)
+        controls?.event(observedSessionId, TraceControlKind.CONFIG_REQUESTED, config = config)
+    }
 
-    override fun stop() = synchronized(lock) { session?.let(::cancel) ?: Unit }
+    override fun stop() {
+        val id = synchronized(lock) { session?.let { cancel(it); it.id } }
+        // Cancellation and resource cleanup never wait for a diagnostic callback.
+        if (id != null) controls?.event(id, TraceControlKind.STOP_REQUESTED, a = 0)
+    }
 
     private fun cancel(target: Session) {
         synchronized(lock) {
@@ -78,7 +100,8 @@ class PcmAudioEngine(
             trace?.record(PcmTraceKind.SESSION_BEGIN, 0, target.id, config = initialConfig)
             configureThread()
             if (target.cancelled.get()) return
-            focusLease = focus.acquire { cancel(target) }
+            focusLease = focus.acquire({ cancel(target) }, trace,
+                if (controls == null) null else { kind, value -> controls.event(target.id, kind, a = value) })
                 ?: throw AudioEngineException(AudioFailure.FOCUS_DENIED)
             if (target.cancelled.get()) return
             sink = sinks.create()
@@ -100,6 +123,10 @@ class PcmAudioEngine(
             trace?.record(PcmTraceKind.OUTPUT_OPENED, 0, sink.sampleRate.toLong(),
                 sink.blockFrames.toLong(), sink.bufferFrames.toLong(), initialUnderruns.toLong())
             var tracedRequested: MetronomeConfig? = null
+            var probe = renderProbe
+            var clockAvailable = true
+            fun renderTime(): Long? = if (!clockAvailable) null else try { renderClock() }
+                catch (_: Exception) { clockAvailable = false; null }
             fun withVolume(config: MetronomeConfig): MetronomeConfig {
                 val percent = renderer.appliedConfig.sound.volumePercent
                 return if (config.sound.volumePercent == percent) config else config.copy(sound = config.sound.copy(volumePercent = percent))
@@ -107,17 +134,26 @@ class PcmAudioEngine(
 
             fun renderBlock(count: Int) {
                 val config = requested.get()
-                if (trace == null) {
+                if (trace == null && probe == null) {
                     renderer.render(block, count, config)
                     return
                 }
+                val started = renderTime()
                 val firstFrame = renderer.renderedFrames
-                if (config != tracedRequested) {
+                if (trace != null && config != tracedRequested) {
                     trace.record(PcmTraceKind.CONFIG_OBSERVED, firstFrame, config = config)
                     tracedRequested = config
                 }
                 renderer.render(block, count, config)
-                trace.record(PcmTraceKind.RENDER, firstFrame, count.toLong(), renderer.renderedFrames)
+                val ended = renderTime()
+                val elapsed = if (started != null && ended != null && ended >= started) ended - started else -1L
+                trace?.record(PcmTraceKind.RENDER, firstFrame, count.toLong(), renderer.renderedFrames, elapsed)
+                // Qualification includes the diagnostic append in its render-path budget.
+                if (probe != null) {
+                    val completed = renderTime()
+                    if (started != null && completed != null && completed >= started)
+                        try { probe?.invoke(completed - started) } catch (_: Exception) { probe = null }
+                }
             }
 
             fun snapshot(): AudioDiagnostics {
@@ -177,7 +213,9 @@ class PcmAudioEngine(
             if (!target.cancelled.get()) {
                 failure = if (error is org.openmetronome.domain.audio.MissingSampleException) AudioFailure.SAMPLE_UNAVAILABLE
                     else (error as? AudioEngineException)?.reason ?: AudioFailure.UNEXPECTED
-                trace?.record(PcmTraceKind.ERROR, a = failure.ordinal.toLong())
+                val platformCode = (error as? AudioEngineException)?.platformCode
+                trace?.record(PcmTraceKind.ERROR, a = failure.ordinal.toLong(), b = platformCode?.toLong() ?: 0,
+                    c = if (platformCode != null) 1 else 0)
                 log("audio session failed: $failure", error)
             }
         } finally {
@@ -204,12 +242,16 @@ class PcmAudioEngine(
         }
     }
 
-    override fun close() = synchronized(lock) {
-        if (!closed) {
-            closed = true
-            session?.let(::cancel)
-            worker.shutdown() // no join/blocking wait on the UI thread
+    override fun close() {
+        val id = synchronized(lock) {
+            if (closed) null else {
+                closed = true
+                val stopping = session?.let { cancel(it); it.id }
+                worker.shutdown() // no join/blocking wait on the UI thread
+                stopping
+            }
         }
+        if (id != null) controls?.event(id, TraceControlKind.STOP_REQUESTED, a = 1)
     }
 
     companion object {
@@ -226,7 +268,9 @@ class PcmAudioEngine(
                 if (cancelled.get()) return false
                 trace?.record(PcmTraceKind.WRITE_BEGIN, firstFrame + offset, (count - offset).toLong(), offset.toLong())
                 val transferred = try { sink.write(samples, offset, count - offset) } catch (error: Exception) {
-                    trace?.record(PcmTraceKind.WRITE_THROW, firstFrame + offset, (count - offset).toLong(), offset.toLong())
+                    val platformCode = (error as? AudioEngineException)?.platformCode
+                    trace?.record(PcmTraceKind.WRITE_THROW, firstFrame + offset, (count - offset).toLong(), offset.toLong(),
+                        platformCode?.toLong() ?: 0, if (platformCode != null) 1 else 0)
                     throw error
                 }
                 trace?.record(PcmTraceKind.WRITE_RESULT, firstFrame + offset, (count - offset).toLong(), transferred.toLong(), offset.toLong())

@@ -2,12 +2,13 @@ package org.openmetronome.domain.audio
 
 import org.openmetronome.domain.model.MetronomeConfig
 import java.util.concurrent.atomic.AtomicLongArray
+import java.util.concurrent.atomic.AtomicLong
 
 /** Stable codes for internal PCM observations, not measurements at the speaker. */
 enum class PcmTraceKind(val code: Int) {
     SESSION_BEGIN(1), OUTPUT_OPENED(2), CONFIG_OBSERVED(3), CONFIG_APPLIED(4), EFFECTIVE_CONFIG(5),
     BEAT(6), RENDER(7), WRITE_BEGIN(8), WRITE_RESULT(9), WRITE_THROW(10), PLAY(11),
-    HEAD(12), OUTPUT_STATUS(13), ERROR(14), CLEANUP_FAILURE(15), SESSION_END(16), VOLUME_TARGET(17),
+    HEAD(12), OUTPUT_STATUS(13), ERROR(14), CLEANUP_FAILURE(15), SESSION_END(16), VOLUME_TARGET(17), FOCUS_REQUESTED(18), FOCUS_RESULT(19), FOCUS_RELEASE(20),
 }
 
 /** Bit flags: several reasons can silence the same planned subdivision. */
@@ -16,6 +17,7 @@ object PcmTraceFlags {
     const val BEAT_MUTE = 2
     const val SUBDIVISION_MUTE = 4
     const val ACCENT = 256
+    const val COUNT_IN = 512
 }
 
 data class PcmTraceHealth(
@@ -34,16 +36,20 @@ fun interface PcmTraceClock { fun nanoTime(): Long }
  */
 abstract class PcmTrace(private val clock: PcmTraceClock = PcmTraceClock(System::nanoTime)) {
     @Volatile private var revision = 0L
-    @Volatile private var attempted = 0L
-    @Volatile private var accepted = 0L
-    @Volatile private var dropped = 0L
+    // One producer: release stores publish counters without an unnecessary full store/load fence.
+    // Reader uses acquire loads and the unchanged volatile revision guards the whole snapshot.
+    private val attempted = AtomicLong()
+    private val accepted = AtomicLong()
+    private val dropped = AtomicLong()
     @Volatile private var faulted = false
     @Volatile private var closed = false
+    /** Cheap publication check for the IO consumer; full health allocates a snapshot. */
+    val isClosed: Boolean get() = closed
     private val losses = AtomicLongArray(PcmTraceKind.entries.size)
 
     private fun lost(kind: PcmTraceKind) {
         losses.incrementAndGet(kind.ordinal)
-        dropped++
+        dropped.lazySet(dropped.get() + 1)
     }
 
     fun record(
@@ -52,9 +58,10 @@ abstract class PcmTrace(private val clock: PcmTraceClock = PcmTraceClock(System:
         config: MetronomeConfig? = null,
     ) {
         revision++
-        val sequence = attempted++
+        val sequence = attempted.get()
+        attempted.lazySet(sequence + 1)
         try {
-            if (!closed && !faulted && append(sequence, clock.nanoTime(), kind, frame, a, b, c, d, config)) accepted++
+            if (!closed && !faulted && append(sequence, clock.nanoTime(), kind, frame, a, b, c, d, config)) accepted.lazySet(accepted.get() + 1)
             else lost(kind)
         } catch (_: Exception) {
             faulted = true
@@ -77,7 +84,7 @@ abstract class PcmTrace(private val clock: PcmTraceClock = PcmTraceClock(System:
     fun health(): PcmTraceHealth? {
         val before = revision
         if (before and 1L != 0L) return null
-        val snapshot = PcmTraceHealth(attempted, accepted, dropped, faulted, closed,
+        val snapshot = PcmTraceHealth(attempted.get(), accepted.get(), dropped.get(), faulted, closed,
             PcmTraceKind.entries.associateWith { losses.get(it.ordinal) })
         return snapshot.takeIf { before == revision }
     }

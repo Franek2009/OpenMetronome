@@ -18,7 +18,8 @@ Zachowuje funkcjonalność RC2, dotychczasowy podpis i zgodność danych.
 Przygotowujemy **1.1.0-beta.1 (Prerelease)** z pełnym ekranem, procentami tempa,
 odliczaniem, nowymi metrami i Statystykami 2.0, w tym całym czasem ćwiczeń dzisiaj.
 Osobny wariant **OpenMetronome DEV** ma własne dane, ikonę z oznaczeniem DEV
-oraz pełne lokalne raporty diagnostyczne ZIP. Te funkcje nie należą do APK 1.0.0.
+oraz przygotowaną obsługę raportów ZIP. **Pełna rejestracja sesji DEV jest
+wyłączona w tej beta**, bo nie zaliczyła kwalifikacji narzutu API26. Te funkcje nie należą do APK 1.0.0.
 [Zakres i zgodność](docs/PRACTICE-1.1.md) · [Statystyki](docs/STATISTICS-2.md) ·
 [Diagnostyka DEV](docs/DEV-DIAGNOSTICS.md) · [Plan](docs/POST-1.0-PLAN.md).
 Linki pobierania beta pojawią się po weryfikacji i publicznej publikacji.

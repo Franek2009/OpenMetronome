@@ -12,7 +12,7 @@ parametry fizycznego audio nadal opisuje [M6](M6-ACCEPTANCE.md).
 [Zatwierdzony zakres 1.1 beta](POST-1.0-PLAN.md) jest wdrażany małymi PR:
 #17/18 (ikona DEV i Dzisiaj), #19 (pełny ekran, procenty, tempo od pulsu,
 odliczanie i metra), #20 (Statystyki 2.0, progi, historia konfiguracji, Room 3,
-backup v2) i #21 (aktywna pełna diagnostyka DEV po kwalifikacji ART).
+backup v2) i #21 (przygotowana diagnostyka DEV, bez aktywacji w beta).
 Funkcje te nie zmieniają opublikowanego APK 1.0.0.
 
 Kolejny krok: 1.1.0-beta.1 / code 19 z dwoma osobno podpisanymi APK,

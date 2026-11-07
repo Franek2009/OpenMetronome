@@ -2,6 +2,7 @@ name: Android verification
 
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -43,6 +44,7 @@ jobs:
           bash scripts/test-release-tools.sh
           python3 scripts/test-upgrade-tools.py
           python3 scripts/test-dev-icon-input.py
+          python3 scripts/test-dev-trace-tools.py
 
       - name: Unit tests, Lint and builds (release is unsigned)
         run: >-

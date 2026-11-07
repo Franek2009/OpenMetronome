@@ -45,10 +45,16 @@ class BoundedPcmTrace(
     // returned DTOs and VM overhead. Leaves room for future control/storage lanes.
     val reservedBytes: Long = capacity.toLong() * (7 * 8 + 4 + 8) + 9 * 32 + 1024
 
+    @Volatile private var captureEnabled = true
+
+    /** IO failure disables new admission; the producer still counts dropped attempts. */
+    internal fun stopCapture() { captureEnabled = false }
+
     override fun append(
         sequence: Long, nanos: Long, kind: PcmTraceKind, frame: Long,
         a: Long, b: Long, c: Long, d: Long, config: MetronomeConfig?,
     ): Boolean {
+        if (!captureEnabled) return false
         if (writeCursor - consumed.get() >= capacity) return false
         if (config != null && writeConfigCursor - consumedConfigs.get() >= maxConfigRecords) return false
         val index = writeCursor.toInt() and mask

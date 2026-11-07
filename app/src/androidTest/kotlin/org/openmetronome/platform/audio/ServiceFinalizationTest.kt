@@ -51,6 +51,8 @@ class ServiceFinalizationTest {
         val original = data.sessionCheckpoint
         val entered = CompletableDeferred<Unit>(); val release = CompletableDeferred<Unit>()
         val committed = CompletableDeferred<Unit>()
+        val fakeScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val stopping = java.util.concurrent.atomic.AtomicBoolean(false)
         val fake = object : AudioEngine {
             override val state = MutableStateFlow(AudioEngineState())
             override fun start(config: MetronomeConfig) {
@@ -58,12 +60,20 @@ class ServiceFinalizationTest {
                     diagnostics = AudioDiagnostics(48000, 256, 1024, 48000, 0, 48000, 88221))
             }
             override fun updateConfig(config: MetronomeConfig) = Unit
-            override fun stop() { state.value = state.value.copy(status = PlaybackStatus.STOPPED) }
+            override fun stop() {
+                if (state.value.status == PlaybackStatus.STOPPED || !stopping.compareAndSet(false, true)) return
+                state.value = state.value.copy(status = PlaybackStatus.STOPPING)
+                fakeScope.launch {
+                    delay(150)
+                    state.value = state.value.copy(status = PlaybackStatus.STOPPED,
+                        diagnostics = state.value.diagnostics?.copy(framesWritten = 96000, framesPlayed = 96000))
+                }
+            }
             override fun close() = stop()
         }
         app.simulatedEngine = fake
         data.sessionCheckpoint = { session, days ->
-            if (session.finished) { entered.complete(Unit); release.await() }
+            if (session.finished) { assertEquals(2000L, session.durationMs); entered.complete(Unit); release.await() }
             original(session, days)
             if (session.finished) committed.complete(Unit)
         }
@@ -83,6 +93,7 @@ class ServiceFinalizationTest {
             until { !data.playbackBusy.value }
             data.sessionCheckpoint = original
             app.simulatedEngine = null
+            fakeScope.cancel()
         }
     }
 }

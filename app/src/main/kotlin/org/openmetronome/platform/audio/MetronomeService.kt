@@ -13,6 +13,7 @@ import org.openmetronome.OpenMetronomeApplication
 import org.openmetronome.data.SessionRecorder
 import kotlinx.coroutines.flow.*
 import org.openmetronome.audio.*
+import org.openmetronome.diagnostics.TraceControlKind
 
 open class MetronomeService : Service() {
     inner class LocalBinder : Binder() {
@@ -32,6 +33,7 @@ open class MetronomeService : Service() {
                 startForegroundService(Intent(this@MetronomeService, this@MetronomeService.javaClass).setAction(START).putExtra("request", token))
                 return true
             } catch (error: RuntimeException) {
+                audioEngine.observations?.event(audioEngine.diagnosticSessionId, TraceControlKind.START_REJECTED, a = 4)
                 Log.e("OpenMetronomeAudio", "foreground start failed", error)
                 requests.cancel()
                 controller.stop()
@@ -42,6 +44,7 @@ open class MetronomeService : Service() {
         }
     }
     private lateinit var controller: MetronomeController
+    private lateinit var audioEngine: AudioEngine
     private lateinit var media: MediaSession
     private lateinit var wake: PowerManager.WakeLock
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -60,7 +63,9 @@ open class MetronomeService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        controller = MetronomeController((application as OpenMetronomeApplication).createAudioEngine(this))
+        audioEngine = (application as OpenMetronomeApplication).createAudioEngine(this)
+        controller = MetronomeController(audioEngine)
+        audioEngine.observations?.event(0, TraceControlKind.SERVICE_CREATED)
         wake = getSystemService(PowerManager::class.java).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "OpenMetronome:Playback")
         wake.setReferenceCounted(false)
         getSystemService(NotificationManager::class.java).createNotificationChannel(
@@ -85,7 +90,17 @@ open class MetronomeService : Service() {
             controller.state.map { it.config }.distinctUntilChanged().drop(1).collect(data::saveSettings)
         }
         // A separate finite load barrier, not the never-ending preferences collector.
-        recorder = SessionRecorder(data)
+        recorder = SessionRecorder(data) { audioEngine.observations?.history(it) }
+        scope.launch {
+            data.sessionWriteFailed.collect { failed ->
+                if (failed) audioEngine.observations?.event(audioEngine.diagnosticSessionId, TraceControlKind.STORAGE_ERROR, a = 1)
+            }
+        }
+        scope.launch {
+            data.recoveryRequired.collect { recovery ->
+                audioEngine.observations?.event(audioEngine.diagnosticSessionId, TraceControlKind.STORAGE_RECOVERY, a = if (recovery) 1 else 0)
+            }
+        }
         scope.launch(Dispatchers.IO) {
             controller.state.collect { state ->
                 try { recorder.accept(state) }
@@ -172,12 +187,27 @@ open class MetronomeService : Service() {
         foreground = false
         waitingForStart = false
         val state = controller.state.value
+        val sessionId = state.audio.diagnostics?.sessionId ?: audioEngine.diagnosticSessionId
         val data = (application as OpenMetronomeApplication).data
         // This finite job belongs to the application, so onDestroy cannot cancel the checkpoint.
         finishing = data.launchSessionWork {
-            try { withContext(Dispatchers.IO) { recorder.accept(state) } }
-            catch (_: Exception) { data.error.value = "Nie udało się zapisać końca sesji" }
+            try {
+                // Controller's relay is cancelled onDestroy; the engine still owns
+                // its terminal snapshot and may complete asynchronously after Stop.
+                val terminal = withTimeoutOrNull(10000) {
+                    audioEngine.state.first { it.status == PlaybackStatus.STOPPED || it.status == PlaybackStatus.ERROR }
+                } ?: audioEngine.state.value.copy(status = PlaybackStatus.ERROR, failure = AudioFailure.UNEXPECTED).also {
+                    data.error.value = "Nie udało się potwierdzić końca odtwarzania. Sesję oznaczono jako przerwaną."
+                }
+                withContext(Dispatchers.IO) { recorder.accept(state.copy(audio = terminal)) }
+            }
+            catch (_: Exception) {
+                data.error.value = "Nie udało się zapisać końca sesji"
+                audioEngine.observations?.event(sessionId, TraceControlKind.STORAGE_ERROR, a = 2)
+            }
             finally {
+                if (data.sessionWriteFailed.value) audioEngine.observations?.event(sessionId, TraceControlKind.STORAGE_ERROR, a = 1)
+                audioEngine.observations?.finish(sessionId)
                 if (reserved) { reserved = false; data.playbackFinished() }
                 if (!destroyed) {
                     if (wake.isHeld) wake.release()
@@ -202,6 +232,7 @@ open class MetronomeService : Service() {
         if (controller.state.value.audio.status == PlaybackStatus.STOPPED || controller.state.value.audio.status == PlaybackStatus.ERROR) endForeground()
     }
     override fun onDestroy() {
+        audioEngine.observations?.event(audioEngine.diagnosticSessionId, TraceControlKind.SERVICE_DESTROYED)
         if (controller.configurationRevision > 0) (application as OpenMetronomeApplication).data.saveSettings(controller.state.value.config)
         destroyed = true
         requests.cancel()

@@ -16,8 +16,10 @@
   Kopie `.ombak` v2, import v1, osobny eksport zgodny z 1.0 z ostrzeżeniem pominięć.
   CSV zachowuje początkowe kolumny i dodaje mnożnik, wynikowe BPM i stan przebiegu.
 - OpenMetronome DEV z odrębnym pakietem, danymi, trwałym podpisem i ikoną DEV.
-  Pełne lokalne raporty beats/events/audio CSV + metadata JSON w ZIP, asynchroniczny
-  zapis, odzyskiwanie, limity i jawne straty. PROD nie zawiera magazynu DEV.
+  Implementacja lokalnych raportów beats/events/audio CSV + metadata JSON w ZIP.
+  **Pełna rejestracja sesji jest wyłączona w beta**: kwalifikacja narzutu API26
+  niezaliczona. Nie usunięto benchmarku ani nie rozluźniono progu +10%.
+  PROD nie zawiera magazynu DEV.
 - Finalizacja usługi czeka na terminalny stan silnika także przy asynchronicznym Stop.
 - Sześć starych testów sprzętowego audio usunięto na życzenie użytkownika;
   zachowano testy PCM/atrap i ochronę przed audio oraz wibracjami.
