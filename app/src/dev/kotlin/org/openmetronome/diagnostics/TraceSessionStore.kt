@@ -120,21 +120,25 @@ class TraceSessionStore internal constructor(
             session.writer?.appendControl(record)
             controlDrained++
         }
-        val health = session.trace.health()
-        if (session.autoCloseControls && health?.closed == true) session.capture.finishControls()
-        val controls = session.capture.controls.health()
+        val closed = session.trace.isClosed
+        if (session.autoCloseControls && closed) session.capture.finishControls()
         // Observe closed before checking empty: a producer may publish after an
         // earlier empty poll, but never after close's volatile publication.
-        val finished = health?.closed == true && drained < 256 && controls.closed &&
+        val finished = closed && drained < 256 && session.capture.controls.isClosed() &&
             session.capture.controls.isEmpty()
         if (finished) {
             val last = session.trace.poll()
             if (last != null) { session.writer?.append(last); return }
         }
         val now = System.nanoTime()
-        if (session.writer != null && (finished || now - session.lastSync >= 2_000_000_000L)) {
+        // Snapshot maps are needed at checkpoint/finalization, not at every 10 ms drain.
+        if (!finished && (session.writer == null || now - session.lastSync < 2_000_000_000L)) return
+        val health = session.trace.health()
+        if (finished && health == null) return
+        val controls = session.capture.controls.health()
+        if (session.writer != null) {
             val incomplete = session.failure != null || health?.faulted == true || (health?.dropped ?: 0) > 0 ||
-                (finished && health.accepted != session.writer!!.persistedRecords) || controls.dropped > 0 ||
+                (finished && health?.accepted != session.writer!!.persistedRecords) || controls.dropped > 0 ||
                 (finished && controls.accepted != session.writer!!.persistedControls)
             session.writer!!.checkpoint(health,
                 if (!finished) "recording" else if (incomplete) "incomplete" else "complete", session.failure, controls)
@@ -144,7 +148,7 @@ class TraceSessionStore internal constructor(
             if (session.writer == null && session.failure != null) {
                 // A best-effort final manifest is independent of the failed writer.
                 // Failure here leaves a recoverable interrupted journal, not success.
-                runCatching { journal.finishFailed(session.id, health, session.failure!!, controls) }
+                runCatching { journal.finishFailed(session.id, checkNotNull(health), session.failure!!, controls) }
             }
             session.writer?.close()
             session.writer = null

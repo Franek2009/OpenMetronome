@@ -3,6 +3,7 @@ package org.openmetronome.diagnostics
 import java.io.*
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import java.nio.ByteBuffer
 import java.util.Properties
 import java.util.UUID
 import java.util.zip.CRC32
@@ -80,6 +81,9 @@ internal class TraceJournal(
         private val output = DataOutputStream(BufferedOutputStream(stream, 16 * 1024))
         private val controlStream = streams.second
         private val controlOutput = DataOutputStream(BufferedOutputStream(controlStream, 16 * 1024))
+        // IO-owned scratch: avoid allocating several byte arrays/streams for every block record.
+        private val payload = ByteBuffer.allocate(MAX_RECORD)
+        private val checksum = CRC32()
         private var bytes = 0L
         var persistedControls = 0L
             private set
@@ -108,8 +112,15 @@ internal class TraceJournal(
 
         private fun appendRecord(record: JournalRecord, control: Boolean) {
             fault("append")
-            val payload = encode(record)
-            val count = payload.size.toLong() + 12
+            val config = record.config?.let(ConfigCodec::encode)?.toByteArray(Charsets.UTF_8)
+            require((config?.size ?: 0) <= 16384)
+            payload.clear()
+            payload.putLong(record.sequence).putLong(record.nanos).putInt(record.kindCode).putLong(record.frame)
+            payload.putLong(record.a).putLong(record.b).putLong(record.c).putLong(record.d)
+            payload.putInt(config?.size ?: 0)
+            if (config != null) payload.put(config)
+            val payloadSize = payload.position()
+            val count = payloadSize.toLong() + 12
             if (bytes + count + METADATA_RESERVE > sessionLimit) throw IOException("session_limit")
             if (reservedTotal > totalLimit - count) throw IOException("total_limit")
             // Charge before IO: failed/partial writes must not evade quotas.
@@ -117,9 +128,10 @@ internal class TraceJournal(
             reservedTotal += count
             val destination = if (control) controlOutput else output
             destination.writeInt(MAGIC)
-            destination.writeInt(payload.size)
-            destination.write(payload)
-            destination.writeInt(CRC32().apply { update(payload) }.value.toInt())
+            destination.writeInt(payloadSize)
+            destination.write(payload.array(), 0, payloadSize)
+            checksum.reset(); checksum.update(payload.array(), 0, payloadSize)
+            destination.writeInt(checksum.value.toInt())
             if (control) {
                 persistedControls++
                 if (record.kindCode == TraceControlKind.HISTORY_CREATED.code) {
@@ -270,17 +282,6 @@ internal class TraceJournal(
         }
         return Scan(records, valid, false)
     }
-
-    private fun encode(record: JournalRecord): ByteArray = ByteArrayOutputStream().also { bytes ->
-        DataOutputStream(bytes).use { out ->
-            out.writeLong(record.sequence); out.writeLong(record.nanos); out.writeInt(record.kindCode)
-            out.writeLong(record.frame)
-            out.writeLong(record.a); out.writeLong(record.b); out.writeLong(record.c); out.writeLong(record.d)
-            val config = record.config?.let(ConfigCodec::encode)?.toByteArray(Charsets.UTF_8) ?: byteArrayOf()
-            require(config.size <= 16384)
-            out.writeInt(config.size); out.write(config)
-        }
-    }.toByteArray()
 
     private fun decode(bytes: ByteArray): JournalRecord = DataInputStream(ByteArrayInputStream(bytes)).use { input ->
         val sequence = input.readLong(); val nanos = input.readLong()

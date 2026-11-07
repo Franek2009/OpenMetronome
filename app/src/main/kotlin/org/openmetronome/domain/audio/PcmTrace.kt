@@ -40,6 +40,8 @@ abstract class PcmTrace(private val clock: PcmTraceClock = PcmTraceClock(System:
     @Volatile private var dropped = 0L
     @Volatile private var faulted = false
     @Volatile private var closed = false
+    /** Cheap publication check for the IO consumer; full health allocates a snapshot. */
+    val isClosed: Boolean get() = closed
     private val losses = AtomicLongArray(PcmTraceKind.entries.size)
 
     private fun lost(kind: PcmTraceKind) {

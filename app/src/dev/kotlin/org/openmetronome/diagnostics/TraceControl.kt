@@ -46,6 +46,7 @@ internal class TraceControlQueue(private val capacity: Int = 128) {
         require(count >= 0)
         if (!closed) { attempted += count; dropped += count; losses[kind.ordinal] += count }
     }
+    @Synchronized fun isClosed(): Boolean = closed
     @Synchronized fun isEmpty(): Boolean = queue.isEmpty()
     @Synchronized fun close() { closed = true }
     @Synchronized fun disable() { enabled = false }
