@@ -74,7 +74,8 @@ class DevDiagnosticsQualificationTest {
     }
 
     private data class Measurement(val renderP99: Long, val workerP99: Long, val pcmHash: String,
-        val heapPeak: Long, val pssPeakKb: Long, val dropped: Long)
+        val heapPeak: Long, val pssPeakKb: Long, val dropped: Long,
+        val renderBodyP99: Long?, val postRenderP99: Long?)
     private fun percentile(values: List<Long>): Long = values.sorted()[(values.size * .99).toInt().coerceAtMost(values.lastIndex)]
 
     private fun measure(capture: Boolean): Measurement {
@@ -94,6 +95,7 @@ class DevDiagnosticsQualificationTest {
             traceFactory = bridge?.let { it::trace }, controls = bridge,
             renderProbe = { timings.add(it) }, renderClock = Debug::threadCpuTimeNanos)
         var heapPeak = 0L; var pssPeak = 0L
+        var renderBodyP99: Long? = null; var postRenderP99: Long? = null
         try {
             engine.start(config)
             val deadline = System.nanoTime() + 90_000_000_000L
@@ -117,10 +119,26 @@ class DevDiagnosticsQualificationTest {
                 assertEquals("0", meta.getProperty("dropped")); assertEquals("0", meta.getProperty("controlDropped"))
                 assertNotNull(meta.getProperty("historyId"))
                 val beats = mutableListOf<Long>(); var renderedEnd = 0L
+                val renderBodies = mutableListOf<Long>()
                 store.journal.scanRecords(File(directory, "records.bin")) { row ->
                     if (row.kindCode == PcmTraceKind.BEAT.code) beats.add(row.frame)
-                    if (row.kindCode == PcmTraceKind.RENDER.code) { renderedEnd = maxOf(renderedEnd, row.b); assertTrue(row.c >= 0) }
+                    if (row.kindCode == PcmTraceKind.RENDER.code) {
+                        assertEquals(renderBodies.size.toLong() * sink.blockFrames, row.frame)
+                        renderedEnd = maxOf(renderedEnd, row.b); assertTrue(row.c >= 0)
+                        renderBodies.add(row.c)
+                    }
                 }
+                // Analyze existing records only after Stop, outside the measured worker.
+                // Pair by render index: subtracting independent p99 values would be invalid.
+                val bodies = renderBodies.drop(warmup).take(measured)
+                val totals = timings.drop(warmup).take(measured)
+                assertEquals(measured, bodies.size); assertEquals(measured, totals.size)
+                val tails = totals.zip(bodies) { total, body ->
+                    assertTrue("Post-render interval cannot be negative", total >= body)
+                    total - body
+                }
+                renderBodyP99 = percentile(bodies)
+                postRenderP99 = percentile(tails)
                 val expected = generateSequence(0L) { it + 1 }.map { it * 48000 * 60 / 137 }.takeWhile { it < renderedEnd }.toList()
                 assertEquals(expected, beats)
                 val zip = java.io.ByteArrayOutputStream()
@@ -129,7 +147,7 @@ class DevDiagnosticsQualificationTest {
             }
             assertTrue(timings.size >= warmup + measured)
             return Measurement(percentile(timings.drop(warmup).take(measured)),
-                percentile(sink.blockCpu.drop(warmup - 1).take(measured)), sink.pcm.digest().joinToString("") { "%02x".format(it.toInt() and 255) }, heapPeak, pssPeak, 0)
+                percentile(sink.blockCpu.drop(warmup - 1).take(measured)), sink.pcm.digest().joinToString("") { "%02x".format(it.toInt() and 255) }, heapPeak, pssPeak, 0, renderBodyP99, postRenderP99)
         } finally {
             engine.close(); bridge?.finish(engine.diagnosticSessionId)
             store?.close(); if (store != null) check(store.awaitTermination())
@@ -159,6 +177,10 @@ class DevDiagnosticsQualificationTest {
             .put("baselineRenderP99Ns", baseline.renderP99).put("devRenderP99Ns", observed.renderP99)
             .put("baselineAfterRenderP99Ns", baselineAfter.renderP99).put("referenceRenderP99Ns", reference)
             .put("baselineProtocol", "baseline / DEV / baseline; lower baseline p99 is the reference")
+            .put("devRenderBodyP99Ns", observed.renderBodyP99 ?: JSONObject.NULL)
+            .put("devPostRenderP99Ns", observed.postRenderP99 ?: JSONObject.NULL)
+            .put("postRenderScope", "paired total minus body; RENDER append and final CPU clock; analyzed after Stop")
+            .put("baselineSpreadRatio", maxOf(baseline.renderP99, baselineAfter.renderP99).toDouble() / reference)
             .put("renderP99Ratio", ratio).put("renderBudgetPass", ratio <= 1.10)
             .put("baselineWorkerP99Ns", baseline.workerP99).put("devWorkerP99Ns", observed.workerP99)
             .put("baselineHeapPeakBytes", baseline.heapPeak).put("devHeapPeakBytes", observed.heapPeak)
