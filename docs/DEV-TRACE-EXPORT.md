@@ -1,5 +1,15 @@
 # Raporty DEV — zdarzenia i ZIP v1 (etap 3b)
 
+> **Zakres beta po decyzji użytkownika:** pełna rejestracja sesji DEV jest
+> wyłączona (`DEV_CAPTURE_QUALIFIED=false`), ponieważ nie zaliczyła budżetu
+> narzutu API26. Poniższy opis dotyczy przygotowanej implementacji, nie aktywnej
+> funkcji beta. Zwykłe funkcje, historia i statystyki DEV działają. Istniejące
+> raporty pozostają czytelne/eksportowalne. Kwalifikacja ma osobny workflow
+> `DEV recorder qualification (inactive in beta)`; zachowuje próg +10% i jawne FAIL.
+> Domyślna regresja testuje wyłączoną fabrykę i wszystkie pozostałe funkcje,
+> pomijając wyborem zestawu wyłącznie oznaczony benchmark. Nie zalicza go jako PASS.
+
+
 Magazyn, sterowanie i eksport są połączone z rejestracją DEV.
 [Integracja i kwalifikacja ART](V1.1-DEV-INTEGRATION-VALIDATION.md).
 Wariant PROD nie zawiera implementacji rejestratora ani ekranu raportów.
@@ -148,7 +158,7 @@ Test błędnych końcowych liczników najpierw wykazał FAIL: eksport błędnie
 zachowywał complete. Poprawiono walidację liczników względem rekordów i
 nieznanych wartości. Końcowe wyniki dokładnego SHA podajemy w PR po odczycie CI.
 
-Rejestracja jest aktywna w DEV po kwalifikacji całego toru offline ART.
+Aktywacja rejestracji wymaga przyszłej kwalifikacji całego toru offline ART.
 Raporty zawierają również odliczanie (flaga BEAT 512) oraz czas renderowania
 w polu c rekordu RENDER; zegar określa metadata.renderClock. Nie jest to pomiar
 wyjścia fizycznego. Jitter i latencja pozostają niezmierzone.

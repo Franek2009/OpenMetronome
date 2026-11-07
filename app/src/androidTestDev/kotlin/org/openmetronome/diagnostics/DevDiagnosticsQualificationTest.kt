@@ -137,13 +137,15 @@ class DevDiagnosticsQualificationTest {
         }
     }
 
-    @Test fun devApplicationSuppliesBothQualifiedHooksWithoutStartingHardware() {
+    @Test fun betaApplicationKeepsUnqualifiedCaptureDisabled() {
         val app = context.applicationContext as org.openmetronome.TestApplication
         val hooks = engineDiagnosticHooks(context, app.data)
-        assertNotNull(hooks.traceFactory)
-        assertNotNull(hooks.controls)
+        assertFalse(DEV_CAPTURE_QUALIFIED)
+        assertNull(hooks.traceFactory)
+        assertNull(hooks.controls)
     }
 
+    @org.openmetronome.DevPerformanceQualification
     @Test fun completeOfflineWorkerQualifiesPcmLossesMemoryAndRenderBudget() {
         val baseline = measure(false)
         val observed = measure(true)

@@ -8,8 +8,8 @@ import org.openmetronome.data.AppData
 import org.openmetronome.domain.audio.PcmTrace
 import org.openmetronome.domain.model.MetronomeConfig
 
-/** Qualified offline on ART API 26/35; every DEV CI run repeats the full worker comparison. */
-internal const val DEV_CAPTURE_QUALIFIED = true
+/** Beta ships without session capture until separate ART qualification passes. */
+internal const val DEV_CAPTURE_QUALIFIED = false
 
 internal fun engineDiagnosticHooks(context: Context, data: AppData): EngineDiagnosticHooks {
     if (!DEV_CAPTURE_QUALIFIED) return EngineDiagnosticHooks()

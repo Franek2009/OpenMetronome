@@ -1,6 +1,16 @@
 # Diagnostyka DEV — PCM, magazyn i raporty
 
-Status: pełny tor rejestracji jest podłączony w wariancie DEV: PCM, sterowanie,
+> **Zakres beta po decyzji użytkownika:** pełna rejestracja sesji DEV jest
+> wyłączona (`DEV_CAPTURE_QUALIFIED=false`), ponieważ nie zaliczyła budżetu
+> narzutu API26. Poniższy opis dotyczy przygotowanej implementacji, nie aktywnej
+> funkcji beta. Zwykłe funkcje, historia i statystyki DEV działają. Istniejące
+> raporty pozostają czytelne/eksportowalne. Kwalifikacja ma osobny workflow
+> `DEV recorder qualification (inactive in beta)`; zachowuje próg +10% i jawne FAIL.
+> Domyślna regresja testuje wyłączoną fabrykę i wszystkie pozostałe funkcje,
+> pomijając wyborem zestawu wyłącznie oznaczony benchmark. Nie zalicza go jako PASS.
+
+
+Implementacja pełnego toru (nieaktywna w beta) obejmuje: PCM, sterowanie,
 UUID historii, cykl usługi, focus/noisy oraz wyniki checkpointów. PROD dostarcza
 puste punkty integracji i nie zawiera implementacji magazynu DEV.
 [Zdarzenia i ZIP v1](DEV-TRACE-EXPORT.md).

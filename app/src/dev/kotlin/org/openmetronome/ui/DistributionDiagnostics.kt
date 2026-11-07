@@ -67,7 +67,7 @@ internal fun DistributionDiagnostics(data: AppData) {
     val busy = working || documentPending
     Text("Raporty DEV", style = MaterialTheme.typography.titleLarge)
     Text(if (DEV_CAPTURE_QUALIFIED) "Pełna diagnostyka DEV jest aktywna. Raporty eksportujesz po zatrzymaniu odtwarzania."
-        else "Rejestracja oczekuje na kwalifikację ART. Raporty testowe można eksportować po zatrzymaniu odtwarzania.")
+        else "Pełna rejestracja sesji jest wyłączona w tej beta: nie zaliczyła kwalifikacji narzutu API 26. Istniejące raporty można eksportować.")
     Text("Pamięć: 4 MiB transportu · dysk: 512 MiB/sesję, 2 GiB łącznie. Bez automatycznego usuwania.")
     status.notice?.let { Text("Diagnostyka: $it", color = MaterialTheme.colorScheme.error) }
     message?.let { Text(it) }
