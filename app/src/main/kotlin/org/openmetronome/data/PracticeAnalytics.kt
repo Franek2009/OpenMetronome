@@ -17,7 +17,10 @@ data class PracticeAnalytics(
 )
 
 object PracticeAnalyticsCalculator {
-    fun calculate(sessions: List<PracticeSession>, preferences: StatisticsPreferences, today: LocalDate): PracticeAnalytics {
+    fun calculate(sessions: List<PracticeSession>, preferences: StatisticsPreferences, today: LocalDate,
+        timelineFor: (PracticeSession) -> SessionTimeline? = { session ->
+            session.timeline?.let { runCatching { SessionTimelineCodec.decode(it, session.durationMs) }.getOrNull() }
+        }): PracticeAnalytics {
         val qualifying = sessions.filter { it.durationMs > 0 && it.durationMs >= preferences.minimumSessionSeconds * 1000L }
         val totals = sortedMapOf<String, Long>()
         qualifying.forEach { session ->
@@ -36,7 +39,7 @@ object PracticeAnalyticsCalculator {
         val meters = sortedMapOf<String, Long>()
         var known = 0L; var training = 0L; var ramps = 0L
         qualifying.forEach { session ->
-            val timeline = session.timeline?.let { runCatching { SessionTimelineCodec.decode(it, session.durationMs) }.getOrNull() }
+            val timeline = timelineFor(session)
             if (timeline?.complete != true) return@forEach
             known = Math.addExact(known, session.durationMs)
             timeline.changes.forEachIndexed { index, change ->

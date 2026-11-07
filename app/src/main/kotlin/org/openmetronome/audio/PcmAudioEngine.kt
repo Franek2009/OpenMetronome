@@ -87,9 +87,10 @@ class PcmAudioEngine(
             if (target.cancelled.get()) return
             val pulses = ArrayDeque<PlaybackPulse>()
             val timeline = ConfigurationTimeline()
-            val renderer = PcmRenderer(sink.sampleRate, initialConfig, customSamples = target.bank.samples, trace = trace,
+            lateinit var renderer: PcmRenderer
+            renderer = PcmRenderer(sink.sampleRate, initialConfig, customSamples = target.bank.samples, trace = trace,
                 onConfiguration = timeline::record, onPulse = { beat, silent ->
-                pulses.addLast(PlaybackPulse(beat.frame, beat.barIndex, beat.beatInBar, silent))
+                pulses.addLast(PlaybackPulse(beat.frame, beat.barIndex, beat.beatInBar, silent, renderer.activeConfig, renderer.appliedConfig))
             })
             val block = ShortArray(sink.blockFrames)
             var written = 0L
@@ -99,6 +100,10 @@ class PcmAudioEngine(
             trace?.record(PcmTraceKind.OUTPUT_OPENED, 0, sink.sampleRate.toLong(),
                 sink.blockFrames.toLong(), sink.bufferFrames.toLong(), initialUnderruns.toLong())
             var tracedRequested: MetronomeConfig? = null
+            fun withVolume(config: MetronomeConfig): MetronomeConfig {
+                val percent = renderer.appliedConfig.sound.volumePercent
+                return if (config.sound.volumePercent == percent) config else config.copy(sound = config.sound.copy(volumePercent = percent))
+            }
 
             fun renderBlock(count: Int) {
                 val config = requested.get()
@@ -131,12 +136,14 @@ class PcmAudioEngine(
                 if (!writeFully(sink, block, count, target.cancelled, trace, written)) return
                 written += count
             }
+            val firstConfig = pulses.firstOrNull()?.configuration ?: initialConfig
+            val firstApplied = pulses.firstOrNull()?.appliedConfiguration ?: initialConfig
             synchronized(lock) {
                 if (target.cancelled.get()) return
                 sink.play()
                 trace?.record(PcmTraceKind.PLAY, 0, written)
                 mutableState.value = AudioEngineState(
-                    PlaybackStatus.PLAYING, renderer.activeConfig, diagnostics = snapshot(), appliedConfig = renderer.appliedConfig,
+                    PlaybackStatus.PLAYING, withVolume(firstConfig), diagnostics = snapshot(), appliedConfig = withVolume(firstApplied),
                 )
             }
             var lastPublishedFrame = written
@@ -148,14 +155,16 @@ class PcmAudioEngine(
                 trace?.record(PcmTraceKind.HEAD, presented, written)
                 val oldPulse = pulse
                 while (presented > 0 && pulses.isNotEmpty() && pulses.first().frame <= presented) pulse = pulses.removeFirst()
+                val active = withVolume(pulse?.configuration ?: firstConfig)
+                val applied = withVolume(pulse?.appliedConfiguration ?: firstApplied)
                 synchronized(lock) {
                     if (!target.cancelled.get() &&
-                        (pulse != oldPulse || renderer.activeConfig != mutableState.value.activeConfig ||
+                        (pulse != oldPulse || active != mutableState.value.activeConfig || applied != mutableState.value.appliedConfig ||
                             written - lastPublishedFrame >= sink.sampleRate)
                     ) {
                         diagnostics = snapshot()
                         mutableState.value = AudioEngineState(
-                            PlaybackStatus.PLAYING, renderer.activeConfig, diagnostics = diagnostics, pulse = pulse, appliedConfig = renderer.appliedConfig,
+                            PlaybackStatus.PLAYING, active, diagnostics = diagnostics, pulse = pulse, appliedConfig = applied,
                         )
                         lastPublishedFrame = written
                     }

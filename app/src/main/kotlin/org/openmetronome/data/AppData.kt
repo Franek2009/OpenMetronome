@@ -75,7 +75,7 @@ class AppData private constructor(
         if ((storageReady.value && !backupWorking.value && !recoveryRequired.value) || applyingBackup.get() == true) action()
     }
     fun reservePlayback(): Boolean = synchronized(admission) {
-        if (!storageReady.value || backupWorking.value || recoveryRequired.value || sampleWorking.value || playbackBusy.value) false
+        if (!storageReady.value || backupWorking.value || exporting.value || recoveryRequired.value || sampleWorking.value || playbackBusy.value) false
         else { playbackBusy.value = true; true }
     }
     fun playbackFinished() = synchronized(admission) { playbackBusy.value = false }
@@ -165,9 +165,23 @@ class AppData private constructor(
         ready.await()
         emitAll(dao.statisticsSessions().map<List<PracticeSession>, StatisticsHistory> { StatisticsHistory.Ready(it) })
     }.catch { error -> if (error is CancellationException) throw error else emit(StatisticsHistory.Unavailable) }
+    suspend fun calculateAnalytics(sessions: List<PracticeSession>, preferences: StatisticsPreferences, today: java.time.LocalDate): PracticeAnalytics = withContext(Dispatchers.IO) {
+        val owner = currentCoroutineContext()
+        PracticeAnalyticsCalculator.calculate(sessions, preferences, today) { session ->
+            owner.ensureActive()
+            dao.timelineForStatistics(session.id, session.durationMs, session.checkpointAt)?.let {
+                runCatching { SessionTimelineCodec.decode(it, session.durationMs) }.getOrNull()
+            }
+        }
+    }
+    suspend fun sessionTimeline(session: PracticeSession): String? = withContext(Dispatchers.IO) {
+        dao.timelineForStatistics(session.id, session.durationMs, session.checkpointAt)
+    }
     val total = dao.total().catch { error.value = "Nie udało się odczytać statystyk"; emit(PracticeTotal(0, 0)) }
     val displayPreferences = settings.display.catch { error.value = "Nie udało się odczytać ustawień ekranu"; emit(PracticeDisplayPreferences()) }
-    val statisticsPreferences = settings.statistics.catch { error.value = "Nie udało się odczytać progów statystyk"; emit(StatisticsPreferences()) }
+    fun statisticsPreferences(): Flow<Result<StatisticsPreferences>?> = settings.statistics
+        .map<StatisticsPreferences, Result<StatisticsPreferences>?> { Result.success(it) }
+        .catch { error -> if (error is CancellationException) throw error else emit(Result.failure(error)) }
     fun saveDisplayPreferences(value: PracticeDisplayPreferences) = operation { settings.saveDisplay(value) }
     fun saveStatisticsPreferences(value: StatisticsPreferences) = operation { settings.saveStatistics(value) }
     init {
@@ -264,8 +278,11 @@ class AppData private constructor(
                 try {
                     ready.await()
                     retrySessionWrites()
-                    val snapshot = dao.sessionsForExport()
-                    openOutput().bufferedWriter(Charsets.UTF_8).use { SessionCsv.write(snapshot, it) }
+                    val snapshot = dao.csvSessions()
+                    openOutput().bufferedWriter(Charsets.UTF_8).use { writer ->
+                        SessionCsv.write(snapshot.asSequence().map { session -> session.copy(
+                            timeline = dao.timelineForStatistics(session.id, session.durationMs, session.checkpointAt)) }, writer)
+                    }
                     exportNotice.value = "Zapisano CSV. Liczba sesji: ${snapshot.size}."
                 } catch (cancelled: CancellationException) {
                     throw cancelled
@@ -309,6 +326,7 @@ class AppData private constructor(
     }
 
     private suspend fun snapshot(access: CustomSampleRepository.BackupAccess): BackupSnapshot {
+        require(dao.backupSessionBytes() <= BackupArchive.MAX_ARCHIVE_BYTES) { "Backup history exceeds archive limit" }
         val records = dao.allSamples()
         return BackupSnapshot(ConfigCodec.encode(settings.load()), dao.allPresets(), dao.sessionsForExport(),
             dao.allPracticeDays(), records, access.files(records), settings.preferencesSnapshot())

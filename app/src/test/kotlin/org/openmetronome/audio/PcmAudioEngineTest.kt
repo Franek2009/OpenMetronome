@@ -17,6 +17,29 @@ import org.openmetronome.domain.audio.PcmTrace
 import org.openmetronome.domain.audio.PcmTraceKind
 
 class PcmAudioEngineTest {
+    @Test fun `displayed configuration follows played pulses rather than prebuffered ramp`() {
+        val permits = Semaphore(0); val head = AtomicLong()
+        val sink = object : Sink() {
+            override val blockFrames = 4096
+            override val bufferFrames = 192001
+            override val playedFrames get() = head.get()
+            override fun write(samples: ShortArray, offset: Int, count: Int): Int {
+                if (playing && !paused) check(permits.tryAcquire(5, TimeUnit.SECONDS))
+                return if (paused) 0 else count
+            }
+            override fun pause() { super.pause(); permits.release() }
+        }
+        val engine = PcmAudioEngine({ sink }, { AutoCloseable {} })
+        try {
+            engine.start(MetronomeConfig(ramp = org.openmetronome.domain.model.TempoRamp(true, 60, 120, 10, 1)))
+            val initial = await(engine, PlaybackStatus.PLAYING)
+            assertEquals(60, initial.activeConfig!!.tempo.bpm)
+            assertEquals(0L, initial.diagnostics!!.framesPlayed)
+            head.set(192000); permits.release()
+            val later = runBlocking { withTimeout(5000) { engine.state.first { it.pulse?.bar == 1L } } }
+            assertEquals(70, later.activeConfig!!.tempo.bpm)
+        } finally { engine.close() }
+    }
     private open class Sink : PcmSink {
         override val sampleRate = 48000
         override val blockFrames = 16

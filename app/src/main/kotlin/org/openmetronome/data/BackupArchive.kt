@@ -23,7 +23,7 @@ data class BackupSnapshot(
 object BackupArchive {
     private const val VERSION = 2
     private const val METADATA = "openmetronome.dat"
-    private const val MAX_ARCHIVE_BYTES = 16 * 1024 * 1024
+    internal const val MAX_ARCHIVE_BYTES = 16 * 1024 * 1024
     private const val MAX_ITEMS = 100_000
 
     fun write(snapshot: BackupSnapshot, output: OutputStream) {

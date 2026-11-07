@@ -38,7 +38,8 @@ internal fun StatisticsThresholdDialog(value: StatisticsPreferences, close: () -
 }
 
 @Composable
-internal fun StatisticsHistoryPanel(sessions: List<PracticeSession>, activeDates: Set<LocalDate>, today: LocalDate) {
+internal fun StatisticsHistoryPanel(sessions: List<PracticeSession>, activeDates: Set<LocalDate>, today: LocalDate,
+    loadTimeline: suspend (PracticeSession) -> String? = { it.timeline }) {
     var monthText by rememberSaveable { mutableStateOf(YearMonth.from(today).toString()) }
     val month = YearMonth.parse(monthText)
     var dateText by rememberSaveable { mutableStateOf<String?>(null) }
@@ -61,6 +62,9 @@ internal fun StatisticsHistoryPanel(sessions: List<PracticeSession>, activeDates
     }
     Text("Kalendarz: • oznacza aktywny dzień według progów. Daty sesji zachowują ich zapisaną strefę.", style = MaterialTheme.typography.bodySmall)
     val leading = month.atDay(1).dayOfWeek.value - 1
+    Row(Modifier.fillMaxWidth()) {
+        listOf("Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd").forEach { Text(it, Modifier.weight(1f)) }
+    }
     val cells = ((leading + month.lengthOfMonth() + 6) / 7) * 7
     repeat(cells / 7) { week ->
         Row(Modifier.fillMaxWidth()) {
@@ -99,12 +103,19 @@ internal fun StatisticsHistoryPanel(sessions: List<PracticeSession>, activeDates
     if (filtered.isEmpty()) Text("Brak sesji dla tych filtrów.")
     selected?.let { session ->
         val config = remember(session) { runCatching { ConfigCodec.decode(session.config) }.getOrNull() }
-        val timeline = remember(session) { session.timeline?.let { runCatching { SessionTimelineCodec.decode(it, session.durationMs) }.getOrNull() } }
+        val result by produceState<Result<SessionTimeline?>?>(null, session) {
+            value = try { Result.success(loadTimeline(session)?.let { SessionTimelineCodec.decode(it, session.durationMs) }) }
+                catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+                catch (error: Exception) { Result.failure(error) }
+        }
+        val timeline = result?.getOrNull()
         AlertDialog(onDismissRequest = { selected = null }, title = { Text("Szczegóły sesji") }, text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(dailyPracticeDuration(session.durationMs)); Text("Strefa: ${session.zoneId}")
                 config?.let { Text("Ustawienia początkowe: ${it.effectiveBpmLabel} BPM · baza ${it.tempo.bpm} × ${it.tempoPercent.percent}% · ${it.timeSignature.numerator}/${it.timeSignature.denominator}") }
-                Text(if (timeline?.complete == true) "Pełny zapis zmian konfiguracji" else "Brak pełnego przebiegu: starsza sesja lub niepełny zapis. Nie odtwarzamy brakujących danych.")
+                Text(when { result == null -> "Odczytywanie przebiegu…"; result?.isFailure == true -> "Nie udało się odczytać przebiegu."
+                    timeline?.complete == true -> "Pełny zapis zmian konfiguracji"
+                    else -> "Brak pełnego przebiegu: starsza sesja lub niepełny zapis. Nie odtwarzamy brakujących danych." })
                 timeline?.changes?.take(50)?.forEach { change ->
                     val item = ConfigCodec.decode(change.config)
                     Text("${dailyPracticeDuration(change.offsetMs)} → ${item.effectiveBpmLabel} BPM · ${item.timeSignature.numerator}/${item.timeSignature.denominator}")

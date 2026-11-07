@@ -34,7 +34,14 @@ abstract class PracticeDao {
     @Upsert abstract suspend fun savePreset(preset: Preset)
     @Query("DELETE FROM presets WHERE id = :id") abstract suspend fun deletePreset(id: String)
     @Query("SELECT * FROM practice_sessions ORDER BY startedAt DESC LIMIT 100") abstract fun sessions(): Flow<List<PracticeSession>>
-    @Query("SELECT * FROM practice_sessions ORDER BY startedAt DESC, id") abstract fun statisticsSessions(): Flow<List<PracticeSession>>
+    @Query("SELECT id,startedAt,checkpointAt,durationMs,finished,interrupted,zoneId,config,NULL AS timeline FROM practice_sessions ORDER BY startedAt DESC,id")
+    abstract fun statisticsSessions(): Flow<List<PracticeSession>>
+    @Query("SELECT id,startedAt,checkpointAt,durationMs,finished,interrupted,zoneId,config,NULL AS timeline FROM practice_sessions ORDER BY startedAt ASC,id")
+    abstract suspend fun csvSessions(): List<PracticeSession>
+    @Query("SELECT timeline FROM practice_sessions WHERE id=:id AND durationMs=:duration AND checkpointAt=:checkpoint")
+    abstract fun timelineForStatistics(id: String, duration: Long, checkpoint: Long): String?
+    @Query("SELECT COALESCE(SUM(length(CAST(config AS BLOB))+COALESCE(length(CAST(timeline AS BLOB)),0)+length(id)+length(zoneId)+64),0) FROM practice_sessions")
+    abstract suspend fun backupSessionBytes(): Long
     @Query("SELECT * FROM practice_sessions ORDER BY startedAt ASC, id ASC") abstract suspend fun sessionsForExport(): List<PracticeSession>
     @Query("SELECT * FROM practice_days ORDER BY sessionId, date") abstract suspend fun allPracticeDays(): List<PracticeDay>
     @Query("SELECT COUNT(*) AS sessions, COALESCE(SUM(durationMs), 0) AS durationMs FROM practice_sessions") abstract fun total(): Flow<PracticeTotal>

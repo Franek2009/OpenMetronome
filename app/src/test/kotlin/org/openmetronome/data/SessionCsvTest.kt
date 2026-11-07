@@ -34,7 +34,7 @@ class SessionCsvTest {
         }
     }
     @Test fun `unsupported historical config leaves tempo empty and write failures propagate`() {
-        assertTrue(csv(listOf(session().copy(config = "version=999"))).endsWith(";\"\";\"\"\r\n"))
+        assertTrue(csv(listOf(session().copy(config = "version=999"))).endsWith(";\"\";\"\";\"\";\"\";\"unknown\"\r\n"))
         val broken = object : Writer() {
             override fun write(chars: CharArray, offset: Int, length: Int) { throw IOException("fixture") }
             override fun flush() = Unit

@@ -7,16 +7,20 @@ import java.time.format.DateTimeFormatter
 
 /** Pure formatter. The caller owns the writer; no storage, clipboard or network access. */
 object SessionCsv {
-    fun write(sessions: List<PracticeSession>, writer: Writer) {
+    fun write(sessions: List<PracticeSession>, writer: Writer) = write(sessions.asSequence(), writer)
+    fun write(sessions: Sequence<PracticeSession>, writer: Writer) {
         writer.write("\uFEFF")
-        row(writer, listOf("session_id", "started_at", "checkpoint_at", "zone_id", "duration_ms", "status", "initial_bpm", "meter"))
+        row(writer, listOf("session_id", "started_at", "checkpoint_at", "zone_id", "duration_ms", "status", "initial_bpm", "meter",
+            "initial_multiplier_percent", "initial_effective_bpm", "configuration_history"))
         sessions.forEach { session ->
             val config = runCatching { ConfigCodec.decode(session.config) }.getOrNull()
             val zone = runCatching { ZoneId.of(session.zoneId) }.getOrDefault(ZoneId.of("UTC"))
             fun date(epoch: Long) = Instant.ofEpochMilli(epoch).atZone(zone).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
             row(writer, listOf(session.id, date(session.startedAt), date(session.checkpointAt), session.zoneId,
                 session.durationMs.toString(), when { session.interrupted -> "interrupted"; session.finished -> "finished"; else -> "in_progress" },
-                config?.tempo?.bpm?.toString() ?: "", config?.timeSignature?.let { "${it.numerator}/${it.denominator}" } ?: ""))
+                config?.tempo?.bpm?.toString() ?: "", config?.timeSignature?.let { "${it.numerator}/${it.denominator}" } ?: "",
+                config?.tempoPercent?.percent?.toString() ?: "", config?.effectiveBpmLabel ?: "",
+                session.timeline?.let { payload -> runCatching { if (SessionTimelineCodec.decode(payload, session.durationMs).complete) "complete" else "incomplete" }.getOrDefault("invalid") } ?: "unknown"))
         }
     }
 

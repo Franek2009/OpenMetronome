@@ -114,12 +114,12 @@ class SilentFeaturesTest {
         compose.onNodeWithContentDescription("Puls 2: akcent").performClick()
         awaitDescription("Puls 2: cisza")
         compose.onNodeWithContentDescription("120 BPM").performClick()
-        compose.onNodeWithText("BPM (20–300)").performTextReplacement("301")
+        compose.onNodeWithText("Bazowe BPM (20–300)").performTextReplacement("301")
         compose.onNodeWithText("Zastosuj").assertIsNotEnabled()
         compose.onNodeWithText("Anuluj").performClick()
         compose.runOnIdle { assertEquals(120, model.state.value.config.tempo.bpm) }
         compose.onNodeWithContentDescription("120 BPM").performClick()
-        compose.onNodeWithText("BPM (20–300)").performTextReplacement("87")
+        compose.onNodeWithText("Bazowe BPM (20–300)").performTextReplacement("87")
         compose.onNodeWithText("Zastosuj").performClick()
         awaitDescription("87 BPM")
         // A physical click must wait for the system keyboard, which is not driven by
@@ -416,7 +416,7 @@ class SilentFeaturesTest {
 
     @Test fun tempoEditorKeepsDraftThroughKeyboardAndRotation() {
         compose.onNodeWithContentDescription("120 BPM").performScrollTo().performClick()
-        compose.onNodeWithText("BPM (20–300)").performClick().performTextReplacement("137")
+        compose.onNodeWithText("Bazowe BPM (20–300)").performClick().performTextReplacement("137")
         val originalOrientation = compose.activity.requestedOrientation
         try {
             compose.activityRule.scenario.onActivity {
@@ -425,9 +425,9 @@ class SilentFeaturesTest {
             compose.waitUntil(10000) {
                 compose.activity.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
             }
-            compose.onNodeWithText("BPM (20–300)").assertTextContains("137")
+            compose.onNodeWithText("Bazowe BPM (20–300)").assertTextContains("137")
             compose.activityRule.scenario.recreate()
-            compose.onNodeWithText("BPM (20–300)").assertTextContains("137")
+            compose.onNodeWithText("Bazowe BPM (20–300)").assertTextContains("137")
             compose.runOnIdle { assertEquals(120, model.state.value.config.tempo.bpm) }
             compose.onNodeWithText("Zastosuj").performClick()
             awaitDescription("137 BPM")
