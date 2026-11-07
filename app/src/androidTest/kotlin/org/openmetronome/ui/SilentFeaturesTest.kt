@@ -185,9 +185,11 @@ class SilentFeaturesTest {
         slider.performScrollTo().performSemanticsAction(SemanticsActions.SetProgress) { it(37f) }
         captureUi("sound-controls")
         compose.activityRule.scenario.recreate()
-        compose.onNodeWithText("Brzmienie: Długi").performScrollTo().assertIsDisplayed()
+        val lastSound = ClickSound.visible.last()
+        val lastLabel = compose.activity.getString(lastSound.labelResource())
+        compose.onNodeWithText("Brzmienie: $lastLabel").performScrollTo().assertIsDisplayed()
         compose.runOnIdle {
-            assertEquals(SoundConfig(37, ClickSound.FULL_HELD), model.state.value.config.sound)
+            assertEquals(SoundConfig(37, lastSound), model.state.value.config.sound)
             assertEquals(PlaybackStatus.STOPPED, model.state.value.audio.status)
         }
     }

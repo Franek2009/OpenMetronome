@@ -9,6 +9,7 @@ object ClickGenerator {
 
     fun generate(sampleRate: Int, accented: Boolean, sound: ClickSound = ClickSound.CLASSIC): ShortArray {
         require(sampleRate >= 8000)
+        if (sound in ClickSound.sampled) return SampledClickBank.generate(sampleRate, accented, sound)
         val milliseconds = when (sound) {
             ClickSound.CLASSIC, ClickSound.WOOD -> 10
             ClickSound.SHORT -> 4
@@ -55,6 +56,7 @@ object ClickGenerator {
                     fun burst(start: Double) = if (time >= start) exp(-(time - start) / 0.0035) else 0.0
                     noise.next() * (burst(0.0) + 0.8 * burst(0.007) + 0.65 * burst(0.014))
                 }
+                ClickSound.SAMPLE_NATURAL, ClickSound.SAMPLE_SHORT, ClickSound.SAMPLE_LOW -> error("Sample handled before synthesis")
                 ClickSound.PULSE -> {
                     val hz = if (accented) 1500.0 else 1000.0
                     // Truncated additive pulse: do not alias square-wave harmonics into the passband.

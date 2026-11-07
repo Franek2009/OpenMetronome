@@ -30,7 +30,7 @@ class SoundRenderingTest {
                 assertTrue(pcm.all { abs(it.toInt()) <= ClickGenerator.PEAK_SAMPLE })
                 pcm.toList()
             } }
-            assertEquals(86, samples.toSet().size)
+            assertEquals(ClickSound.entries.size * 2, samples.toSet().size)
         }
     }
     @Test fun `fixed volume scales PCM exactly and zero does not stop the timeline`() {

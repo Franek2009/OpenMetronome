@@ -6,7 +6,7 @@ Nie zastępuje wyników testów ani aktualnego stanu wydania.
 | Obszar | Najważniejsze miejsca i granice |
 | --- | --- |
 | Kompozycja aplikacji | `app/src/main/kotlin/org/openmetronome/OpenMetronomeApplication.kt` tworzy silnik i AppData. Fabryki `diagnostics/EngineDiagnosticsFactory.kt` w source set prod/dev rozdzielają obserwatory. |
-| Audio | `domain/audio/BeatScheduler.kt` planuje pozycje w ramkach; `PcmRenderer.kt` renderuje klik, podziały, trening i odliczanie. `audio/PcmAudioEngine.kt` posiada worker, sink, konfigurację i końcowy stan. Nie zastępować zegara PCM timerem UI. |
+| Audio | `domain/audio/BeatScheduler.kt` planuje pozycje w ramkach; `PcmRenderer.kt` renderuje klik, podziały, trening i odliczanie. `audio/PcmAudioEngine.kt` posiada worker, sink, konfigurację i końcowy stan. `SampledClickBank.kt` zawiera wygenerowane pary CC0, dekodowane przed renderowaniem, bez I/O w pętli. Nie zastępować zegara PCM timerem UI. |
 | Android i tło | `platform/audio/MetronomeService.kt` zarządza foreground, rezerwacją i finalizacją; `PlaybackClient.kt` wiąże UI z usługą. `AndroidPcmSink.kt` i `AndroidAudioFocusGate.kt` są granicami platformy. |
 | UI | `ui/AppScreens.kt`, `MetronomeScreen.kt`, `FullscreenPractice.kt`, `StatisticsPanels.kt`; `CurrentPracticeDate.kt` obserwuje datę tylko dla widocznych Statystyk; anulowanie nie zamyka równolegle kanału tickera. Stan i polecenia przez `MetronomeViewModel.kt` i `audio/MetronomeController.kt`. Pełny ekran nie tworzy nowego silnika. |
 | Zapis i odzyskiwanie | `data/AppData.kt` koordynuje operacje, DataStore, import/eksport i blokady. `SessionRecorder.kt` tworzy checkpointy; `SessionWriteQueue.kt` utrwala kolejkę ponowień. Nie zwalniać bezpieczeństwa eksportu przy zaległym zapisie. |

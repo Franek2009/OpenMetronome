@@ -1,0 +1,86 @@
+[
+  {
+    "file": "04-cowbell-one-normal.wav",
+    "sha256": "54825d9a38c9833a36fad621d53589b3355a1d2c1e61a5b188d2537c2a63cf65",
+    "frames": 1920,
+    "peak": 29162,
+    "dc_lsb": -0.0010416666666666667
+  },
+  {
+    "file": "04-cowbell-one-accent.wav",
+    "sha256": "ce8d7f2a923876f5a7cb1ba523ef62afc5725b72818388ee64ff24a714a44e65",
+    "frames": 1920,
+    "peak": 29162,
+    "dc_lsb": 0.0046875
+  },
+  {
+    "file": "04-cowbell-one-demo.wav",
+    "sha256": "2adba349e0fb5c57ba61d6f4cd73a110db346e2f57b1bc5a6ce32f0e64c80aa4",
+    "frames": 240000,
+    "peak": 29162,
+    "dc_lsb": 2.5e-05
+  },
+  {
+    "file": "05-cowbell-two-normal.wav",
+    "sha256": "538b3037280f886544f9f58dd84dfde8caf4caa048b650b7f269b38bb0db41df",
+    "frames": 1920,
+    "peak": 29162,
+    "dc_lsb": 0.003125
+  },
+  {
+    "file": "05-cowbell-two-accent.wav",
+    "sha256": "c2daf4955f3c073a316cdec9cc55da8fb55ab90f8c563c98c1e1f1fe71438b6c",
+    "frames": 1920,
+    "peak": 29162,
+    "dc_lsb": -0.008333333333333333
+  },
+  {
+    "file": "05-cowbell-two-demo.wav",
+    "sha256": "052a99941db52a61a7dc298e0f94a17c6302a28d66f259eab977e71be9a5d876",
+    "frames": 240000,
+    "peak": 29162,
+    "dc_lsb": 1.6666666666666667e-05
+  },
+  {
+    "file": "06-tom-high-normal.wav",
+    "sha256": "e62ea2615f4d1df1b0943b62d6a15dd55b3acd2f4fe129b7e47dc7146d8b50fc",
+    "frames": 1920,
+    "peak": 29162,
+    "dc_lsb": 0.0005208333333333333
+  },
+  {
+    "file": "06-tom-high-accent.wav",
+    "sha256": "73a29057ea24f3a5455df11c7d02966336c476c45ce30c5e69e351e3e4abeca8",
+    "frames": 1920,
+    "peak": 29162,
+    "dc_lsb": 0.0020833333333333333
+  },
+  {
+    "file": "06-tom-high-demo.wav",
+    "sha256": "86fd4c1c71f76f07daa8188b81a3ae2b79e6c1a57ece4c4287d28d22b3e409f6",
+    "frames": 240000,
+    "peak": 29162,
+    "dc_lsb": 5.833333333333333e-05
+  },
+  {
+    "file": "07-tom-low-normal.wav",
+    "sha256": "c303a0504e3c765a22eb455a9ffb3c6b00c9eb516f2d5394fa2f4e0a0574aae9",
+    "frames": 1920,
+    "peak": 29162,
+    "dc_lsb": 0.0125
+  },
+  {
+    "file": "07-tom-low-accent.wav",
+    "sha256": "4431ca1f06a2f9096805236f12194b46b45446bb0361c8003a5d58b2f2a0e7a4",
+    "frames": 1920,
+    "peak": 29162,
+    "dc_lsb": -0.013541666666666667
+  },
+  {
+    "file": "07-tom-low-demo.wav",
+    "sha256": "bfd74deb1079dee3a7f32be813a5a5c2933f2f7c8f27bb91510c1eda4a2b197b",
+    "frames": 240000,
+    "peak": 29162,
+    "dc_lsb": 0.00038333333333333334
+  }
+]

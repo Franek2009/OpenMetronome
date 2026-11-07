@@ -1,5 +1,10 @@
 # OpenMetronome
 
+> W gałęzi rozwojowej (jeszcze poza opublikowanym APK): trzy zaakceptowane
+> barwy Naturalny / Suchy / Naturalny niski, bez zmian wyglądu i dawnych brzmień.
+> [Pochodzenie i warianty](assets/samples/PROVENANCE.md).
+> Pełna rejestracja DEV pozostaje wyłączona do zaliczenia kwalifikacji.
+
 Metronom na Androida dla muzyków, którzy chcą ćwiczyć nie tylko tempo,
 ale też własne poczucie pulsu. Darmowy, otwartoźródłowy i całkowicie offline.
 Bez reklam, subskrypcji, kont i Google Play Services.
@@ -60,8 +65,9 @@ niezgodność — [szczegóły podpisywania i aktualizacji](docs/RELEASING.md).
   z ostrzeżeniem pominięć. Stare 1.0 nie odczyta v2; przed aktualizacją zachowaj kopię v1.
   Nie zakładamy możliwości cofnięcia instalacji do niższego versionCode.
 
-Wszystkie sześć dotychczasowych brzmień zachowano. „Drewniany” czeka na
-oryginalne WAV-y i kwalifikację źródeł. Stabilne 1.1 wymaga praktycznego odbioru
+Opublikowana beta zachowuje sześć dotychczasowych brzmień. Oryginały nowych
+sampli już dostarczono; postęp gałęzi rozwojowej opisano powyżej. Osobna barwa
+„Drewniany” nie jest warunkiem wydania. Stabilne 1.1 wymaga praktycznego odbioru
 beta i osobnej decyzji — [checklista użytkownika](docs/V1.1-BETA1-VALIDATION.md).
 
 ## Co potrafi?

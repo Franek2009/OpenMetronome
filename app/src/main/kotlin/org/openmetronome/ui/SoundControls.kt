@@ -87,6 +87,9 @@ fun SoundControls(config: MetronomeConfig, onChange: (MetronomeConfig) -> Unit, 
 }
 
 internal fun ClickSound.labelResource(): Int = when (this) {
+    ClickSound.SAMPLE_NATURAL -> R.string.sound_sample_natural
+    ClickSound.SAMPLE_SHORT -> R.string.sound_sample_short
+    ClickSound.SAMPLE_LOW -> R.string.sound_sample_low
     ClickSound.CLASSIC -> R.string.sound_classic
     ClickSound.WOOD -> R.string.sound_wood
     ClickSound.SHORT -> R.string.sound_short

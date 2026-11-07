@@ -36,7 +36,11 @@ object BackupArchive {
         val legacyMeters = setOf(org.openmetronome.domain.model.TimeSignature.TWO_FOUR,
             org.openmetronome.domain.model.TimeSignature.THREE_FOUR, org.openmetronome.domain.model.TimeSignature.FOUR_FOUR,
             org.openmetronome.domain.model.TimeSignature.SIX_EIGHT)
-        require(configs.all { ConfigCodec.decode(it).timeSignature in legacyMeters }) { "New meters require backup v2" }
+        val configurations = configs.map(ConfigCodec::decode)
+        require(configurations.all { it.timeSignature in legacyMeters }) { "New meters require backup v2" }
+        require(configurations.none { it.sound.clickSound in org.openmetronome.domain.model.ClickSound.sampled }) {
+            "Sampled sounds require backup v2"
+        }
         writeStored(normalize(snapshot.copy(sessions = snapshot.sessions.map { it.copy(timeline = null) }, preferences = null)), output, 1)
     }
 

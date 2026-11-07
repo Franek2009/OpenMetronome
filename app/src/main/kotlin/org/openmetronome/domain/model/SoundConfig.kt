@@ -10,11 +10,13 @@ enum class ClickSound(val auditionNumber: Int? = null) {
     NOISE_CRACK(17), NOISE_BRUSH(18), NOISE_RIM(19), NOISE_WIDE(20),
     FULL_LOW_750(21), FULL_LOW_900(22), FULL_HIGH_1200(23), FULL_HIGH_1400(24), FULL_HIGH_1650(25),
     FULL_SHORT(26), FULL_TIGHT(27), FULL_LONG(28), FULL_HELD(29), FULL_SOFT(30),
-    FULL_BRIGHT(31), FULL_ROUND(32), FULL_DENSE(33), FULL_LOW_DENSE(34), FULL_HIGH_TIGHT(35);
+    FULL_BRIGHT(31), FULL_ROUND(32), FULL_DENSE(33), FULL_LOW_DENSE(34), FULL_HIGH_TIGHT(35),
+    SAMPLE_NATURAL, SAMPLE_SHORT, SAMPLE_LOW;
 
     companion object {
-        val visible: List<ClickSound> = listOf(IMPULSE_FULL, FULL_LOW_750, FULL_HIGH_1200, FULL_HIGH_1650, FULL_SHORT, FULL_HELD)
-        val standard: List<ClickSound> = entries.filter { it.auditionNumber == null }
+        val sampled: List<ClickSound> = listOf(SAMPLE_NATURAL, SAMPLE_SHORT, SAMPLE_LOW)
+        val visible: List<ClickSound> = listOf(IMPULSE_FULL, FULL_LOW_750, FULL_HIGH_1200, FULL_HIGH_1650, FULL_SHORT, FULL_HELD) + sampled
+        val standard: List<ClickSound> = entries.filter { it.auditionNumber == null && it !in sampled }
         val experimental: List<ClickSound> = entries.filter { it.auditionNumber != null }
         val firstAudition: List<ClickSound> = experimental.filter { it.auditionNumber in 1..20 }
         val fullImpulseVariants: List<ClickSound> = experimental.filter { it.auditionNumber in 21..35 }

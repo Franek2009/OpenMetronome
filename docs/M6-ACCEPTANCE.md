@@ -1,5 +1,17 @@
 # M6 — odbiór sprzętowy
 
+## Domknięcie 1.1 — dodatkowe zgłoszenie użytkownika
+
+**Manualne PASS użytkownika:** aktualizacja i import statystyk działały
+bez zarzutu. Nie podano konkretnej ścieżki wersji, urządzenia ani porównania
+poszczególnych pól, dlatego nie dopisujemy tych szczegółów.
+Użytkownik zaakceptował też odsłuch trzech prototypów Druminfected
+(„co do dźwięku, to spoko”); to nie pełny odbiór nowego APK na urządzeniu.
+Pozostałych scenariuszy M6 dla 1.1 nie oznaczamy automatycznie jako PASS.
+Fizyczny jitter i latencja nadal niezmierzone. To zgłoszenie nie udziela
+zgody na automatyczne audio/wibracje ani operacje na telefonach.
+
+
 ## Manualny odbiór oficjalnego RC2 na Samsungu Galaxy A56
 
 **Manualne potwierdzenie użytkownika — oficjalne RC2, Samsung Galaxy A56.**

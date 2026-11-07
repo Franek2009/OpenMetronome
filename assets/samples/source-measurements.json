@@ -1,0 +1,161 @@
+[
+  {
+    "file": "assets/samples/source/crl.fm/cm-4f1cca8e1a0030d4__cowbell1-normal-v3-rr1-mid.wav",
+    "sha256": "e212cc27b3490d7927d41508bd7e90d6e09b0b8da169f0357341d3057c4910c4",
+    "rate": 44100,
+    "channels": 2,
+    "bits": 16,
+    "durationSeconds": 0.9398866213151927,
+    "channelPeakDbfs": [
+      -4.534626693858214,
+      -7.791569350840723
+    ],
+    "channelDc": [
+      -2.3339700030459118e-07,
+      2.591663851962653e-07
+    ],
+    "channelRmsDbfs": [
+      -27.661337332949483,
+      -31.68730314075338
+    ],
+    "fullScaleSamples": 0,
+    "onsetMs": 8.390022675736962,
+    "energy40Percent": 89.89873253559996,
+    "downmixEnergyRatio": 0.2934521368976175,
+    "monoLargestStep": 0.098388671875,
+    "monoFirst": 0.0,
+    "monoLast": 0.0
+  },
+  {
+    "file": "assets/samples/source/crl.fm/cm-66c188d948b4067c__cowbell2-normal-v3-rr1-mid.wav",
+    "sha256": "2eb531d20d6272824f8d012b1221093c13b15de237e2e8f611eaa70830abb4ee",
+    "rate": 44100,
+    "channels": 2,
+    "bits": 16,
+    "durationSeconds": 1.7853968253968253,
+    "channelPeakDbfs": [
+      -4.485619184889121,
+      -5.893243175876851
+    ],
+    "channelDc": [
+      -4.825541653833698e-07,
+      3.6433808470712255e-08
+    ],
+    "channelRmsDbfs": [
+      -29.00624272468507,
+      -29.673250401686513
+    ],
+    "fullScaleSamples": 0,
+    "onsetMs": 8.616780045351474,
+    "energy40Percent": 83.65790281927647,
+    "downmixEnergyRatio": 0.48094888974749767,
+    "monoLargestStep": 0.1024169921875,
+    "monoFirst": 0.0,
+    "monoLast": 0.0
+  },
+  {
+    "file": "assets/samples/source/crl.fm/cm-a8df90acd53384e9__toml-hits-v4-rr1-mid.wav",
+    "sha256": "d1cb91ccf2817e4c6f2e839530980554f63c232a3fa98f84a383a6cb1c4a98bd",
+    "rate": 44100,
+    "channels": 2,
+    "bits": 16,
+    "durationSeconds": 3.421043083900227,
+    "channelPeakDbfs": [
+      -8.408402766225324,
+      -8.839030724849128
+    ],
+    "channelDc": [
+      3.1418128657999046e-06,
+      -2.4920895252803775e-07
+    ],
+    "channelRmsDbfs": [
+      -36.42804008869248,
+      -37.37788518155965
+    ],
+    "fullScaleSamples": 0,
+    "onsetMs": 10.113378684807257,
+    "energy40Percent": 59.52541606692322,
+    "downmixEnergyRatio": 0.7670400908294069,
+    "monoLargestStep": 0.0468902587890625,
+    "monoFirst": -0.0001373291015625,
+    "monoLast": 6.103515625e-05
+  },
+  {
+    "file": "assets/samples/source/crl.fm/cm-ea36f14271e270a9__tomh-hits-v4-rr2-mid.wav",
+    "sha256": "1a0774d0a255ffdd96610161be75003b7bb0d533b84aedc99ce3b567b21a051f",
+    "rate": 44100,
+    "channels": 2,
+    "bits": 16,
+    "durationSeconds": 3.158934240362812,
+    "channelPeakDbfs": [
+      -8.836097788931315,
+      -10.230314575720191
+    ],
+    "channelDc": [
+      5.484703813218277e-06,
+      4.81261565173912e-06
+    ],
+    "channelRmsDbfs": [
+      -37.231627531941186,
+      -36.89442672602372
+    ],
+    "fullScaleSamples": 0,
+    "onsetMs": 9.365079365079366,
+    "energy40Percent": 77.40072815174207,
+    "downmixEnergyRatio": 0.880160326544199,
+    "monoLargestStep": 0.032928466796875,
+    "monoFirst": -3.0517578125e-05,
+    "monoLast": -1.52587890625e-05
+  },
+  {
+    "file": "assets/samples/source/freesound.org/191959__seidhepriest__metronome-bell-96.wav",
+    "sha256": "dba1030a33bbb8b5cc6ae60b81b92dd659b553c34d76b08f6735a9fa07088e6f",
+    "rate": 96000,
+    "channels": 1,
+    "bits": 24,
+    "durationSeconds": 1.59428125,
+    "channelPeakDbfs": [
+      -1.8707328471652571
+    ],
+    "channelDc": [
+      -1.7730678981041724e-06
+    ],
+    "channelRmsDbfs": [
+      -29.474238039073796
+    ],
+    "fullScaleSamples": 0,
+    "onsetMs": 0.125,
+    "energy40Percent": 62.21068421696916,
+    "downmixEnergyRatio": 1.0,
+    "monoLargestStep": 0.3497176170349121,
+    "monoFirst": 0.004486560821533203,
+    "monoLast": 0.0
+  },
+  {
+    "file": "assets/samples/source/freesound.org/250552__druminfected__metronome.wav",
+    "sha256": "4a0309f22f3bf478911d73f724c9ad9520dfec8fbe2f8390252ec92b50cdc140",
+    "rate": 44100,
+    "channels": 2,
+    "bits": 16,
+    "durationSeconds": 0.7576417233560091,
+    "channelPeakDbfs": [
+      -1.16074780647053,
+      -0.009547849113171927
+    ],
+    "channelDc": [
+      -4.523930457713546e-06,
+      -4.6718966870996946e-06
+    ],
+    "channelRmsDbfs": [
+      -24.836379526568454,
+      -23.73097088658441
+    ],
+    "fullScaleSamples": 0,
+    "onsetMs": 0.0,
+    "energy40Percent": 98.96291216496347,
+    "downmixEnergyRatio": 0.9772283373775276,
+    "monoLargestStep": 0.2158355712890625,
+    "monoFirst": -4.57763671875e-05,
+    "monoLast": 0.0
+  }
+]
