@@ -58,3 +58,25 @@ Podglądy motywowane używają przykładowych jasnych/ciemnych palet. Rzeczywist
 kolory i kształt nadaje obsługujący tę funkcję launcher.
 
 Specyfikacja: [Adaptive icons — Android Developers](https://developer.android.com/develop/ui/compose/system/icon_design_adaptive).
+
+## Oznaczenie DEV
+
+`python3 scripts/generate-dev-launcher-icons.py` odczytuje geometrię gotowego
+produkcyjnego foregroundu i dodaje własną geometryczną plakietkę DEV.
+Napis nie używa fontu ani dodatkowego zasobu zewnętrznego. Wyniki trafiają
+wyłącznie do `app/src/dev/res`: dwa VectorDrawable oraz pięć PNG.
+Adaptive XML odziedziczone z main wybiera te zasoby przez nakładkę flavoru.
+Monochrome ma wycięte litery i usuwa symbole spod plakietki, aby napis
+pozostał czytelny po nadaniu koloru przez launcher. Maska używa czterech
+prostokątów poza plakietką, bez polegania na `fillType` w `clip-path`,
+który pozostawiał grafikę pod literą V podczas rasteryzacji Androida.
+Cała plakietka mieści
+się w strefie o promieniu 33 dp. Oryginały i zasoby produkcyjne są niezmienne.
+[Porównanie stable/DEV, 48 i 72 px](../docs/images/dev-launcher-preview.png).
+Po regeneracji głównej ikony uruchom również generator DEV, aby obie wersje
+korzystały z tej samej aktualnej geometrii logo.
+
+Generator DEV odczytuje wyłącznie lokalny VectorDrawable z repozytorium,
+ogranicza wejście do 128 KiB UTF-8 i odrzuca DTD oraz deklaracje encji przed
+parsowaniem. Nie pobiera zewnętrznego XML i nie wymaga nowej biblioteki.
+Regresja wejścia: `python3 scripts/test-dev-icon-input.py`.
