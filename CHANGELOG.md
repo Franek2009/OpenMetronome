@@ -20,6 +20,8 @@
   **Pełna rejestracja sesji jest wyłączona w beta**: kwalifikacja narzutu API26
   niezaliczona. Nie usunięto benchmarku ani nie rozluźniono progu +10%.
   PROD nie zawiera magazynu DEV.
+- Poprawione anulowanie obserwatora daty Statystyk: wyjście z ekranu nie zamyka
+  kanału równolegle z jego oczekującym odbiorcą.
 - Finalizacja usługi czeka na terminalny stan silnika także przy asynchronicznym Stop.
 - Sześć starych testów sprzętowego audio usunięto na życzenie użytkownika;
   zachowano testy PCM/atrap i ochronę przed audio oraz wibracjami.
