@@ -16,7 +16,11 @@
 - Podstawa diagnostyki PCM: opcjonalny obserwator pulsu/podziałów, konfiguracji,
   renderowania i wszystkich prób zapisu; bufor tylko DEV, jawne straty i ochrona
   odtwarzania przed błędem obserwatora. Brak aktywacji zbierania w aplikacji.
-- Pełna diagnostyka z zapisem/ZIP, nowy UI i procenty pozostają kolejnymi etapami.
+- Magazyn DEV: asynchroniczny dziennik z CRC, checkpointy i odzyskiwanie,
+  limity pamięci/dysku oraz izolacja awarii. Nadal bez aktywacji w aplikacji.
+- Raporty DEV: osobne zdarzenia sterowania, korelacja historii, ZIP v1,
+  lista/eksport/usuwanie raportów i analizator offline. Bez aktywacji zbierania.
+- Integracja pełnej diagnostyki i kwalifikacja ART, nowy UI i procenty pozostają kolejnymi etapami.
   Bez zmian harmonogramu, brzmień, Room i `.ombak`.
 
 ## 1.0.0 — opublikowane stabilne wydanie

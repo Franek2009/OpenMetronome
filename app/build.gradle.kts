@@ -17,6 +17,9 @@ android {
         versionCode = 18
         versionName = "1.0.0"
         testInstrumentationRunner = "org.openmetronome.OpenMetronomeTestRunner"
+        val revision = providers.exec { commandLine("git", "rev-parse", "HEAD"); isIgnoreExitValue = true }
+            .standardOutput.asText.get().trim().takeIf { it.matches(Regex("[0-9a-f]{40}")) } ?: "unknown"
+        buildConfigField("String", "SOURCE_REVISION", "\"$revision\"")
     }
 
     compileOptions {
@@ -70,6 +73,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     lint {

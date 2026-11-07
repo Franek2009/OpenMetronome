@@ -65,6 +65,10 @@ class MetronomeController(private val engine: AudioEngine) : MetronomePort {
             mutableState.update { it.copy(audio = engine.state.value) }
         }
     }
+    override fun visibility(visible: Boolean) {
+        engine.observations?.event(engine.diagnosticSessionId, org.openmetronome.diagnostics.TraceControlKind.BACKGROUND_STATE,
+            a = if (visible) 1 else 0)
+    }
 
     fun reportFailure(failure: AudioFailure) = synchronized(commands) {
         if (closed) return@synchronized

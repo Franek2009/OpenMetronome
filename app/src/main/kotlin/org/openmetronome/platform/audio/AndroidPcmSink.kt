@@ -26,7 +26,7 @@ class AndroidPcmSinkFactory(private val manager: AudioManager) : PcmSinkFactory 
             val minimumBytes = AudioTrack.getMinBufferSize(
                 rate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT,
             )
-            if (minimumBytes <= 0) throw AudioEngineException(AudioFailure.INITIALIZATION)
+            if (minimumBytes <= 0) throw AudioEngineException(AudioFailure.INITIALIZATION, platformCode = minimumBytes)
             val frames = maxOf((minimumBytes + 1) / 2, block * 4)
             track = AudioTrack.Builder()
                 .setAudioAttributes(metronomeAudioAttributes())
@@ -45,7 +45,7 @@ class AndroidPcmSinkFactory(private val manager: AudioManager) : PcmSinkFactory 
             return AndroidPcmSink(track, rate, block)
         } catch (error: Exception) {
             track?.release()
-            throw AudioEngineException(AudioFailure.INITIALIZATION, error)
+            throw AudioEngineException(AudioFailure.INITIALIZATION, error, (error as? AudioEngineException)?.platformCode)
         }
     }
 }
@@ -63,7 +63,7 @@ private class AndroidPcmSink(
         val result = track.write(samples, offset, count, AudioTrack.WRITE_BLOCKING)
         if (result < 0) throw AudioEngineException(
             if (result == AudioTrack.ERROR_DEAD_OBJECT) AudioFailure.DEVICE_LOST
-            else AudioFailure.WRITE_FAILED,
+            else AudioFailure.WRITE_FAILED, platformCode = result,
         )
         return result
     }

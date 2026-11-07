@@ -76,7 +76,7 @@ class PcmTraceTest {
     }
 
     @Test fun eventCodesAreStableAndDistinctForFutureExportReaders() {
-        assertEquals((1..17).toList(), PcmTraceKind.entries.map { it.code })
+        assertEquals((1..20).toList(), PcmTraceKind.entries.map { it.code })
         assertEquals(6, PcmTraceKind.BEAT.code)
         assertEquals(9, PcmTraceKind.WRITE_RESULT.code)
         assertEquals(16, PcmTraceKind.SESSION_END.code)

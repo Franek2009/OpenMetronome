@@ -426,6 +426,7 @@ private fun SettingsScreen(model: MetronomeViewModel, data: AppData,
         }
         notificationPermission?.let { TextButton(it) { Text("Zezwól na powiadomienia") } }
         OutlinedButton(diagnostics) { Text(stringResource(R.string.diagnostics_open)) }
+        DistributionDiagnostics(data)
         Text("Ciemny motyw · dane tylko na urządzeniu", style = MaterialTheme.typography.bodySmall)
     }
 }

@@ -94,6 +94,7 @@ class PcmRenderer(
                 if (trace != null) {
                     val beat = checkNotNull(tracedBeat)
                     val flags = tracedMuteFlags or
+                        (if (beat.barIndex < 0) PcmTraceFlags.COUNT_IN else 0) or
                         (if (accent == ClickAccent.MUTE) PcmTraceFlags.SUBDIVISION_MUTE else 0) or
                         (if (accented) PcmTraceFlags.ACCENT else 0)
                     trace.record(PcmTraceKind.BEAT, renderedFrames, beat.barIndex,

@@ -57,5 +57,6 @@ class MetronomeViewModel(
 
     fun start() = controller.start()
     fun stop() = controller.stop()
+    fun visibility(visible: Boolean) = controller.visibility(visible)
     override fun onCleared() { controller.close() }
 }

@@ -55,7 +55,10 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() { super.onStart(); model.visibility(true) }
+
     override fun onStop() {
+        model.visibility(false)
         model.resetTapTempo()
         Log.i("OpenMetronomeAudio", "Activity.onStop changingConfigurations=$isChangingConfigurations")
         super.onStop()
