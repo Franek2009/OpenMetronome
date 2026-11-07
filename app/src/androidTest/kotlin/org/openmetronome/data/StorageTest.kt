@@ -41,26 +41,25 @@ class StorageTest {
             assertFalse(ConfigCodec.encode(config).contains("activeDayMinutes="))
         } finally { file.delete() }
     }
-    @Test fun allFortyThreeSoundsPersistInSettingsAndPresetsWithoutHardware() = runBlocking {
+    @Test fun allLegacySoundIdsPersistInSettingsAndPresetsWithoutHardware() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = Room.inMemoryDatabaseBuilder(context, PracticeDatabase::class.java).build()
         val file = File(context.cacheDir, "sound-bank-${UUID.randomUUID()}.preferences_pb")
-        suspend fun withStore(action: suspend (SettingsRepository) -> Unit) {
-            val owner = SupervisorJob()
-            val store = PreferenceDataStoreFactory.create(scope = CoroutineScope(owner + Dispatchers.IO)) { file }
-            try { action(SettingsRepository(store)) } finally { owner.cancelAndJoin() }
-        }
+        // One DataStore owner, as in the app. Reopen behavior has dedicated tests below.
+        val owner = SupervisorJob()
+        val store = PreferenceDataStoreFactory.create(scope = CoroutineScope(owner + Dispatchers.IO)) { file }
+        val settings = SettingsRepository(store)
         try {
             for (sound in ClickSound.entries) {
                 val config = MetronomeConfig(sound = SoundConfig(37, sound))
-                withStore { it.save(config) }
-                withStore { assertEquals(config, it.load()) }
+                settings.save(config)
+                assertEquals(config, settings.load())
                 db.practice().savePreset(Preset(sound.name, "Fixture ${sound.name}", ConfigCodec.encode(config), 1, 1))
             }
             val restored = db.practice().presets().first().map { ConfigCodec.decode(it.config).sound }.toSet()
             assertEquals(ClickSound.entries.map { SoundConfig(37, it) }.toSet(), restored)
             assertEquals(43, restored.size)
-        } finally { db.close(); file.delete() } // Only this UUID-named test fixture.
+        } finally { owner.cancelAndJoin(); db.close(); file.delete() } // Only this UUID-named test fixture.
     }
 
     @Test fun exportReadsAllSessionsAndDoesNotMutateHistory() = runBlocking {
