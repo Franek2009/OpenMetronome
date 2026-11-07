@@ -33,7 +33,9 @@ internal fun observePracticeDate(context: Context, now: () -> ZonedDateTime = { 
             withTimeoutOrNull(millisUntilNextPracticeDate(current)) { changes.receive() }
         }
     }
-    awaitClose { ticker.cancel(); changes.close(); context.unregisterReceiver(receiver) }
+    // The local wakeup channel owns no resource. Cancelling its receiver is enough;
+    // closing it concurrently can race receive() and escape as ClosedReceiveChannelException.
+    awaitClose { ticker.cancel(); context.unregisterReceiver(receiver) }
 }.distinctUntilChanged()
 
 @Composable

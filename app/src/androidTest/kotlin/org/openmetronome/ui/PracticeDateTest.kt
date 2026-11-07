@@ -40,4 +40,37 @@ class PracticeDateTest {
         } finally { collection.cancelAndJoin(); values.close() }
         assertTrue(removed)
     }
+
+    @Test fun cancellingObserverWhileClockCallbackRunsDoesNotCloseItsPendingReceive() = runBlocking<Unit> {
+        val receiver = AtomicReference<BroadcastReceiver>()
+        val entered = java.util.concurrent.CountDownLatch(1)
+        val release = java.util.concurrent.CountDownLatch(1)
+        val removed = java.util.concurrent.CountDownLatch(1)
+        val calls = java.util.concurrent.atomic.AtomicInteger()
+        val context = object : ContextWrapper(InstrumentationRegistry.getInstrumentation().targetContext) {
+            override fun registerReceiver(value: BroadcastReceiver?, filter: IntentFilter?): Intent? { receiver.set(value); return null }
+            override fun registerReceiver(value: BroadcastReceiver?, filter: IntentFilter?, flags: Int): Intent? = registerReceiver(value, filter)
+            override fun unregisterReceiver(value: BroadcastReceiver?) { assertSame(receiver.get(), value); removed.countDown() }
+        }
+        val first = CompletableDeferred<Unit>()
+        val collection = launch(Dispatchers.Default) {
+            observePracticeDate(context) {
+                if (calls.incrementAndGet() == 2) {
+                    entered.countDown()
+                    check(release.await(5, java.util.concurrent.TimeUnit.SECONDS))
+                }
+                ZonedDateTime.of(2026, 11, 7, 12, 0, 0, 0, ZoneId.of("UTC"))
+            }.collect { first.complete(Unit) }
+        }
+        try {
+            withTimeout(5000) { first.await() }
+            receiver.get().onReceive(context, Intent(Intent.ACTION_TIME_CHANGED))
+            assertTrue(entered.await(5, java.util.concurrent.TimeUnit.SECONDS))
+            collection.cancel()
+            assertTrue(removed.await(5, java.util.concurrent.TimeUnit.SECONDS))
+            release.countDown()
+            collection.join()
+        } finally { release.countDown(); collection.cancelAndJoin() }
+        assertEquals(0, removed.count)
+    }
 }
