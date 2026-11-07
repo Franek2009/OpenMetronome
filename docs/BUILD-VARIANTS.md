@@ -1,9 +1,9 @@
 # Warianty OpenMetronome
 
-Pierwszy etap po stabilnym 1.0.0: izolacja kompilacji i danych. Pełna diagnostyka
-DEV, redesign oraz procentowe tempo nie są jeszcze zaimplementowane.
-[Etap 2](DEV-DIAGNOSTICS.md) dodaje testowaną obserwację PCM i ograniczony bufor,
-ale nie włącza zbierania w uruchamianej aplikacji.
+Warianty rozdzielają dane i podpisy zwykłej aplikacji oraz DEV. W 1.1 beta DEV
+ma wyłączoną pełną rejestrację sesji: nie zaliczono kwalifikacji narzutu API26.
+Zwykłe funkcje i statystyki działają, istniejące raporty można eksportować.
+[Integracja i granice](V1.1-DEV-INTEGRATION-VALIDATION.md).
 
 | Wariant | Pakiet | Nazwa | Podpis |
 | --- | --- | --- | --- |
@@ -19,9 +19,8 @@ danych produkcyjnych. Provider fixture ma authority `${applicationId}.backup-doc
 zawierający applicationId, aby picker rozróżniał oba debug flavory.
 Testy każdego debug flavoru nadal korzystają z izolowanego magazynu testowego.
 
-Metadane produkcji pozostają 1.0.0 / code 18 w tym PR infrastrukturalnym.
-DEV otrzymuje przyrostek versionName `-dev`. To nie jest nowe wydanie 1.0.0;
-nie przebudowujemy ani nie podmieniamy opublikowanych załączników.
+Beta: PROD `1.1.0-beta.1`, DEV `1.1.0-beta.1-dev`, oba versionCode 19.
+Nie podmieniamy APK ani tagu stabilnego 1.0.0.
 
 ## Kompilacja bez kluczy
 
@@ -54,9 +53,12 @@ Niekompletna konfiguracja jest błędem. Brak kompletu zmiennych pozostawia
 odpowiedni release niepodpisany; nie ma fallbacku do drugiego klucza ani debug.
 Debug korzysta z klucza debug także wtedy, gdy skonfigurowano podpis flavoru.
 
-Trwałego klucza DEV nie utworzono w tym etapie. Jego przygotowanie, kopia
-bezpieczeństwa i dystrybucja wymagają osobnego uzgodnienia. Nie zapisuj haseł
-w poleceniach, logach ani repozytorium. Nie używaj klucza produkcji do DEV.
+Na zatwierdzenie użytkownika przygotowano trwały certyfikat DEV i osobne sekrety
+`OM_DEV_*`; publiczny fingerprint jest w pliku DEV-SIGNING-CERT-SHA256.txt wydania.
+Prywatny klucz i hasła nie należą do Git ani artefaktów. Lokalną kopię klucza
+należy zachować w bezpiecznym backupie. PROD zachowuje dotychczasowy certyfikat.
+Oficjalny workflow ma dwa oddzielne zadania podpisania i nigdy nie podaje
+sekretów PROD zadaniu DEV. Zwykłe CI nie dostaje żadnego klucza wydawniczego.
 
 ## Ciche emulatory i izolacja
 

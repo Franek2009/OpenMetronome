@@ -93,3 +93,19 @@ if ANDROID_SERIAL=physical-device bash scripts/verify-variant-isolation.sh > "$r
 fi
 grep -q 'Refusing a physical device' "$release_test_dir/isolation-physical.log"
 echo 'Production packaging: wrong flavor, renamed DEV, debug, signing certificate and isolation device guards PASS.'
+
+# DEV must be explicitly selected, use its own package/version and its own cert.
+if ANDROID_HOME="$release_test_dir/sdk" STUB_PACKAGE=org.openmetronome \
+    STUB_RELEASE_CODE="$release_code" STUB_RELEASE_VERSION="$release_version" \
+    bash scripts/package-release.sh --dev app-dev-release.apk > "$release_test_dir/dev-wrong-package.log" 2>&1; then
+    echo 'FAIL: DEV publisher accepted production' >&2; exit 1
+fi
+grep -q 'Refusing a non-DEV package' "$release_test_dir/dev-wrong-package.log"
+if ANDROID_HOME="$release_test_dir/sdk" STUB_PACKAGE=org.openmetronome.dev \
+    STUB_RELEASE_CODE="$release_code" STUB_RELEASE_VERSION="$release_dev_version" \
+    STUB_CERT=production-certificate OM_CERT_SHA256=production-certificate OM_DEV_CERT_SHA256=dev-certificate \
+    bash scripts/package-release.sh --dev app-dev-release.apk > "$release_test_dir/dev-wrong-certificate.log" 2>&1; then
+    echo 'FAIL: DEV publisher fell back to production certificate' >&2; exit 1
+fi
+grep -q 'Signing certificate mismatch' "$release_test_dir/dev-wrong-certificate.log"
+echo 'DEV packaging: explicit selection, package and independent certificate guards PASS.'

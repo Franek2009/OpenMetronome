@@ -1,5 +1,8 @@
 # Dzisiejszy czas praktyki
 
+Karta z PR #18 wchodzi do 1.1 beta razem ze [Statystykami 2.0](STATISTICS-2.md).
+Pierwotnie rozważana osobna poprawka 1.0.1 nie jest osobnym wydaniem.
+
 Karta **Dzisiaj** znajduje się na górze Statystyk. Czyta sumę `PracticeDay`
 dla bieżącej daty z bazy — wszystkich sesji, również krótkich, trwających
 oraz planowanej ciszy. Nie dodaje live timera do zapisanych danych.
@@ -18,14 +21,10 @@ systemu i powrót do ekranu ponownie ustalają datę i termin odświeżenia.
 Dane historyczne zachowują daty wynikające ze strefy zapisanej przy sesji;
 zmiana strefy urządzenia nie przepisuje starej historii.
 
-Dodano wyłącznie zapytanie DAO i odczyt UI. Room nadal ma wersję 2, bez
-zmiany tabel ani migracji. Format `.ombak` v1, presety, zapis sesji, silnik
-PCM i brzmienia pozostają bez zmian. Nie wprowadzono progów aktywności;
-rozbudowane Statystyki 2.0 są osobnym etapem.
-
-Docelowo jest to mała poprawka użytkowa proponowana do 1.0.1. Ten PR nie
-zmienia metadanych wydania, nie tworzy tagu, podpisu ani publikacji APK.
-Kod jest niezależny od diagnostyki DEV w PR #15/#16 i plakietki w PR #17.
+Pierwotny PR #18 dodał zapytanie i odczyt UI bez migracji. Kolejny PR #20
+rozbudował statystyki: Room ma wersję 3, backup v2 i progi 20 s/5 min.
+Karta Dzisiaj nadal pokazuje cały czas, a kwalifikowany czas i aktywny dzień
+są oddzielnie opisane w Podsumowaniu. Nie uzależnia się od diagnostyki DEV.
 
 Walidacja obejmuje JVM stanów odczytu, checkpointów, formatowania i północy
 DST; instrumentację na izolowanej bazie (wiele sesji, checkpointy, północ)

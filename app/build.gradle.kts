@@ -14,8 +14,8 @@ android {
         applicationId = "org.openmetronome"
         minSdk = 26
         targetSdk = 37
-        versionCode = 18
-        versionName = "1.0.0"
+        versionCode = 19
+        versionName = "1.1.0-beta.1"
         testInstrumentationRunner = "org.openmetronome.OpenMetronomeTestRunner"
         val revision = providers.exec { commandLine("git", "rev-parse", "HEAD"); isIgnoreExitValue = true }
             .standardOutput.asText.get().trim().takeIf { it.matches(Regex("[0-9a-f]{40}")) } ?: "unknown"

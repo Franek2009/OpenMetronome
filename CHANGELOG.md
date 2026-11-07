@@ -1,27 +1,31 @@
 # Zmiany
 
-## Niewydana poprawka użytkowa — propozycja 1.0.1
+## 1.1.0-beta.1 — kandydat do testów użytkownika
 
-- Karta „Dzisiaj” na górze Statystyk: godziny, minuty i sekundy praktyki
-  z istniejących checkpointów, około co 5 s. Ładowanie i błąd odczytu
-  są odróżniane od rzeczywistego zera. Obsługa zmiany daty i strefy.
-- Bez zmian silnika, zapisu, tabel Room i formatu kopii zapasowych.
-
-## Niewydane — etapy 1.1
-
-- Osobne warianty prod/dev oraz debug/release: izolowane pakiety i dane,
-  nazwa OpenMetronome DEV oraz niezależna konfiguracja klucza DEV.
-- CI buduje i kontroluje wszystkie warianty; ciche zestawy prod/dev na API26/35.
-- Pakowanie produkcji odrzuca DEV/debug niezależnie od nazwy APK.
-- Podstawa diagnostyki PCM: opcjonalny obserwator pulsu/podziałów, konfiguracji,
-  renderowania i wszystkich prób zapisu; bufor tylko DEV, jawne straty i ochrona
-  odtwarzania przed błędem obserwatora. Brak aktywacji zbierania w aplikacji.
-- Magazyn DEV: asynchroniczny dziennik z CRC, checkpointy i odzyskiwanie,
-  limity pamięci/dysku oraz izolacja awarii. Nadal bez aktywacji w aplikacji.
-- Raporty DEV: osobne zdarzenia sterowania, korelacja historii, ZIP v1,
-  lista/eksport/usuwanie raportów i analizator offline. Bez aktywacji zbierania.
-- Integracja pełnej diagnostyki i kwalifikacja ART, nowy UI i procenty pozostają kolejnymi etapami.
-  Bez zmian harmonogramu, brzmień, Room i `.ombak`.
+- Pełny ekran z dużym BPM, pulsem/taktem, blokadą dotyku i dostępnym Stop.
+  Opcjonalne utrzymywanie ekranu oraz ograniczenie migania; bez restartu sesji.
+- Procenty 100/75/50/25% oddzielone od bazy 20–300 BPM, dokładny wynik 5–300 BPM.
+  Rampa zmienia bazę. Wybór zmiany tempa od taktu lub następnego możliwego pulsu.
+- Hybrydowy ekran z szybkimi ustawieniami i rozwijanym treningiem.
+- Odliczanie 0/1/2 takty poza czasem praktyki. Metra 5/4, 7/4, 5/8, 7/8
+  oraz grupowanie 5/8 i 7/8; dotychczasowe znaczenie BPM w 6/8 zachowane.
+- Statystyki: cały czas „Dzisiaj”, Podsumowanie / Historia / Analiza, kalendarz,
+  szczegóły sesji, filtry i progi domyślne 20 s/sesję oraz 5 min/aktywny dzień.
+  Krótkie sesje pozostają w historii. Nieznany przebieg starych sesji nie jest zerem.
+- Room 3: nullable historia rzeczywiście zastosowanej konfiguracji nowych sesji.
+  Kopie `.ombak` v2, import v1, osobny eksport zgodny z 1.0 z ostrzeżeniem pominięć.
+  CSV zachowuje początkowe kolumny i dodaje mnożnik, wynikowe BPM i stan przebiegu.
+- OpenMetronome DEV z odrębnym pakietem, danymi, trwałym podpisem i ikoną DEV.
+  Implementacja lokalnych raportów beats/events/audio CSV + metadata JSON w ZIP.
+  **Pełna rejestracja sesji jest wyłączona w beta**: kwalifikacja narzutu API26
+  niezaliczona. Nie usunięto benchmarku ani nie rozluźniono progu +10%.
+  PROD nie zawiera magazynu DEV.
+- Finalizacja usługi czeka na terminalny stan silnika także przy asynchronicznym Stop.
+- Sześć starych testów sprzętowego audio usunięto na życzenie użytkownika;
+  zachowano testy PCM/atrap i ochronę przed audio oraz wibracjami.
+- Metadane: versionCode 19, PROD 1.1.0-beta.1, DEV 1.1.0-beta.1-dev.
+  To Prerelease, nie nowa wersja stabilna. Sześć brzmień i ich identyfikatory bez zmian.
+  „Drewniany” nadal oczekuje na oryginały i kwalifikację źródeł.
 
 ## 1.0.0 — opublikowane stabilne wydanie
 

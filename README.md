@@ -15,14 +15,14 @@ Bez reklam, subskrypcji, kont i Google Play Services.
 **1.0.0 jest pierwszym opublikowanym wydaniem stabilnym.**
 Zachowuje funkcjonalność RC2, dotychczasowy podpis i zgodność danych.
 „Drewniany” pozostaje niezależnym planem na 1.0.1.
-W kodzie przygotowujemy małą poprawkę [„Dzisiaj” w Statystykach](docs/DAILY-PRACTICE.md);
-nie jest jeszcze częścią opublikowanego APK 1.0.0.
-Nowy UI i DEV rozwijamy etapami w 1.1/1.2 — [plan prac](docs/POST-1.0-PLAN.md).
-Pierwszy etap izoluje [warianty kompilacji](docs/BUILD-VARIANTS.md);
-pełna diagnostyka DEV nie jest jeszcze dostępna.
-[Podstawa rejestracji PCM](docs/DEV-DIAGNOSTICS.md) jest testowana osobno;
-przygotowujemy też [raporty i eksport ZIP](docs/DEV-TRACE-EXPORT.md).
-Zbieranie danych w aplikacji pozostaje wyłączone do integracji i kwalifikacji narzutu.
+Przygotowujemy **1.1.0-beta.1 (Prerelease)** z pełnym ekranem, procentami tempa,
+odliczaniem, nowymi metrami i Statystykami 2.0, w tym całym czasem ćwiczeń dzisiaj.
+Osobny wariant **OpenMetronome DEV** ma własne dane, ikonę z oznaczeniem DEV
+oraz przygotowaną obsługę raportów ZIP. **Pełna rejestracja sesji DEV jest
+wyłączona w tej beta**, bo nie zaliczyła kwalifikacji narzutu API26. Te funkcje nie należą do APK 1.0.0.
+[Zakres i zgodność](docs/PRACTICE-1.1.md) · [Statystyki](docs/STATISTICS-2.md) ·
+[Diagnostyka DEV](docs/DEV-DIAGNOSTICS.md) · [Plan](docs/POST-1.0-PLAN.md).
+Linki pobierania beta pojawią się po weryfikacji i publicznej publikacji.
 
 Wymagany Android **8.0 lub nowszy**. Aplikacja obsługuje telefony i tablety
 w pionie i poziomie. Interfejs jest po polsku.
