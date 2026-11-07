@@ -22,6 +22,22 @@ import org.openmetronome.platform.audio.AndroidSampleDecoder
 /** Fixture-only files/DBs. Decoding produces PCM without acquiring audio focus or playing it. */
 @RunWith(AndroidJUnit4::class)
 class CustomSampleTest {
+    @Test fun migrationFromStableSchemaTwoPreservesHistoryAndLeavesUnknownTimelineNull() {
+        val name = "statistics-migration-${UUID.randomUUID()}.db"
+        val config = ConfigCodec.encode(MetronomeConfig(tempo = Tempo(87)))
+        try {
+            migration.createDatabase(name, 2).use { db ->
+                db.execSQL("INSERT INTO practice_sessions VALUES ('legacy',1,1001,1000,1,0,'UTC',?)", arrayOf(config))
+                db.execSQL("INSERT INTO custom_samples VALUES ('sample','Original',1)")
+            }
+            migration.runMigrationsAndValidate(name, 3, true, PracticeDatabase.MIGRATION_2_3).use { db ->
+                db.query("SELECT config,timeline FROM practice_sessions WHERE id='legacy'").use {
+                    assertTrue(it.moveToFirst()); assertEquals(config, it.getString(0)); assertTrue(it.isNull(1))
+                }
+                db.query("SELECT name FROM custom_samples WHERE id='sample'").use { assertTrue(it.moveToFirst()); assertEquals("Original", it.getString(0)) }
+            }
+        } finally { context.deleteDatabase(name) }
+    }
     @get:Rule val migration = MigrationTestHelper(InstrumentationRegistry.getInstrumentation(), PracticeDatabase::class.java)
     private val context get() = ApplicationProvider.getApplicationContext<Context>()
     private fun audio() = SamplePcm.Audio(48000, DoubleArray(4800) { kotlin.math.sin(2 * Math.PI * 1000 * it / 48000) })

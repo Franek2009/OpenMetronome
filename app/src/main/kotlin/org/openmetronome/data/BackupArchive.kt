@@ -16,11 +16,12 @@ data class BackupSnapshot(
     val days: List<PracticeDay>,
     val samples: List<CustomSampleRecord>,
     val sampleFiles: Map<String, ByteArray>,
+    val preferences: String? = null,
 )
 
 /** Versioned, private backup format. Parsing is bounded and validates all data before import. */
 object BackupArchive {
-    private const val VERSION = 1
+    private const val VERSION = 2
     private const val METADATA = "openmetronome.dat"
     private const val MAX_ARCHIVE_BYTES = 16 * 1024 * 1024
     private const val MAX_ITEMS = 100_000
@@ -29,15 +30,25 @@ object BackupArchive {
         writeStored(normalize(snapshot), output)
     }
 
-    internal fun writeStored(snapshot: BackupSnapshot, output: OutputStream) {
+    /** Compatibility export deliberately omits configuration timelines and newer optional settings. */
+    fun writeLegacy(snapshot: BackupSnapshot, output: OutputStream) {
+        val configs = listOf(snapshot.settings) + snapshot.presets.map { it.config } + snapshot.sessions.map { it.config }
+        val legacyMeters = setOf(org.openmetronome.domain.model.TimeSignature.TWO_FOUR,
+            org.openmetronome.domain.model.TimeSignature.THREE_FOUR, org.openmetronome.domain.model.TimeSignature.FOUR_FOUR,
+            org.openmetronome.domain.model.TimeSignature.SIX_EIGHT)
+        require(configs.all { ConfigCodec.decode(it).timeSignature in legacyMeters }) { "New meters require backup v2" }
+        writeStored(normalize(snapshot.copy(sessions = snapshot.sessions.map { it.copy(timeline = null) }, preferences = null)), output, 1)
+    }
+
+    internal fun writeStored(snapshot: BackupSnapshot, output: OutputStream, version: Int = VERSION) {
         val encoded = ByteArrayOutputStream()
-        encode(snapshot, encoded)
+        encode(snapshot, encoded, version)
         val bytes = encoded.toByteArray()
         readStored(ByteArrayInputStream(bytes)) // Export must satisfy exactly the same limits as import.
         output.write(bytes)
     }
 
-    private fun encode(snapshot: BackupSnapshot, output: OutputStream) {
+    private fun encode(snapshot: BackupSnapshot, output: OutputStream, version: Int) {
         var total = 0
         ZipOutputStream(BufferedOutputStream(output)).use { zip ->
             val bounded = object : OutputStream() {
@@ -52,7 +63,7 @@ object BackupArchive {
             }
             zip.putNextEntry(ZipEntry(METADATA))
             DataOutputStream(bounded).apply {
-                writeInt(VERSION); writeString(snapshot.settings)
+                writeInt(version); writeString(snapshot.settings)
                 writeList(snapshot.presets) { item ->
                     writeString(item.id); writeString(item.name); writeString(item.config)
                     writeLong(item.createdAt); writeLong(item.updatedAt)
@@ -61,6 +72,7 @@ object BackupArchive {
                     writeString(item.id); writeLong(item.startedAt); writeLong(item.checkpointAt)
                     writeLong(item.durationMs); writeBoolean(item.finished); writeBoolean(item.interrupted)
                     writeString(item.zoneId); writeString(item.config)
+                    if (version >= 2) { writeBoolean(item.timeline != null); item.timeline?.let { writeString(it) } }
                 }
                 writeList(snapshot.days) { item ->
                     writeString(item.sessionId); writeString(item.date); writeLong(item.durationMs)
@@ -68,6 +80,7 @@ object BackupArchive {
                 writeList(snapshot.samples) { item ->
                     writeString(item.id); writeString(item.name); writeLong(item.createdAt)
                 }
+                if (version >= 2) { writeBoolean(snapshot.preferences != null); snapshot.preferences?.let { writeString(it) } }
                 flush()
             }
             zip.closeEntry()
@@ -143,14 +156,16 @@ object BackupArchive {
         }
         require(cursor == end)
         val metadata = DataInputStream(ByteArrayInputStream(requireNotNull(entries.remove(METADATA))))
-        require(metadata.readInt() == VERSION)
+        val version = metadata.readInt(); require(version in 1..VERSION)
         val settings = metadata.readString().also(ConfigCodec::decode)
         val presets = metadata.readList { Preset(readString(), readString(), readString().also(ConfigCodec::decode), readLong(), readLong()) }
         val sessions = metadata.readList {
-            PracticeSession(readString(), readLong(), readLong(), readLong(), readBoolean(), readBoolean(), readString(), readString().also(ConfigCodec::decode))
+            PracticeSession(readString(), readLong(), readLong(), readLong(), readBoolean(), readBoolean(), readString(), readString().also(ConfigCodec::decode),
+                if (version >= 2 && readBoolean()) readString() else null)
         }
         val days = metadata.readList { PracticeDay(readString(), readString(), readLong()) }
         val samples = metadata.readList { CustomSampleRecord(readString(), readString(), readLong()) }
+        val preferences = if (version >= 2 && metadata.readBoolean()) metadata.readString().also(AppPreferencesCodec::decode) else null
         require(metadata.read() == -1)
         require(presets.map { it.id }.distinct().size == presets.size)
         require(sessions.map { it.id }.distinct().size == sessions.size)
@@ -158,6 +173,7 @@ object BackupArchive {
         require(presets.all { it.name.isNotBlank() && it.name.length <= 120 })
         require(samples.all { it.name.isNotBlank() && it.name.length <= 80 })
         require(sessions.all { it.durationMs >= 0 && it.checkpointAt >= it.startedAt })
+        sessions.forEach { session -> session.timeline?.let { SessionTimelineCodec.decode(it, session.durationMs) } }
         sessions.forEach { ZoneId.of(it.zoneId) }
         val sessionIds = sessions.mapTo(hashSetOf()) { it.id }
         require(days.all { it.sessionId in sessionIds && it.durationMs >= 0 })
@@ -176,7 +192,7 @@ object BackupArchive {
         }
         require(configs.all { it.sound.customSampleId == null || it.sound.customSampleId in sampleIds })
         require(entries.isEmpty())
-        return BackupSnapshot(settings, presets, sessions, days, samples, files)
+        return BackupSnapshot(settings, presets, sessions, days, samples, files, preferences)
     }
 
     private fun normalize(snapshot: BackupSnapshot): BackupSnapshot {

@@ -6,6 +6,23 @@ import org.junit.Test
 import org.openmetronome.audio.*
 
 class SessionRecorderTest {
+    @Test fun historyIncludesPlayedChangesOnlyAndMarksOverflowIncomplete() = runBlocking {
+        val saved = mutableListOf<PracticeSession>()
+        val recorder = SessionRecorder { session, _ -> saved.add(session) }
+        val timeline = ConfigurationTimeline(2)
+        timeline.record(0, org.openmetronome.domain.model.MetronomeConfig())
+        timeline.record(48000, org.openmetronome.domain.model.MetronomeConfig(tempo = org.openmetronome.domain.model.Tempo(60)))
+        fun state(frames: Long, final: Boolean) = MetronomeState(audio = AudioEngineState(if (final) PlaybackStatus.STOPPED else PlaybackStatus.PLAYING,
+            diagnostics = AudioDiagnostics(48000, 256, 1024, 96000, 0, frames, 77, timeline = timeline)))
+        recorder.accept(state(24000, false))
+        val first = SessionTimelineCodec.decode(saved.single().timeline!!, 500)
+        assertEquals(listOf(0L), first.changes.map { it.offsetMs }); assertTrue(first.complete)
+        recorder.accept(state(72000, true))
+        val last = SessionTimelineCodec.decode(saved.last().timeline!!, 1500)
+        assertEquals(listOf(0L, 1000L), last.changes.map { it.offsetMs }); assertTrue(last.complete)
+        assertEquals(60, ConfigCodec.decode(last.changes.last().config).tempo.bpm)
+        assertEquals(1500L, saved.last().durationMs)
+    }
     @Test fun countInDoesNotCreateOrInflatePracticeHistory() = runBlocking {
         val saved = mutableListOf<PracticeSession>()
         val recorder = SessionRecorder { session, _ -> saved.add(session) }

@@ -11,6 +11,7 @@ data class PracticeSession(
     @PrimaryKey val id: String, val startedAt: Long, val checkpointAt: Long,
     val durationMs: Long, val finished: Boolean, val interrupted: Boolean,
     val zoneId: String, val config: String,
+    @ColumnInfo(defaultValue = "NULL") val timeline: String? = null,
 )
 
 @Entity(tableName = "practice_days", primaryKeys = ["sessionId", "date"],
@@ -33,6 +34,7 @@ abstract class PracticeDao {
     @Upsert abstract suspend fun savePreset(preset: Preset)
     @Query("DELETE FROM presets WHERE id = :id") abstract suspend fun deletePreset(id: String)
     @Query("SELECT * FROM practice_sessions ORDER BY startedAt DESC LIMIT 100") abstract fun sessions(): Flow<List<PracticeSession>>
+    @Query("SELECT * FROM practice_sessions ORDER BY startedAt DESC, id") abstract fun statisticsSessions(): Flow<List<PracticeSession>>
     @Query("SELECT * FROM practice_sessions ORDER BY startedAt ASC, id ASC") abstract suspend fun sessionsForExport(): List<PracticeSession>
     @Query("SELECT * FROM practice_days ORDER BY sessionId, date") abstract suspend fun allPracticeDays(): List<PracticeDay>
     @Query("SELECT COUNT(*) AS sessions, COALESCE(SUM(durationMs), 0) AS durationMs FROM practice_sessions") abstract fun total(): Flow<PracticeTotal>
@@ -58,10 +60,15 @@ abstract class PracticeDao {
     }
 }
 
-@Database(entities = [Preset::class, PracticeSession::class, PracticeDay::class, CustomSampleRecord::class], version = 2, exportSchema = true)
+@Database(entities = [Preset::class, PracticeSession::class, PracticeDay::class, CustomSampleRecord::class], version = 3, exportSchema = true)
 abstract class PracticeDatabase : RoomDatabase() {
     abstract fun practice(): PracticeDao
     companion object {
+        val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE practice_sessions ADD COLUMN timeline TEXT DEFAULT NULL")
+            }
+        }
         val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
             override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                 db.execSQL("CREATE TABLE IF NOT EXISTS `custom_samples` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))")

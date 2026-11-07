@@ -10,6 +10,23 @@ import org.openmetronome.domain.model.MetronomeConfig
 import org.openmetronome.domain.model.Tempo
 
 class BackupArchiveTest {
+    @Test fun `v2 preserves timelines and app preferences while compatibility export omits them`() {
+        val original = snapshot()
+        val timeline = SessionTimelineCodec.encode(SessionTimeline(true, listOf(SessionConfiguration(0, config))))
+        val value = original.copy(sessions = original.sessions.map { it.copy(timeline = timeline) },
+            preferences = AppPreferencesCodec.encode(AppPreferences(statistics = StatisticsPreferences(30, 10))))
+        val restored = BackupArchive.read(ByteArrayInputStream(encoded(value)))
+        assertEquals(timeline, restored.sessions.single().timeline)
+        assertEquals(value.preferences, restored.preferences)
+        val legacy = ByteArrayOutputStream().also { BackupArchive.writeLegacy(value, it) }.toByteArray()
+        val old = BackupArchive.read(ByteArrayInputStream(legacy))
+        assertNull(old.sessions.single().timeline); assertNull(old.preferences)
+        assertArrayEquals(wav, old.sampleFiles.getValue(sampleId))
+        val newMeter = value.copy(settings = ConfigCodec.encode(MetronomeConfig(timeSignature = org.openmetronome.domain.model.TimeSignature.SEVEN_EIGHT)))
+        val out = ByteArrayOutputStream()
+        assertThrows(Exception::class.java) { BackupArchive.writeLegacy(newMeter, out) }
+        assertEquals(0, out.size())
+    }
     private val sampleId = UUID.randomUUID().toString()
     private val wav = SamplePcm.encodeCanonical(ShortArray(96).also { it[20] = 1000; it[21] = -1000 })
     private val config = ConfigCodec.encode(MetronomeConfig(tempo = Tempo(91)))
@@ -87,7 +104,7 @@ class BackupArchiveTest {
 
     @Test fun `unknown version truncated zip missing and unexpected entries are rejected`() {
         val valid = entries(encoded())
-        val version = valid.map { (name, bytes) -> name to if (name == "openmetronome.dat") bytes.copyOf().also { it[3] = 2 } else bytes }
+        val version = valid.map { (name, bytes) -> name to if (name == "openmetronome.dat") bytes.copyOf().also { it[3] = 127 } else bytes }
         for (bad in listOf(zip(*version.toTypedArray()), encoded().copyOf(30), encoded().copyOf(encoded().size - 1),
             zip(valid.first()), zip(*(valid + ("unexpected" to byteArrayOf())).toTypedArray()))) {
             assertThrows(Exception::class.java) { BackupArchive.read(ByteArrayInputStream(bad)) }

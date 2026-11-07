@@ -86,7 +86,9 @@ class PcmAudioEngine(
             synchronized(lock) { if (!target.cancelled.get()) target.sink = sink }
             if (target.cancelled.get()) return
             val pulses = ArrayDeque<PlaybackPulse>()
-            val renderer = PcmRenderer(sink.sampleRate, initialConfig, customSamples = target.bank.samples, trace = trace, onPulse = { beat, silent ->
+            val timeline = ConfigurationTimeline()
+            val renderer = PcmRenderer(sink.sampleRate, initialConfig, customSamples = target.bank.samples, trace = trace,
+                onConfiguration = timeline::record, onPulse = { beat, silent ->
                 pulses.addLast(PlaybackPulse(beat.frame, beat.barIndex, beat.beatInBar, silent))
             })
             val block = ShortArray(sink.blockFrames)
@@ -118,7 +120,7 @@ class PcmAudioEngine(
                 trace?.record(PcmTraceKind.OUTPUT_STATUS, presented, written, underruns.toLong())
                 return AudioDiagnostics(
                     sink.sampleRate, sink.blockFrames, sink.bufferFrames, written,
-                    underruns, presented, target.id, renderer.countInFrames,
+                    underruns, presented, target.id, renderer.countInFrames, timeline,
                 )
             }
 
