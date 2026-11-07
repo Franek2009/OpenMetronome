@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing version tag on main (e.g. v1.0.0-rc.1)
+        description: Existing version tag on main (e.g. v1.1.0-beta.1)
         required: true
         type: string
 
@@ -53,7 +53,8 @@ jobs:
         run: |
           bash scripts/test-verification-parser.sh
           bash scripts/test-release-tools.sh
-          ./gradlew --no-daemon --console=plain :app:testProdDebugUnitTest :app:lintProdDebug :app:lintProdRelease :app:assembleProdDebug :app:assembleProdDebugAndroidTest :app:assembleProdRelease
+          ./gradlew --no-daemon --console=plain :app:testProdDebugUnitTest :app:lintProdDebug :app:lintProdRelease :app:assembleProdDebug :app:assembleProdDebugAndroidTest :app:assembleProdRelease :app:testDevDebugUnitTest :app:lintDevDebug :app:lintDevRelease :app:assembleDevDebug :app:assembleDevDebugAndroidTest :app:assembleDevRelease
+          python3 scripts/verify-build-variants.py
           python3 scripts/analyze-click-bank.py
       - uses: actions/upload-artifact@v4
         if: always()
@@ -70,13 +71,24 @@ jobs:
           path: |
             app/build/outputs/apk/prod/debug/app-prod-debug.apk
             app/build/outputs/apk/androidTest/prod/debug/app-prod-debug-androidTest.apk
+            app/build/outputs/apk/dev/debug/app-dev-debug.apk
+            app/build/outputs/apk/androidTest/dev/debug/app-dev-debug-androidTest.apk
           if-no-files-found: error
           retention-days: 14
 
   quiet:
+    name: quiet signed-source (API ${{ matrix.api }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - api: 26
+            arch: x86
+          - api: 35
+            arch: x86_64
     needs: verify
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v5
         with:
@@ -98,16 +110,18 @@ jobs:
           sudo udevadm trigger --name-match=kvm
       - uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: ${{ matrix.api }}
           target: default
-          arch: x86_64
+          arch: ${{ matrix.arch }}
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
           disable-animations: true
-          script: ANDROID_SERIAL=emulator-5554 bash scripts/quiet-emulator.sh
+          script: |
+            ANDROID_SERIAL=emulator-5554 bash scripts/quiet-emulator.sh prod
+            ANDROID_SERIAL=emulator-5554 bash scripts/quiet-emulator.sh dev
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: quiet-emulator-report
+          name: quiet-emulator-report-api${{ matrix.api }}
           path: app/build/reports/quiet-emulator/
           retention-days: 14
 
@@ -155,8 +169,61 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  sign-dev:
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.verify.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v5
+        with:
+          cache-read-only: true
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platforms;android-37.0 build-tools;36.0.0 platform-tools'
+      - name: Build and verify signed APK
+        env:
+          KEYSTORE_BASE64: ${{ secrets.OM_DEV_KEYSTORE_BASE64 }}
+          OM_DEV_KEYSTORE_PASSWORD: ${{ secrets.OM_DEV_KEYSTORE_PASSWORD }}
+          OM_DEV_KEY_PASSWORD: ${{ secrets.OM_DEV_KEY_PASSWORD }}
+          OM_DEV_KEY_ALIAS: ${{ secrets.OM_DEV_KEY_ALIAS }}
+          OM_DEV_CERT_SHA256: ${{ vars.OM_DEV_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          umask 077
+          test -n "$KEYSTORE_BASE64"
+          export OM_DEV_KEYSTORE_PATH="$RUNNER_TEMP/openmetronome-dev.p12"
+          trap 'rm -f -- "$OM_DEV_KEYSTORE_PATH"' EXIT
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$OM_DEV_KEYSTORE_PATH"
+          unset KEYSTORE_BASE64
+          ./gradlew --no-daemon --console=plain -PrequireDevSigning=true :app:assembleDevRelease
+          bash scripts/package-release.sh --dev
+      - uses: actions/upload-artifact@v4
+        with:
+          name: official-signed-dev-apk
+          path: app/build/official-dev-release/
+          if-no-files-found: error
+          retention-days: 14
+
   smoke:
-    needs: [verify, sign]
+    name: official PROD + DEV (API ${{ matrix.api }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - api: 26
+            arch: x86
+          - api: 35
+            arch: x86_64
+    needs: [verify, sign, sign-dev]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -167,7 +234,11 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: official-signed-apk
-          path: release-assets
+          path: prod-assets
+      - uses: actions/download-artifact@v4
+        with:
+          name: official-signed-dev-apk
+          path: dev-assets
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -180,21 +251,23 @@ jobs:
           sudo udevadm trigger --name-match=kvm
       - uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: ${{ matrix.api }}
           target: default
-          arch: x86_64
+          arch: ${{ matrix.arch }}
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
           disable-animations: true
-          script: ANDROID_SERIAL=emulator-5554 bash scripts/smoke-release.sh
+          script: |
+            ANDROID_SERIAL=emulator-5554 bash scripts/smoke-release.sh "$(find prod-assets -name '*.apk')" app/build/reports/release-smoke/prod
+            ANDROID_SERIAL=emulator-5554 bash scripts/smoke-release.sh --dev "$(find dev-assets -name '*.apk')" app/build/reports/release-smoke/dev
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: release-smoke-report
+          name: release-smoke-report-api${{ matrix.api }}
           path: app/build/reports/release-smoke/
           retention-days: 14
 
   draft:
-    needs: [verify, quiet, sign, smoke]
+    needs: [verify, quiet, sign, sign-dev, smoke]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -207,7 +280,11 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: official-signed-apk
-          path: release-assets
+          path: prod-assets
+      - uses: actions/download-artifact@v4
+        with:
+          name: official-signed-dev-apk
+          path: dev-assets
       - name: Create draft only, never overwrite an existing release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -215,8 +292,14 @@ jobs:
         run: |
           set -euo pipefail
           source scripts/release-info.sh
+          (cd prod-assets && sha256sum --check SHA256SUMS)
+          (cd dev-assets && sha256sum --check SHA256SUMS)
+          mkdir release-assets
+          cp "prod-assets/$release_apk_name" prod-assets/SIGNING-CERT-SHA256.txt release-assets/
+          cp "dev-assets/$release_dev_apk_name" dev-assets/DEV-SIGNING-CERT-SHA256.txt release-assets/
           cd release-assets
+          sha256sum "$release_apk_name" "$release_dev_apk_name" SIGNING-CERT-SHA256.txt DEV-SIGNING-CERT-SHA256.txt > SHA256SUMS
           sha256sum --check SHA256SUMS
-          gh release create "$release_tag" "$release_apk_name" SHA256SUMS SIGNING-CERT-SHA256.txt \
+          gh release create "$release_tag" "$release_apk_name" "$release_dev_apk_name" SHA256SUMS SIGNING-CERT-SHA256.txt DEV-SIGNING-CERT-SHA256.txt \
             --verify-tag --draft --prerelease --title "OpenMetronome $release_version" \
             --notes-file "../docs/releases/$release_version.md"

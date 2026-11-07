@@ -1,7 +1,7 @@
 # Ćwiczenie w 1.1 — implementacja rozwojowa
 
-Publiczne 1.0.0 pozostaje niezmienione. Poniższe funkcje powstają na gałęziach
-roboczych; dostępność w APK potwierdza dopiero opis konkretnego wydania.
+Publiczne 1.0.0 pozostaje niezmienione. Poniższy zakres dotyczy linii 1.1 beta;
+dostępność w APK i wyniki potwierdza opis konkretnego wydania.
 
 ## Tempo
 

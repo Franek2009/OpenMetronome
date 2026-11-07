@@ -1,6 +1,6 @@
 # Statystyki 2.0 — implementacja rozwojowa 1.1
 
-To opis niewydanych zmian. Nie opisuje publicznego APK 1.0.0.
+To opis modelu danych i funkcji linii 1.1 beta, nie APK 1.0.0.
 
 - **Dzisiaj**: cały utrwalony czas, także krótkich sesji i planowanej ciszy.
   Odczyt checkpointów około co 5 s, bez dodawania drugiego timera.

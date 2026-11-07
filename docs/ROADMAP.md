@@ -9,18 +9,18 @@ plików nie oznacza przejścia testów ani ukończenia etapu.
 Opublikowane APK i tag pozostają niezmienne. Odbiór manualny i niezmierzone
 parametry fizycznego audio nadal opisuje [M6](M6-ACCEPTANCE.md).
 
-[Zatwierdzony plan](POST-1.0-PLAN.md): najpierw mała poprawka
-[Dzisiaj w Statystykach](DAILY-PRACTICE.md), potem pełny ekran, procenty i UI.
-Diagnostyka DEV jest osobnym torem. Następnie Statystyki 2.0, progi 20 s/5 min,
-bezpieczna zmiana od pulsu i trening. „Drewniany” pozostaje niezależnym
-zadaniem 1.0.1 po kwalifikacji źródeł.
+[Zatwierdzony zakres 1.1 beta](POST-1.0-PLAN.md) jest wdrażany małymi PR:
+#17/18 (ikona DEV i Dzisiaj), #19 (pełny ekran, procenty, tempo od pulsu,
+odliczanie i metra), #20 (Statystyki 2.0, progi, historia konfiguracji, Room 3,
+backup v2) i #21 (aktywna pełna diagnostyka DEV po kwalifikacji ART).
+Funkcje te nie zmieniają opublikowanego APK 1.0.0.
 
-PR #13 z [wariantami i ochroną publikacji](BUILD-VARIANTS.md) scalono po zgodzie.
-Main `506fc69c00ae7393e045ed08dddfc6968bc276d7` ma CI 5/5 PASS.
-Kolejny PR dodaje [obserwację PCM i bufor DEV](DEV-DIAGNOSTICS.md), bez aktywacji
-zbierania w aplikacji, zapisu IO i eksportu. Pełna diagnostyka pozostaje otwarta.
-Nie ma zgody na scalenie kolejnego PR, tagi ani podpisanie/publikację wydania.
-Nie uruchamiamy fizycznego audio, wibracji ani operacji na telefonach.
+Kolejny krok: 1.1.0-beta.1 / code 19 z dwoma osobno podpisanymi APK,
+pełną regresją API26/35 i oficjalną aktualizacją 1.0→beta. Publikacja wyłącznie
+Prerelease po sprawdzeniu artefaktów; stable 1.1 wymaga odbioru i osobnej decyzji.
+[Raport i checklista beta](V1.1-BETA1-VALIDATION.md).
+Nie wykonujemy operacji na telefonach, fizycznego audio ani wibracji.
+„Drewniany” pozostaje niezależnym zadaniem po dostarczeniu i kwalifikacji oryginałów.
 
 Poniżej historyczne etapy; ich otwarte bramki nie zastępują aktualnego
 udokumentowanego zakresu manualnego odbioru.

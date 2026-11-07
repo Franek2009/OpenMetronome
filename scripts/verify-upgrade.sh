@@ -1,49 +1,78 @@
 #!/usr/bin/env bash
-# Disposable emulator only. Re-sign copies with a throwaway test key, never official keys/APKs.
+# Disposable emulator only. Default uses throwaway signed copies; --official/--official-dev never sign.
 set -euo pipefail
 source "$(dirname -- "${BASH_SOURCE[0]}")/release-info.sh"
 cd -- "$release_script_root"
 upgrade_serial="${ANDROID_SERIAL:?Set disposable emulator serial}"
 [[ "$upgrade_serial" =~ ^emulator-[0-9]+$ ]] || { echo 'Refusing a physical device' >&2; exit 1; }
-[[ $# == 2 ]] || { echo 'Usage: verify-upgrade.sh old-official.apk new-unsigned.apk' >&2; exit 2; }
+upgrade_official=false
+upgrade_dev=false
+case "${1:-}" in
+    --official) upgrade_official=true; shift ;;
+    --official-dev) upgrade_official=true; upgrade_dev=true; shift
+        release_package="$release_dev_package"; release_version="$release_dev_version" ;;
+esac
+[[ $# == 2 ]] || { echo 'Usage: verify-upgrade.sh [--official|--official-dev] old.apk new.apk' >&2; exit 2; }
 : "${ANDROID_HOME:?Set ANDROID_HOME}"
 upgrade_old="$1"
 upgrade_new="$2"
 upgrade_tools="$ANDROID_HOME/build-tools/36.0.0"
 upgrade_adb=(adb -s "$upgrade_serial")
-[[ -z "$("${upgrade_adb[@]}" shell pm path org.openmetronome | tr -d '\r')" ]] || {
+[[ -z "$("${upgrade_adb[@]}" shell pm path "$release_package" | tr -d '\r')" ]] || {
     echo 'Requires an emulator without OpenMetronome; no uninstall or data clearing is allowed.' >&2; exit 1;
 }
 upgrade_old_badging="$($upgrade_tools/aapt dump badging "$upgrade_old")"
 upgrade_new_badging="$($upgrade_tools/aapt dump badging "$upgrade_new")"
-grep -q "^package: name='org.openmetronome' versionCode='15' versionName='0.13.0-beta.3'" <<< "$upgrade_old_badging"
-grep -q "^package: name='org.openmetronome' versionCode='$release_code' versionName='$release_version'" <<< "$upgrade_new_badging"
+upgrade_baseline_code=15
+upgrade_baseline_version=0.13.0-beta.3
+upgrade_expected_cert=563cd960efc3fc5b483ceae4b96e66728af9e2bb0c52d6162fe37cded72ac4a2
+if [[ "$upgrade_official" == true ]]; then
+    upgrade_baseline_code=18; upgrade_baseline_version=1.0.0
+    if [[ "$upgrade_dev" == true ]]; then
+        upgrade_baseline_code="$release_code"; upgrade_baseline_version="$release_version"
+        upgrade_expected_cert="${OM_DEV_CERT_SHA256:?Set the expected public DEV certificate}"
+    fi
+fi
+grep -q "^package: name='$release_package' versionCode='$upgrade_baseline_code' versionName='$upgrade_baseline_version'" <<< "$upgrade_old_badging"
+grep -q "^package: name='$release_package' versionCode='$release_code' versionName='$release_version'" <<< "$upgrade_new_badging"
 [[ "$release_code" -gt 15 ]]
 if grep -q 'application-debuggable' <<< "$upgrade_old_badging" ||
     grep -q 'application-debuggable' <<< "$upgrade_new_badging"; then
     echo 'Upgrade validation requires non-debuggable release APKs.' >&2; exit 1
 fi
 upgrade_old_cert="$($upgrade_tools/apksigner verify --print-certs "$upgrade_old")"
-grep -q 'SHA-256 digest: 563cd960efc3fc5b483ceae4b96e66728af9e2bb0c52d6162fe37cded72ac4a2' <<< "$upgrade_old_cert"
+[[ "$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' <<< "$upgrade_old_cert")" == "$upgrade_expected_cert" ]]
+! grep -q '^Signer #2 certificate' <<< "$upgrade_old_cert"
+if [[ "$upgrade_official" == true ]]; then
+    upgrade_new_cert="$($upgrade_tools/apksigner verify --verbose --print-certs "$upgrade_new")"
+    [[ "$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' <<< "$upgrade_new_cert")" == "$upgrade_expected_cert" ]]
+    ! grep -q '^Signer #2 certificate' <<< "$upgrade_new_cert"
+    [[ "$(sha256sum "$upgrade_old" | cut -d ' ' -f 1)" == "${OFFICIAL_BASELINE_SHA256:?Set verified baseline APK hash}" ]]
+    [[ "$(sha256sum "$upgrade_new" | cut -d ' ' -f 1)" == "${OFFICIAL_CANDIDATE_SHA256:?Set verified candidate APK hash}" ]]
+fi
 upgrade_report="${UPGRADE_REPORT_DIR:-app/build/reports/upgrade-validation}"
 upgrade_apk_dir="app/build/upgrade-fixtures/$upgrade_serial"
 mkdir -p -- "$upgrade_report" "$upgrade_apk_dir"
-upgrade_key_dir="$(mktemp -d "$release_script_root/app/build/upgrade-key.XXXXXXXX")"
-trap 'rm -f -- "$upgrade_key_dir/key.p12"; rmdir -- "$upgrade_key_dir"' EXIT
-umask 077
-export OM_UPGRADE_TEST_PASSWORD="$(openssl rand -hex 24)"
-keytool -genkeypair -keystore "$upgrade_key_dir/key.p12" -storetype PKCS12 \
-    -storepass:env OM_UPGRADE_TEST_PASSWORD -keypass:env OM_UPGRADE_TEST_PASSWORD \
-    -alias upgrade-test -keyalg RSA -keysize 2048 -validity 2 \
-    -dname 'CN=OpenMetronome Upgrade Test' >/dev/null 2>&1
-for upgrade_kind in old new; do
-    if [[ "$upgrade_kind" == old ]]; then upgrade_input="$upgrade_old"; else upgrade_input="$upgrade_new"; fi
-    "$upgrade_tools/apksigner" sign --ks "$upgrade_key_dir/key.p12" --ks-key-alias upgrade-test \
-        --ks-pass env:OM_UPGRADE_TEST_PASSWORD --key-pass env:OM_UPGRADE_TEST_PASSWORD \
-        --out "$upgrade_apk_dir/$upgrade_kind-test.apk" "$upgrade_input"
-done
-unset OM_UPGRADE_TEST_PASSWORD
-"${upgrade_adb[@]}" install "$upgrade_apk_dir/old-test.apk"
+if [[ "$upgrade_official" == false ]]; then
+    upgrade_key_dir="$(mktemp -d "$release_script_root/app/build/upgrade-key.XXXXXXXX")"
+    trap 'rm -f -- "$upgrade_key_dir/key.p12"; rmdir -- "$upgrade_key_dir"' EXIT
+    umask 077
+    export OM_UPGRADE_TEST_PASSWORD="$(openssl rand -hex 24)"
+    keytool -genkeypair -keystore "$upgrade_key_dir/key.p12" -storetype PKCS12 \
+        -storepass:env OM_UPGRADE_TEST_PASSWORD -keypass:env OM_UPGRADE_TEST_PASSWORD \
+        -alias upgrade-test -keyalg RSA -keysize 2048 -validity 2 \
+        -dname 'CN=OpenMetronome Upgrade Test' >/dev/null 2>&1
+    for upgrade_kind in old new; do
+        if [[ "$upgrade_kind" == old ]]; then upgrade_input="$upgrade_old"; else upgrade_input="$upgrade_new"; fi
+        "$upgrade_tools/apksigner" sign --ks "$upgrade_key_dir/key.p12" --ks-key-alias upgrade-test \
+            --ks-pass env:OM_UPGRADE_TEST_PASSWORD --key-pass env:OM_UPGRADE_TEST_PASSWORD \
+            --out "$upgrade_apk_dir/$upgrade_kind-test.apk" "$upgrade_input"
+    done
+    unset OM_UPGRADE_TEST_PASSWORD
+    upgrade_old="$upgrade_apk_dir/old-test.apk"
+    upgrade_new="$upgrade_apk_dir/new-test.apk"
+fi
+"${upgrade_adb[@]}" install "$upgrade_old"
 "${upgrade_adb[@]}" shell mkdir -p /sdcard/Download
 upgrade_input_name="openmetronome-upgrade-$RANDOM.ombak"
 "${upgrade_adb[@]}" push app/src/test/resources/backups/v1-beta1.ombak "/sdcard/Download/$upgrade_input_name"
@@ -92,7 +121,7 @@ open_downloads() {
     tap_node 'text="Downloads"'
 }
 
-"${upgrade_adb[@]}" shell am start -W -n org.openmetronome/.MainActivity
+"${upgrade_adb[@]}" shell am start -W -n "$release_package/org.openmetronome.MainActivity"
 await_ui 'text="Statystyki"'; tap_node 'text="Statystyki"'
 await_ui 'text="Przywróć kopię"' true; tap_node 'text="Przywróć kopię"'
 open_downloads
@@ -101,10 +130,10 @@ await_ui 'text="Przywróć"'; tap_node 'text="Przywróć"'
 await_ui 'Kopia została przywrócona:' true
 await_ui 'text="Metronom"'; tap_node 'text="Metronom"'
 await_ui 'content-desc="91 BPM"'
-"${upgrade_adb[@]}" shell am force-stop org.openmetronome
+"${upgrade_adb[@]}" shell am force-stop "$release_package"
 # The actual version upgrade; only -r, never uninstall or pm clear.
-"${upgrade_adb[@]}" install -r "$upgrade_apk_dir/new-test.apk"
-"${upgrade_adb[@]}" shell am start -W -n org.openmetronome/.MainActivity
+"${upgrade_adb[@]}" install -r "$upgrade_new"
+"${upgrade_adb[@]}" shell am start -W -n "$release_package/org.openmetronome.MainActivity"
 await_ui 'content-desc="91 BPM"'
 await_ui 'text="Start"'
 await_ui 'text="Statystyki"'; tap_node 'text="Statystyki"'
@@ -126,8 +155,12 @@ upgrade_output="$("${upgrade_adb[@]}" shell 'ls /sdcard/Download/OpenMetronome-*
 [[ "$upgrade_output" != *$'\n'* && "$upgrade_output" == /sdcard/Download/OpenMetronome-*.ombak ]]
 "${upgrade_adb[@]}" pull "$upgrade_output" "$upgrade_report/after-upgrade.ombak"
 python3 scripts/compare-backup-fixtures.py app/src/test/resources/backups/v1-beta1.ombak "$upgrade_report/after-upgrade.ombak" | tee "$upgrade_report/summary.txt"
-"${upgrade_adb[@]}" shell dumpsys package org.openmetronome > "$upgrade_report/package.txt"
+"${upgrade_adb[@]}" shell dumpsys package "$release_package" > "$upgrade_report/package.txt"
 grep -q "versionName=$release_version" "$upgrade_report/package.txt"
 grep -q "versionCode=$release_code " "$upgrade_report/package.txt"
-"${upgrade_adb[@]}" shell am force-stop org.openmetronome
-printf '%s\n' 'Test used re-signed copies with an ephemeral key; no official signing key was accessed.' >> "$upgrade_report/summary.txt"
+"${upgrade_adb[@]}" shell am force-stop "$release_package"
+if [[ "$upgrade_official" == true ]]; then
+    printf '%s\n' "PASS: original signed $release_package $upgrade_baseline_version -> $release_version; no re-signing, no uninstall or data clearing." >> "$upgrade_report/summary.txt"
+else
+    printf '%s\n' 'Test used re-signed copies with an ephemeral key; no official signing key was accessed.' >> "$upgrade_report/summary.txt"
+fi

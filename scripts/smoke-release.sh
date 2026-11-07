@@ -4,15 +4,21 @@ set -euo pipefail
 source "$(dirname -- "${BASH_SOURCE[0]}")/release-info.sh"
 release_smoke_serial="${ANDROID_SERIAL:?Set the disposable emulator serial explicitly}"
 [[ "$release_smoke_serial" =~ ^emulator-[0-9]+$ ]] || { echo 'Refusing a physical device' >&2; exit 1; }
+if [[ "${1:-}" == --dev ]]; then
+    shift
+    release_package="$release_dev_package"
+    release_version="$release_dev_version"
+    release_apk_name="$release_dev_apk_name"
+fi
 release_smoke_apk="${1:-release-assets/$release_apk_name}"
 release_smoke_adb=(adb -s "$release_smoke_serial")
-[[ -z "$("${release_smoke_adb[@]}" shell pm path org.openmetronome | tr -d '\r')" ]] || {
+[[ -z "$("${release_smoke_adb[@]}" shell pm path "$release_package" | tr -d '\r')" ]] || {
     echo 'Requires a clean emulator without OpenMetronome' >&2; exit 1;
 }
 release_smoke_report="${2:-app/build/reports/release-smoke}"
 mkdir -p -- "$release_smoke_report"
 "${release_smoke_adb[@]}" install "$release_smoke_apk"
-"${release_smoke_adb[@]}" shell am start -W -n org.openmetronome/.MainActivity
+"${release_smoke_adb[@]}" shell am start -W -n "$release_package/org.openmetronome.MainActivity"
 
 dump_ui() {
     "${release_smoke_adb[@]}" shell uiautomator dump /data/local/tmp/openmetronome-release-ui.xml >/dev/null
@@ -51,15 +57,15 @@ tap_node 'text="Ustawienia"'
 await_ui 'text="Dźwięk"'
 tap_node 'text="Metronom"'
 await_ui 'content-desc="137 BPM"'
-"${release_smoke_adb[@]}" shell am force-stop org.openmetronome
+"${release_smoke_adb[@]}" shell am force-stop "$release_package"
 "${release_smoke_adb[@]}" install -r "$release_smoke_apk"
-"${release_smoke_adb[@]}" shell am start -W -n org.openmetronome/.MainActivity
+"${release_smoke_adb[@]}" shell am start -W -n "$release_package/org.openmetronome.MainActivity"
 await_ui 'content-desc="137 BPM"'
 await_ui 'text="Start"'
-"${release_smoke_adb[@]}" shell dumpsys package org.openmetronome > "$release_smoke_report/package.txt"
+"${release_smoke_adb[@]}" shell dumpsys package "$release_package" > "$release_smoke_report/package.txt"
 grep -q "versionName=$release_version" "$release_smoke_report/package.txt"
 grep -q "versionCode=$release_code " "$release_smoke_report/package.txt"
 "${release_smoke_adb[@]}" exec-out screencap -p > "$release_smoke_report/release.png"
 printf '%s\n' "$release_smoke_ui" > "$release_smoke_report/final-ui.xml"
-"${release_smoke_adb[@]}" shell am force-stop org.openmetronome
+"${release_smoke_adb[@]}" shell am force-stop "$release_package"
 echo 'PASS: release installed, BPM persisted across reinstall, no playback requested.'

@@ -33,3 +33,12 @@ Pobieranie z GitHuba oraz zgłoszenia błędów odbywają się poza aplikacją
 i podlegają zasadom GitHuba. Nie dołączaj prywatnej historii ani sekretów do
 publicznych zgłoszeń. Kontakt z projektem:
 [GitHub Issues](https://github.com/Franek2009/OpenMetronome/issues).
+
+## Opcjonalny wariant DEV
+
+DEV przechowuje lokalnie szczegółowe raporty sesji: planowane pulsy i konfiguracje,
+wewnętrzne czasy, błędy, wersję aplikacji, model/producenta urządzenia i wersję Androida.
+Nie zbiera numeru seryjnego, Android ID, treści plików audio ani kluczy podpisu.
+Raporty nie są automatycznie wysyłane; eksport ZIP uruchamia użytkownik.
+DEV ma osobny pakiet i dane; raporty można usuwać niezależnie od historii ćwiczeń.
+Limity: 512 MiB/sesję i 2 GiB raportów łącznie, bez automatycznego kasowania.

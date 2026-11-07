@@ -12,3 +12,8 @@ release_variant=prodRelease
 release_package=org.openmetronome
 release_tag="v$release_version"
 release_apk_name="OpenMetronome-$release_version.apk"
+
+# DEV is selected explicitly by the publisher; never inferred from a filename.
+release_dev_package=org.openmetronome.dev
+release_dev_version="$release_version-dev"
+release_dev_apk_name="OpenMetronome-DEV-$release_version.apk"

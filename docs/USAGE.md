@@ -1,5 +1,15 @@
 # Działanie aplikacji
 
+## Nowości linii 1.1 beta
+
+[Ćwiczenie i pełny ekran](PRACTICE-1.1.md) opisuje procenty, odliczanie,
+zmianę tempa od pulsu oraz metra/grupy. [Statystyki 2.0](STATISTICS-2.md)
+wyjaśniają progi, historię konfiguracji i zgodność kopii v1/v2.
+[DEV](DEV-TRACE-EXPORT.md) ma osobny pakiet i lokalne raporty ZIP.
+Przywracanie i eksport są dostępne w Statystykach; pozycje niżej pokazują
+również funkcje znane ze stabilnego 1.0.0.
+
+
 Dotknięcie BPM otwiera edycję liczbową; przyciski zmieniają tempo o ±1/±5.
 Lampki przełączają zwykły puls → akcent → cisza. Akcent początkowy domyślnie
 przechodzi najpierw w ciszę. Cisza lampki obejmuje wszystkie podziały pulsu;
