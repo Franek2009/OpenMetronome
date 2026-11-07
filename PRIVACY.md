@@ -36,7 +36,8 @@ publicznych zgłoszeń. Kontakt z projektem:
 
 ## Opcjonalny wariant DEV
 
-DEV przechowuje lokalnie szczegółowe raporty sesji: planowane pulsy i konfiguracje,
+W 1.1.0-beta.1 pełna rejestracja sesji DEV jest wyłączona. Przygotowany system
+raportów (w tym odczyt istniejących raportów) przechowuje lokalnie: planowane pulsy i konfiguracje,
 wewnętrzne czasy, błędy, wersję aplikacji, model/producenta urządzenia i wersję Androida.
 Nie zbiera numeru seryjnego, Android ID, treści plików audio ani kluczy podpisu.
 Raporty nie są automatycznie wysyłane; eksport ZIP uruchamia użytkownik.
