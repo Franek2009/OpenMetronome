@@ -1,5 +1,12 @@
 # Zmiany
 
+## Niewydana poprawka użytkowa — propozycja 1.0.1
+
+- Karta „Dzisiaj” na górze Statystyk: godziny, minuty i sekundy praktyki
+  z istniejących checkpointów, około co 5 s. Ładowanie i błąd odczytu
+  są odróżniane od rzeczywistego zera. Obsługa zmiany daty i strefy.
+- Bez zmian silnika, zapisu, tabel Room i formatu kopii zapasowych.
+
 ## Niewydane — etapy 1.1
 
 - Osobne warianty prod/dev oraz debug/release: izolowane pakiety i dane,

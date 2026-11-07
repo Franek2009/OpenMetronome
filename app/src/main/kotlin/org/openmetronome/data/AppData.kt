@@ -131,6 +131,10 @@ class AppData private constructor(
     val presets = dao.presets().catch { error.value = "Nie udało się odczytać presetów"; emit(emptyList()) }
     val sessions = dao.sessions().catch { error.value = "Nie udało się odczytać historii"; emit(emptyList()) }
     val days = dao.days().catch { error.value = "Nie udało się odczytać statystyk"; emit(emptyList()) }
+    fun dailyPractice(date: java.time.LocalDate): Flow<DailyPractice> = observeDailyPractice(date, flow {
+        ready.await()
+        emitAll(dao.durationOn(date.toString()))
+    })
     val total = dao.total().catch { error.value = "Nie udało się odczytać statystyk"; emit(PracticeTotal(0, 0)) }
     init {
         scope.launch {
