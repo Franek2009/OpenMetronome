@@ -118,7 +118,7 @@ class PcmAudioEngine(
                 trace?.record(PcmTraceKind.OUTPUT_STATUS, presented, written, underruns.toLong())
                 return AudioDiagnostics(
                     sink.sampleRate, sink.blockFrames, sink.bufferFrames, written,
-                    underruns, presented, target.id,
+                    underruns, presented, target.id, renderer.countInFrames,
                 )
             }
 

@@ -31,7 +31,9 @@ fun PlaybackControls(state: MetronomeState, onStart: () -> Unit, onStop: () -> U
                     PlaybackStatus.STOPPED -> R.string.start
                 }))
             }
-            Text(stringResource(when {
+            Text(if (state.audio.diagnostics?.let { it.countInFrames > 0 && it.framesPlayed < it.countInFrames } == true)
+                "Odliczanie przed praktyką" else if (state.hasPendingChanges && state.config.tempoChange == org.openmetronome.domain.model.TempoChange.NEXT_BEAT)
+                "Tempo od następnego możliwego pulsu; pozostałe zmiany od taktu" else stringResource(when {
                 state.audio.status == PlaybackStatus.ERROR -> when (state.audio.failure) {
                     AudioFailure.FOCUS_DENIED -> R.string.audio_focus_denied
                     AudioFailure.INITIALIZATION -> R.string.audio_initialization_failed

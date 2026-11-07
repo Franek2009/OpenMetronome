@@ -20,7 +20,7 @@ class SessionRecorder internal constructor(
 
     suspend fun accept(state: MetronomeState) = lock.withLock {
         val diagnostics = state.audio.diagnostics
-        val played = diagnostics?.let { it.framesPlayed * 1000 / it.sampleRate } ?: 0
+        val played = diagnostics?.let { (it.framesPlayed - it.countInFrames).coerceAtLeast(0) * 1000 / it.sampleRate } ?: 0
         val final = state.audio.status == PlaybackStatus.STOPPED || state.audio.status == PlaybackStatus.ERROR
         if (session == null && (state.audio.status == PlaybackStatus.PLAYING || final) && played > 0 && diagnostics?.sessionId != lastClosedSessionId) {
             val now = System.currentTimeMillis()

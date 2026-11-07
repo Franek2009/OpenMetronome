@@ -16,6 +16,7 @@ class PcmRenderer(
 ) {
     private val training = TrainingController(sampleRate)
     private val scheduler = BeatScheduler(sampleRate, config, training::configAtBar)
+    val countInFrames: Long get() = scheduler.countInFrames
     private val clicks = ClickSound.entries.associateWith { sound ->
         ClickGenerator.generate(sampleRate, false, sound) to ClickGenerator.generate(sampleRate, true, sound)
     }
@@ -59,7 +60,7 @@ class PcmRenderer(
             if (renderedFrames == scheduler.nextFrame) {
                 val event = scheduler.nextBeat()
                 rhythm = activeConfig.rhythm
-                val trainingSilent = silence.isSilent(event.barIndex - training.startBar, activeConfig.silence)
+                val trainingSilent = event.barIndex >= 0 && silence.isSilent(event.barIndex - training.startBar, activeConfig.silence)
                 pulseSilent = trainingSilent || activeConfig.beatAccentAt(event.beatInBar) == ClickAccent.MUTE
                 pulseAccent = event.accented
                 if (trace != null) {

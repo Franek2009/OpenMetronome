@@ -48,12 +48,17 @@ fun MetronomeScreen(
     showPlaybackControls: Boolean = true,
     onAdjustTempo: (Int) -> Unit = { onTempoChange((state.config.tempo.bpm + it).coerceIn(20, 300)) },
     onBeatAccent: (Int) -> Unit = { onConfigChange(state.config.cycleBeatAccent(it)) },
+    onFullscreen: (() -> Unit)? = null,
+    onPresets: (() -> Unit)? = null,
+    customSamples: List<org.openmetronome.data.CustomSampleItem> = emptyList(),
 ) {
     val config = state.config
     // Form-factor classification only, not pixel sizing. Content height changes with IME.
     @SuppressLint("ConfigurationScreenWidthHeight")
     val windowHeightDp = LocalConfiguration.current.screenHeightDp.toFloat()
     var tempoEditorOpen by rememberSaveable { mutableStateOf(false) }
+    var soundsOpen by rememberSaveable { mutableStateOf(false) }
+    var metersOpen by rememberSaveable { mutableStateOf(false) }
     DisposableEffect(Unit) { onDispose { onResetTapTempo() } }
     Scaffold(contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = { if (showPlaybackControls) PlaybackControls(state, onStart, onStop) }) { padding ->
@@ -63,19 +68,33 @@ fun MetronomeScreen(
             val tablet = layout.tablet
             val short = layout == InstrumentLayout.PHONE_WIDE
             val instrument: @Composable ColumnScope.() -> Unit = {
+                onFullscreen?.let { TextButton(it, Modifier.align(Alignment.End)) { Text("Pełny ekran") } }
                 PulseLamps(state, onBeatAccent, if (tablet) 72.dp else if (short) 32.dp else 44.dp,
                     short || layout == InstrumentLayout.TABLET_LANDSCAPE)
                 TempoPanel(config, onTempoChange, onIncreaseTempo, onDecreaseTempo, onAdjustTempo, onTapTempo,
                     large = tablet, short = short, hideHint = layout == InstrumentLayout.TABLET_LANDSCAPE,
                     onEditTempo = { tempoEditorOpen = true })
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    org.openmetronome.domain.model.TempoPercent.entries.forEach { factor ->
+                        FilterChip(config.tempoPercent == factor, { onConfigChange(config.copy(tempoPercent = factor)) },
+                            modifier = Modifier.sizeIn(minHeight = 48.dp), label = { Text("${factor.percent}%") })
+                    }
+                }
+                Text("Baza ${config.tempo.bpm} BPM × ${config.tempoPercent.percent}% = ${config.effectiveBpmLabel} BPM",
+                    style = MaterialTheme.typography.bodySmall)
             }
             val rhythm: @Composable ColumnScope.() -> Unit = {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton({ soundsOpen = true }) { Text("Brzmienie") }
+                    onPresets?.let { OutlinedButton(it) { Text("Moje presety") } }
+                }
                 if (short) OutlinedButton(onTapTempo, Modifier.fillMaxWidth().sizeIn(minHeight = 48.dp)) {
                     Text(stringResource(R.string.tap_tempo))
                 }
                 Text(stringResource(R.string.time_signature_title), style = MaterialTheme.typography.titleMedium)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TimeSignature.entries.forEach { signature ->
+                    val common = listOf(TimeSignature.TWO_FOUR, TimeSignature.THREE_FOUR, TimeSignature.FOUR_FOUR, TimeSignature.SIX_EIGHT)
+                    (common + listOf(config.timeSignature).filterNot { it in common }).forEach { signature ->
                         val meterDescription = stringResource(R.string.time_signature_accessibility, signature.numerator, signature.denominator)
                         FilterChip(config.timeSignature == signature, { onTimeSignatureChange(signature) },
                             modifier = Modifier.sizeIn(minHeight = if (tablet) 56.dp else 48.dp).semantics {
@@ -83,13 +102,24 @@ fun MetronomeScreen(
                             }, label = { Text(stringResource(R.string.time_signature_value, signature.numerator, signature.denominator),
                                 style = if (tablet) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.labelLarge) })
                     }
+                    TextButton({ metersOpen = true }) { Text("Więcej metrów") }
+                }
+                config.timeSignature.accentGroupings.takeIf { it.isNotEmpty() }?.let { groups ->
+                    Text("Grupowanie akcentów", style = MaterialTheme.typography.titleSmall)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        groups.forEach { pattern ->
+                            val grouped = config.withAccentGroups(pattern)
+                            FilterChip(config.beatAccents == grouped.beatAccents,
+                                { onConfigChange(grouped) }, label = { Text(pattern.joinToString("+")) })
+                        }
+                    }
                 }
                 RhythmControls(config, onConfigChange, large = tablet)
             }
             val training: @Composable ColumnScope.() -> Unit = {
                 TrainingPanel(config, onConfigChange, initiallyExpanded = tablet)
                 state.audio.activeConfig?.takeIf { state.keepsScreenOn }?.let { active ->
-                    Text("Aktualnie: ${active.tempo.bpm} BPM · wyciszenia ${active.silence.probability}%",
+                    Text("Aktualnie: ${active.effectiveBpmLabel} BPM · wyciszenia ${active.silence.probability}%",
                         style = MaterialTheme.typography.bodySmall)
                 }
                 Text(stringResource(R.string.offline_note), style = MaterialTheme.typography.bodySmall,
@@ -139,6 +169,18 @@ fun MetronomeScreen(
     }
     if (tempoEditorOpen) TempoEditorDialog(config.tempo.bpm,
         onConfirm = { onTempoChange(it); tempoEditorOpen = false }, onDismiss = { tempoEditorOpen = false })
+    if (soundsOpen) AlertDialog(onDismissRequest = { soundsOpen = false }, title = { Text("Brzmienie i głośność") },
+        text = { Column(Modifier.verticalScroll(rememberScrollState())) { SoundControls(config, onConfigChange, customSamples = customSamples) } },
+        confirmButton = { TextButton({ soundsOpen = false }) { Text("Gotowe") } })
+    if (metersOpen) AlertDialog(onDismissRequest = { metersOpen = false }, title = { Text("Metrum") },
+        text = { Column(Modifier.verticalScroll(rememberScrollState())) {
+            Text("BPM liczy ćwierćnuty w /4 oraz ósemki w /8, również w 6/8.")
+            TimeSignature.entries.forEach { signature ->
+                TextButton({ onTimeSignatureChange(signature); metersOpen = false }, Modifier.fillMaxWidth()) {
+                    Text("${signature.numerator}/${signature.denominator}")
+                }
+            }
+        } }, confirmButton = { TextButton({ metersOpen = false }) { Text("Anuluj") } })
 }
 
 @Composable
@@ -179,7 +221,8 @@ private fun PulseLamps(state: MetronomeState, onCycle: (Int) -> Unit, lampSize: 
     }
     if (!short) Text("Dotknij lampki: zwykły → akcent → cisza", style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant)
-    if (pulse != null) Text("Takt ${pulse.bar + 1} · puls ${pulse.beat + 1}${if (pulse.silent) " · cisza" else ""}",
+    if (pulse != null) Text(if (pulse.bar < 0) "Odliczanie: ${-pulse.bar} takt · puls ${pulse.beat + 1}"
+        else "Takt ${pulse.bar + 1} · puls ${pulse.beat + 1}${if (pulse.silent) " · cisza" else ""}",
         style = MaterialTheme.typography.labelMedium)
 }
 
@@ -196,8 +239,9 @@ private fun TempoPanel(config: MetronomeConfig, onTempo: (Int) -> Unit, onIncrea
             TempoStep("−5", "Zmniejsz tempo o 5 BPM", config.tempo.bpm > 20, expandedControls) { onAdjust(-5) }
         }
         Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-            val description = stringResource(R.string.tempo_value, config.tempo.bpm)
-            Text(config.tempo.bpm.toString(), fontSize = if (expandedControls) 128.sp else if (large) 80.sp else if (short) 56.sp else 72.sp, fontWeight = FontWeight.Light,
+            val description = if (config.tempoPercent == org.openmetronome.domain.model.TempoPercent.FULL)
+                stringResource(R.string.tempo_value, config.tempo.bpm) else "Tempo wynikowe ${config.effectiveBpmLabel} BPM"
+            Text(config.effectiveBpmLabel, fontSize = if (expandedControls) 128.sp else if (large) 80.sp else if (short) 56.sp else 72.sp, fontWeight = FontWeight.Light,
                 textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().sizeIn(minHeight = 80.dp)
                     .clickable(role = Role.Button, onClick = onEditTempo)
                     .semantics { contentDescription = description })

@@ -4,6 +4,10 @@ import java.math.BigInteger
 import org.openmetronome.domain.model.MetronomeConfig
 import org.openmetronome.domain.model.Tempo
 import org.openmetronome.domain.model.ClickAccent
+import org.openmetronome.domain.model.TempoChange
+import org.openmetronome.domain.model.TempoPercent
+import org.openmetronome.domain.model.SilenceConfig
+import org.openmetronome.domain.model.RhythmConfig
 
 data class BeatEvent(
     val frame: Long,
@@ -26,7 +30,15 @@ class BeatScheduler(
     private var interval = BigInteger.ZERO
     var appliedConfig = initialConfig
         private set
-    private var bar = 0L
+    private val countInConfig = initialConfig.copy(
+        tempo = if (initialConfig.ramp.enabled) Tempo(initialConfig.ramp.startBpm) else initialConfig.tempo,
+        silence = SilenceConfig(), progression = initialConfig.progression.copy(enabled = false),
+        ramp = initialConfig.ramp.copy(enabled = false), rhythm = RhythmConfig(),
+        accentFirstBeat = true, beatAccents = emptyList(), countInBars = 0)
+    val countInFrames: Long = initialConfig.countInBars.toLong() * initialConfig.timeSignature.pulsesPerBar *
+        sampleRate * 60 * initialConfig.tempoPercent.denominator /
+        (countInConfig.tempo.bpm * initialConfig.tempoPercent.numerator)
+    private var bar = -initialConfig.countInBars.toLong()
     private var beat = 0
     var nextFrame: Long = 0
         private set
@@ -35,14 +47,24 @@ class BeatScheduler(
 
     fun nextBeat(): BeatEvent {
         if (beat == 0) {
-            appliedConfig = requestedConfig
-            activeConfig = configAtBar(nextFrame, bar, requestedConfig)
+            appliedConfig = if (bar < 0) countInConfig else requestedConfig
+            activeConfig = if (bar < 0) countInConfig else configAtBar(nextFrame, bar, requestedConfig)
+        } else if (bar >= 0 && requestedConfig.tempoChange == TempoChange.NEXT_BEAT) {
+            // The next emitted pulse keeps its existing frame. Only its following
+            // interval changes; rendered/queued samples are never rewritten.
+            appliedConfig = appliedConfig.copy(tempo = requestedConfig.tempo,
+                tempoPercent = requestedConfig.tempoPercent, tempoChange = requestedConfig.tempoChange,
+                ramp = if (!requestedConfig.ramp.enabled) requestedConfig.ramp else appliedConfig.ramp)
+            activeConfig = activeConfig.copy(tempo = if (!requestedConfig.ramp.enabled) requestedConfig.tempo else activeConfig.tempo,
+                tempoPercent = requestedConfig.tempoPercent, tempoChange = requestedConfig.tempoChange,
+                ramp = appliedConfig.ramp)
         }
         val event = BeatEvent(nextFrame, bar, beat, activeConfig.beatAccentAt(beat) == ClickAccent.ACCENT)
         // Every permitted BPM divides this common denominator. Keeping the same units
         // across tempo changes preserves the fractional phase, without floating-point drift.
-        interval = FRAME_DENOMINATOR.divide(BigInteger.valueOf(activeConfig.tempo.bpm.toLong()))
-            .multiply(BigInteger.valueOf(sampleRate.toLong() * 60))
+        val factor = activeConfig.tempoPercent
+        interval = FRAME_DENOMINATOR.divide(BigInteger.valueOf(activeConfig.tempo.bpm.toLong() * factor.numerator))
+            .multiply(BigInteger.valueOf(sampleRate.toLong() * 60 * factor.denominator))
         position = position.add(interval)
         val wholeFrames = position.divide(FRAME_DENOMINATOR)
         // BigInteger.longValueExact is only available from Android API 31.
@@ -72,6 +94,6 @@ class BeatScheduler(
             .fold(BigInteger.ONE) { lcm, bpm ->
                 val divisor = BigInteger.valueOf(bpm.toLong())
                 lcm.divide(lcm.gcd(divisor)).multiply(divisor)
-            }
+            }.multiply(BigInteger.valueOf(3)) // 75% can introduce an additional factor of three.
     }
 }

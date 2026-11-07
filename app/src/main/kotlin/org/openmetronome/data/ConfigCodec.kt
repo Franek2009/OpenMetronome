@@ -17,6 +17,8 @@ object ConfigCodec {
             "volumePercent" to sound.volumePercent, "clickSound" to sound.clickSound.name,
             "customSampleId" to (sound.customSampleId ?: ""),
             "beatAccents" to beatAccents.joinToString(",") { it.name },
+            "tempoPercent" to tempoPercent.name, "tempoChange" to tempoChange.name,
+            "countInBars" to countInBars,
         ).entries.joinToString("\n") { "${it.key}=${it.value}" }
     }
     fun decode(payload: String): MetronomeConfig {
@@ -42,6 +44,9 @@ object ConfigCodec {
             sound = SoundConfig(number("volumePercent", 100), values["clickSound"]?.let(ClickSound::valueOf) ?: ClickSound.CLASSIC,
                 values["customSampleId"]?.takeIf { it.isNotEmpty() }),
             beatAccents = values["beatAccents"]?.takeIf { it.isNotEmpty() }?.split(',')?.map(ClickAccent::valueOf) ?: emptyList(),
+            tempoPercent = values["tempoPercent"]?.let(TempoPercent::valueOf) ?: TempoPercent.FULL,
+            tempoChange = values["tempoChange"]?.let(TempoChange::valueOf) ?: TempoChange.NEXT_BAR,
+            countInBars = number("countInBars", 0),
         )
     }
 }

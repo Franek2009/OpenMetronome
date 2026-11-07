@@ -14,6 +14,7 @@ data class AudioDiagnostics(
     val underruns: Int,
     val framesPlayed: Long = 0,
     val sessionId: Long = 0,
+    val countInFrames: Long = 0,
 )
 
 data class PlaybackPulse(val frame: Long, val bar: Long, val beat: Int, val silent: Boolean)

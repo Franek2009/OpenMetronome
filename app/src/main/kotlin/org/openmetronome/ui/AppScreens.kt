@@ -41,6 +41,11 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.Role
 import org.openmetronome.domain.model.MetronomeConfig
+import org.openmetronome.domain.model.TempoPercent
+import org.openmetronome.domain.model.TempoChange
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 
 @Composable
 fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, notificationPermission: (() -> Unit)? = null) {
@@ -50,6 +55,29 @@ fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, notificationPermi
     val backupWorking by data.backupWorking.collectAsStateWithLifecycle()
     val recoveryRequired by data.recoveryRequired.collectAsStateWithLifecycle()
     val storageReady by data.storageReady.collectAsStateWithLifecycle()
+    val display by data.displayPreferences.collectAsStateWithLifecycle(initialValue = PracticeDisplayPreferences())
+    val customSamples by data.samples.items.collectAsStateWithLifecycle()
+    var fullscreen by rememberSaveable { mutableStateOf(false) }
+    val view = LocalView.current
+    DisposableEffect(view, fullscreen, state.keepsScreenOn, display.keepFullscreenAwake) {
+        val old = view.keepScreenOn
+        view.keepScreenOn = state.keepsScreenOn && (!fullscreen || display.keepFullscreenAwake)
+        onDispose { view.keepScreenOn = old }
+    }
+    DisposableEffect(view, fullscreen) {
+        val activity = view.context as? android.app.Activity
+        val bars = activity?.let { WindowInsetsControllerCompat(it.window, view) }
+        if (fullscreen) {
+            bars?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            bars?.hide(WindowInsetsCompat.Type.systemBars())
+        }
+        onDispose { if (fullscreen) bars?.show(WindowInsetsCompat.Type.systemBars()) }
+    }
+    val canStart = storageReady && !sampleWorking && !backupWorking && !recoveryRequired
+    if (fullscreen) {
+        FullscreenPractice(state, model::start, model::stop, { fullscreen = false }, canStart, display.reduceMotion)
+        return
+    }
     var page by rememberSaveable { mutableStateOf("Metronom") }
     var report by rememberSaveable { mutableStateOf<String?>(null) }
     BackHandler(enabled = page != "Metronom" && report == null) { page = "Metronom" }
@@ -84,6 +112,8 @@ fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, notificationPermi
                         showPlaybackControls = false,
                         onAdjustTempo = model::adjustTempo,
                         onBeatAccent = model::cycleBeatAccent,
+                        onFullscreen = { fullscreen = true },
+                        onPresets = { page = "Presety" }, customSamples = customSamples,
                     )
                 }
             }
@@ -326,6 +356,22 @@ private fun SettingsScreen(model: MetronomeViewModel, data: AppData,
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("Ustawienia", style = MaterialTheme.typography.headlineMedium)
+        val display by data.displayPreferences.collectAsStateWithLifecycle(initialValue = PracticeDisplayPreferences())
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Nie wygaszaj pełnego ekranu podczas odtwarzania", Modifier.weight(1f))
+            Switch(display.keepFullscreenAwake, { data.saveDisplayPreferences(display.copy(keepFullscreenAwake = it)) })
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Ogranicz animacje pełnego ekranu", Modifier.weight(1f))
+            Switch(display.reduceMotion, { data.saveDisplayPreferences(display.copy(reduceMotion = it)) })
+        }
+        Text("Zmiana tempa", style = MaterialTheme.typography.titleMedium)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TempoChange.entries.forEach { mode ->
+                FilterChip(config.tempoChange == mode, { onChange(config.copy(tempoChange = mode)) },
+                    label = { Text(if (mode == TempoChange.NEXT_BAR) "Od następnego taktu" else "Od następnego pulsu") })
+            }
+        }
         SoundControls(config, onChange, customSamples = samples)
         SampleLibraryControls(model, data)
         Row(verticalAlignment = Alignment.CenterVertically) {
