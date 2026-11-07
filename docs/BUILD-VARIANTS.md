@@ -1,7 +1,8 @@
 # Warianty OpenMetronome
 
 Warianty rozdzielają dane i podpisy zwykłej aplikacji oraz DEV. W 1.1 beta DEV
-ma aktywną pełną diagnostykę po kwalifikacji ART offline.
+ma wyłączoną pełną rejestrację sesji: nie zaliczono kwalifikacji narzutu API26.
+Zwykłe funkcje i statystyki działają, istniejące raporty można eksportować.
 [Integracja i granice](V1.1-DEV-INTEGRATION-VALIDATION.md).
 
 | Wariant | Pakiet | Nazwa | Podpis |

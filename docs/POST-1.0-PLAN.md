@@ -18,11 +18,12 @@ fizycznego audio ani wibracji; bez usuwania danych.
   wszystkie sesje zachowane, historia konfiguracji nowych sesji, brak wymyślonych danych starych.
 - Migracja Room 2→3, `.ombak` v2, import v1 i zgodny eksport v1 z jawnymi pominięciami.
 - DEV: izolowane pakiety/dane, oznaczona ikona, osobny trwały certyfikat,
-  pełna rejestracja z ograniczonym transportem/dyskiem i eksport ZIP.
+  przygotowana rejestracja i ZIP. Pełna rejestracja sesji pozostaje wyłączona
+  w beta na decyzję użytkownika po FAIL budżetu narzutu API26.
 - Usunięcie sześciu dawnych testów sprzętowego audio; ochrona i testy offline pozostają.
 
 Wdrożenie podzielono na PR #17/18 (ikona DEV/Dzisiaj), #19 (ćwiczenie/UI),
-#20 (statystyki/dane) i #21 (integracja pełnej diagnostyki). Kolejny PR obejmuje
+#20 (statystyki/dane) i #21 (przygotowanie pełnej diagnostyki bez aktywacji beta). Kolejny PR obejmuje
 metadane beta i dwie osobne ścieżki podpisania. Szczegóły:
 [ćwiczenie](PRACTICE-1.1.md), [statystyki](STATISTICS-2.md),
 [diagnostyka](DEV-DIAGNOSTICS.md), [warianty](BUILD-VARIANTS.md).
@@ -30,7 +31,7 @@ metadane beta i dwie osobne ścieżki podpisania. Szczegóły:
 ## Bramki
 
 Każdy końcowy HEAD: JVM, Lint, PCM, wszystkie APK i ciche API26/35,
-aktualizacje na kluczu testowym oraz kontrola izolacji. DEV przed aktywacją:
+aktualizacje na kluczu testowym oraz kontrola izolacji. DEV przed przyszłą aktywacją:
 pełny tor ART offline, identyczny PCM, brak strat w standardowym scenariuszu,
 p99 ścieżki renderowania do +10%, jawne granice pomiaru pamięci.
 
@@ -46,3 +47,8 @@ pobierania i osobny PR z linkami README. Manualny odbiór beta należy do użytk
 brak sampla nie blokuje pozostałych funkcji. Bez stroika, kamertonu, chmury, PDF,
 edytora planów, nieuzasadnionego NDK/Oboe i aktualizacji zależności.
 Jitter oraz latencja fizycznego wyjścia pozostają niezmierzone.
+
+Kwalifikacja DEV ma osobny workflow dispatch API26/35 i niezmieniony próg +10%.
+Nie jest bramką beta z wyłączoną rejestracją; jej wcześniejsze FAIL pozostają
+udokumentowane. Regresja beta wymaga testu pustych hooków i raportuje kwalifikację
+jako NOT RUN, nie PASS. Nie usuwamy benchmarku ani nie uruchamiamy fizycznego audio.
