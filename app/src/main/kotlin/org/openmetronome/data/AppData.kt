@@ -95,6 +95,9 @@ class AppData private constructor(
         finally { scope.cancel(); scope.coroutineContext[Job]!!.join(); database.close() }
     }
     private val isTestStorage = isolatedTestStorage
+    val diagnosticReportDirectory: File = if (isolatedTestStorage)
+        File(testDirectory ?: context.cacheDir, "dev-reports-test-${UUID.randomUUID()}")
+        else File(context.filesDir, "dev-reports")
 
     val error = MutableStateFlow<String?>(null)
     val exporting = MutableStateFlow(false)
