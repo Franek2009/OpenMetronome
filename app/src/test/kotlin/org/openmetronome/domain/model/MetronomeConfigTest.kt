@@ -31,7 +31,7 @@ class MetronomeConfigTest {
     @Test
     fun `supported meters retain written numerator and denominator`() {
         assertEquals(
-            listOf(2 to 4, 3 to 4, 4 to 4, 6 to 8),
+            listOf(2 to 4, 3 to 4, 4 to 4, 6 to 8, 5 to 4, 7 to 4, 5 to 8, 7 to 8),
             TimeSignature.entries.map { it.numerator to it.denominator },
         )
     }

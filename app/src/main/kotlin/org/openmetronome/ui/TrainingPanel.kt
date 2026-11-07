@@ -27,6 +27,14 @@ fun TrainingPanel(config: MetronomeConfig, onChange: (MetronomeConfig) -> Unit, 
     }
     if (!expanded) return
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Odliczanie przed praktyką")
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            (0..2).forEach { bars ->
+                FilterChip(config.countInBars == bars, { onChange(config.copy(countInBars = bars)) },
+                    label = { Text(if (bars == 0) "Bez odliczania" else "$bars takt${if (bars == 1) "" else "y"}") })
+            }
+        }
+        Text("Odliczanie nie zwiększa czasu praktyki. Zmiana dotyczy następnego Start.", style = MaterialTheme.typography.bodySmall)
         val silence = config.silence
         Text("Losowe wyciszenia: ${silence.probability}%")
         Slider(silence.probability.toFloat(), { onChange(config.copy(silence = silence.copy(probability = probabilityFromSlider(it)))) },

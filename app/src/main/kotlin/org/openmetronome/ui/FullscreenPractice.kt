@@ -45,7 +45,8 @@ internal fun FullscreenPractice(state: MetronomeState, onStart: () -> Unit, onSt
                     modifier = Modifier.semantics { contentDescription = "Tempo pełnego ekranu: ${config.effectiveBpmLabel} BPM" })
                 Text("BPM · baza ${config.tempo.bpm} × ${config.tempoPercent.percent}%",
                     style = MaterialTheme.typography.titleMedium)
-                Text(if (pulse == null) "Gotowy · ${config.timeSignature.numerator}/${config.timeSignature.denominator}"
+                Text(if (pulse != null && pulse.bar < 0) "Odliczanie: ${-pulse.bar} takt · puls ${pulse.beat + 1}"
+                    else if (pulse == null) "Gotowy · ${config.timeSignature.numerator}/${config.timeSignature.denominator}"
                     else "Puls ${pulse.beat + 1} / ${config.timeSignature.pulsesPerBar} · takt ${pulse.bar + 1}",
                     style = MaterialTheme.typography.headlineSmall)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

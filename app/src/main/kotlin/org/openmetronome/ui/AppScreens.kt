@@ -56,6 +56,7 @@ fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, notificationPermi
     val recoveryRequired by data.recoveryRequired.collectAsStateWithLifecycle()
     val storageReady by data.storageReady.collectAsStateWithLifecycle()
     val display by data.displayPreferences.collectAsStateWithLifecycle(initialValue = PracticeDisplayPreferences())
+    val customSamples by data.samples.items.collectAsStateWithLifecycle()
     var fullscreen by rememberSaveable { mutableStateOf(false) }
     val view = LocalView.current
     DisposableEffect(view, fullscreen, state.keepsScreenOn, display.keepFullscreenAwake) {
@@ -112,6 +113,7 @@ fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, notificationPermi
                         onAdjustTempo = model::adjustTempo,
                         onBeatAccent = model::cycleBeatAccent,
                         onFullscreen = { fullscreen = true },
+                        onPresets = { page = "Presety" }, customSamples = customSamples,
                     )
                 }
             }
