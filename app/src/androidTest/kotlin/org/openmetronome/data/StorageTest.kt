@@ -20,6 +20,27 @@ import org.openmetronome.audio.*
 /** No Activity, audio, vibrator, or access to the user's production database/preferences. */
 @RunWith(AndroidJUnit4::class)
 class StorageTest {
+    @Test fun newPracticeAndDisplayPreferencesSurviveReopenWithoutEnteringPresets() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val file = File(context.cacheDir, "new-settings-${UUID.randomUUID()}.preferences_pb")
+        val config = MetronomeConfig(tempo = Tempo(121), tempoPercent = TempoPercent.THREE_QUARTERS,
+            tempoChange = TempoChange.NEXT_BEAT, countInBars = 2).withTimeSignature(TimeSignature.SEVEN_EIGHT)
+        suspend fun store(action: suspend (SettingsRepository) -> Unit) {
+            val job = SupervisorJob()
+            val preferences = PreferenceDataStoreFactory.create(scope = CoroutineScope(job + Dispatchers.IO)) { file }
+            try { action(SettingsRepository(preferences)) } finally { job.cancelAndJoin() }
+        }
+        try {
+            store { it.save(config); it.saveDisplay(PracticeDisplayPreferences(true, true)); it.saveStatistics(StatisticsPreferences(30, 10)) }
+            store {
+                assertEquals(config, it.load())
+                assertEquals(PracticeDisplayPreferences(true, true), it.display.first())
+                assertEquals(StatisticsPreferences(30, 10), it.statistics.first())
+            }
+            assertFalse(ConfigCodec.encode(config).contains("awake="))
+            assertFalse(ConfigCodec.encode(config).contains("activeDayMinutes="))
+        } finally { file.delete() }
+    }
     @Test fun allFortyThreeSoundsPersistInSettingsAndPresetsWithoutHardware() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = Room.inMemoryDatabaseBuilder(context, PracticeDatabase::class.java).build()

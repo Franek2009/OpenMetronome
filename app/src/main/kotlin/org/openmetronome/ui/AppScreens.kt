@@ -55,6 +55,7 @@ fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, notificationPermi
     val backupWorking by data.backupWorking.collectAsStateWithLifecycle()
     val recoveryRequired by data.recoveryRequired.collectAsStateWithLifecycle()
     val storageReady by data.storageReady.collectAsStateWithLifecycle()
+    val historyExporting by data.exporting.collectAsStateWithLifecycle()
     val display by data.displayPreferences.collectAsStateWithLifecycle(initialValue = PracticeDisplayPreferences())
     val customSamples by data.samples.items.collectAsStateWithLifecycle()
     var fullscreen by rememberSaveable { mutableStateOf(false) }
@@ -73,7 +74,7 @@ fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, notificationPermi
         }
         onDispose { if (fullscreen) bars?.show(WindowInsetsCompat.Type.systemBars()) }
     }
-    val canStart = storageReady && !sampleWorking && !backupWorking && !recoveryRequired
+    val canStart = storageReady && !sampleWorking && !backupWorking && !recoveryRequired && !historyExporting
     if (fullscreen) {
         FullscreenPractice(state, model::start, model::stop, { fullscreen = false }, canStart, display.reduceMotion)
         return
@@ -83,7 +84,7 @@ fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, notificationPermi
     BackHandler(enabled = page != "Metronom" && report == null) { page = "Metronom" }
     val context = LocalContext.current
     val diagnosticsTitle = stringResource(R.string.diagnostics_title)
-    Scaffold(modifier = Modifier.imePadding(), bottomBar = { PlaybackControls(state, model::start, model::stop, startEnabled = storageReady && !sampleWorking && !backupWorking && !recoveryRequired) }) { padding ->
+    Scaffold(modifier = Modifier.imePadding(), bottomBar = { PlaybackControls(state, model::start, model::stop, startEnabled = canStart) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             AppNavigation(page) { page = it }
             error?.let { message ->
@@ -220,14 +221,35 @@ private fun StatisticsScreen(data: AppData, model: MetronomeViewModel) {
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         if (uri != null) data.exportCsv { checkNotNull(resolver.openOutputStream(uri, "wt")) { "Cannot open document" } }
     }
+    var legacyBackup by rememberSaveable { mutableStateOf(false) }
+    var legacyWarning by rememberSaveable { mutableStateOf(false) }
     val backupExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
-        if (uri != null) data.exportBackup { checkNotNull(resolver.openOutputStream(uri, "wt")) }
+        if (uri != null) {
+            val output = { checkNotNull(resolver.openOutputStream(uri, "wt")) }
+            if (legacyBackup) data.exportLegacyBackup(output) else data.exportBackup(output)
+        }
     }
     var pendingImportPath by rememberSaveable { mutableStateOf<String?>(null) }
     val backupImport = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> pendingImportPath = uri?.toString() }
-    val sessions by data.sessions.collectAsStateWithLifecycle(initialValue = emptyList())
-    val total by data.total.collectAsStateWithLifecycle(initialValue = PracticeTotal(0, 0))
-    val days by data.days.collectAsStateWithLifecycle(initialValue = emptyList())
+    var historyRetry by remember { mutableIntStateOf(0) }
+    val historySource = remember(data, historyRetry) { data.statisticsHistory() }
+    val history by historySource.collectAsStateWithLifecycle(initialValue = StatisticsHistory.Loading)
+    val preferencesSource = remember(data, historyRetry) { data.statisticsPreferences() }
+    val preferenceState by preferencesSource.collectAsStateWithLifecycle(initialValue = null)
+    val preferences = preferenceState?.getOrNull()
+    val today by rememberPracticeDate()
+    val calculation by produceState<Result<PracticeAnalytics>?>(null, history, preferences, today) {
+        value = null
+        val ready = history as? StatisticsHistory.Ready
+        if (ready != null && preferences != null) value = try { Result.success(data.calculateAnalytics(ready.sessions, preferences, today)) }
+            catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (error: Exception) { Result.failure(error) }
+    }
+    val analytics = calculation?.getOrNull()
+    val sessions = (history as? StatisticsHistory.Ready)?.sessions ?: emptyList()
+    var statisticsPage by rememberSaveable { mutableIntStateOf(0) }
+    var thresholdsOpen by rememberSaveable { mutableStateOf(false) }
+    val days = analytics?.days ?: emptyList()
     val weeks = remember(days) { days.groupBy { LocalDate.parse(it.date).with(java.time.temporal.TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)) }
         .mapValues { (_, entries) -> entries.sumOf { it.durationMs } }.toSortedMap(compareByDescending { it }) }
     fun duration(ms: Long): String = when {
@@ -236,17 +258,32 @@ private fun StatisticsScreen(data: AppData, model: MetronomeViewModel) {
         else -> "${ms / 1000} s"
     }
     fun dayCount(value: Int) = if (value == 1) "1 dzień" else "$value dni"
-    val today by rememberPracticeDate()
-    val summary = remember(days, total, today) { PracticeStats.summary(days, total, today) }
+
     var periodName by rememberSaveable { mutableStateOf(StatisticsPeriod.DAYS_7.name) }
     val period = StatisticsPeriod.valueOf(periodName)
     val chart = remember(days, period, today) { PracticeStats.chart(days, period, today) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Statystyki", style = MaterialTheme.typography.headlineMedium)
         DailyPracticeCard(data, today)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("Podsumowanie", "Historia", "Analiza").forEachIndexed { index, label ->
+                FilterChip(statisticsPage == index, { statisticsPage = index }, label = { Text(label) })
+            }
+        }
+        TextButton({ thresholdsOpen = true }, enabled = preferences != null) {
+            Text(preferences?.let { "Progi: sesja ${it.minimumSessionSeconds} s · dzień ${it.activeDayMinutes} min" } ?: "Odczytywanie progów…")
+        }
+        if (history == StatisticsHistory.Unavailable || calculation?.isFailure == true || preferenceState?.isFailure == true) {
+            Text("Nie udało się odczytać lub przeliczyć statystyk. To nie oznacza zerowego czasu.", color = MaterialTheme.colorScheme.error)
+            TextButton({ historyRetry++ }) { Text("Ponów odczyt statystyk") }
+        } else if (analytics == null) Text("Wczytywanie statystyk…")
+        if (analytics != null && statisticsPage == 0) {
+        val summary = analytics.summary
+        val qualifiedTotal = analytics.qualifying.sumOf { it.durationMs }
+        Text("Zaliczony czas dzisiaj: ${duration(analytics.todayMs)} · ${if (today in analytics.activeDates) "dzień aktywny" else "próg dnia jeszcze nieosiągnięty"}")
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            SummaryCard("Łącznie", duration(total.durationMs), Modifier.weight(1f))
-            SummaryCard("Sesje", total.sessions.toString(), Modifier.weight(1f))
+            SummaryCard("Łącznie", duration(qualifiedTotal), Modifier.weight(1f), "Zaliczony czas")
+            SummaryCard("Sesje", analytics.qualifying.size.toString(), Modifier.weight(1f), "Spełniają próg sesji")
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             SummaryCard("Aktualna seria", dayCount(summary.currentStreak), Modifier.weight(1f))
@@ -256,6 +293,10 @@ private fun StatisticsScreen(data: AppData, model: MetronomeViewModel) {
             SummaryCard("Średnia sesja", duration(summary.averageSessionMs), Modifier.weight(1f))
             SummaryCard("Najlepszy dzień", summary.bestDay?.let { duration(it.durationMs) } ?: "—", Modifier.weight(1f),
                 summary.bestDay?.date)
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            SummaryCard("Ten tydzień", duration(analytics.weekMs), Modifier.weight(1f))
+            SummaryCard("Ten miesiąc", duration(analytics.monthMs), Modifier.weight(1f))
         }
         Text("Aktywność", style = MaterialTheme.typography.titleLarge)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -271,35 +312,34 @@ private fun StatisticsScreen(data: AppData, model: MetronomeViewModel) {
                 Text("Od $week", color = MaterialTheme.colorScheme.onSurfaceVariant); Text(duration(value), fontWeight = FontWeight.SemiBold)
             } }
         }
-        Text("Historia — ostatnie 100 sesji", style = MaterialTheme.typography.titleLarge)
-        sessions.forEach { session ->
-            val date = Instant.ofEpochMilli(session.startedAt).atZone(ZoneId.of(session.zoneId)).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
-            Card(Modifier.fillMaxWidth()) { Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) { Text(date, style = MaterialTheme.typography.titleSmall); Text(when {
-                    session.interrupted -> "Przerwana"; session.finished -> "Zakończona"; else -> "W toku"
-                }, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) }
-                Text(duration(session.durationMs), fontWeight = FontWeight.SemiBold)
-            } }
         }
-        if (total.sessions == 0L) Text("Rozpocznij ćwiczenie, aby zapisać pierwszą sesję.")
+        if (analytics != null && statisticsPage == 1) StatisticsHistoryPanel(sessions, analytics.activeDates, today, data::sessionTimeline)
+        if (analytics != null && statisticsPage == 2) PracticeAnalysisPanel(analytics)
+        if (history is StatisticsHistory.Ready && sessions.isEmpty()) Text("Rozpocznij ćwiczenie, aby zapisać pierwszą sesję.")
         HorizontalDivider(Modifier.padding(vertical = 4.dp))
         Text("Dane", style = MaterialTheme.typography.titleLarge)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton({ export.launch("OpenMetronome-sesje-${LocalDate.now()}.csv") }, enabled = !exporting && !backupWorking) {
                 Text(if (exporting) "Zapisywanie…" else "Eksportuj CSV")
             }
-            OutlinedButton({ backupExport.launch("OpenMetronome-${LocalDate.now()}.ombak") }, enabled = backupEnabled) {
+            OutlinedButton({ legacyBackup = false; backupExport.launch("OpenMetronome-${LocalDate.now()}.ombak") }, enabled = backupEnabled) {
                 Text(if (backupWorking) "Przetwarzanie…" else "Kopia zapasowa")
             }
             OutlinedButton({ backupImport.launch(arrayOf("application/octet-stream", "application/zip", "*/*")) }, enabled = backupEnabled) {
                 Text("Przywróć kopię")
             }
         }
+        TextButton({ legacyWarning = true }, enabled = backupEnabled) { Text("Kopia zgodna z 1.0 (v1)") }
         if (!backupEnabled && !backupWorking && !recoveryRequired) Text("Zatrzymaj metronom i poczekaj na zakończenie zapisu oraz innych operacji, aby użyć kopii zapasowej.")
         notice?.let { Text(it) }; backupNotice?.let { Text(it) }
         Text("CSV służy do analizy historii. Kopia .ombak zawiera ustawienia, presety, historię i własne sample.", style = MaterialTheme.typography.bodySmall)
         Text("Planowana cisza jest częścią ćwiczenia. Zapis co 5 s; przy awarii ostatnie sekundy mogą nie zostać zapisane.")
     }
+    if (thresholdsOpen && preferences != null) StatisticsThresholdDialog(preferences, { thresholdsOpen = false }, data::saveStatisticsPreferences)
+    if (legacyWarning) AlertDialog(onDismissRequest = { legacyWarning = false }, title = { Text("Kopia zgodna z 1.0") },
+        text = { Text("Format v1 pomija przebieg konfiguracji, progi i ustawienia ekranu. Aplikacja 1.0 ignoruje procenty i odliczanie. Nowe metra wymagają v2: eksport v1 ich nie zamieni ani nie usunie i zostanie odrzucony. Pełne dane zachowuje zwykła Kopia zapasowa v2.") },
+        confirmButton = { TextButton({ legacyWarning = false; legacyBackup = true; backupExport.launch("OpenMetronome-legacy-${LocalDate.now()}.ombak") }) { Text("Eksportuj v1 z pominięciami") } },
+        dismissButton = { TextButton({ legacyWarning = false }) { Text("Anuluj") } })
     pendingImportPath?.let { path ->
         val uri = path.toUri()
         AlertDialog(onDismissRequest = { pendingImportPath = null }, title = { Text("Przywrócić kopię?") },

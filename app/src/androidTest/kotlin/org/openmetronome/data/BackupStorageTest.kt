@@ -15,6 +15,41 @@ import java.util.UUID
 /** Real file-backed Room, DataStore and sample files; never production storage or playback. */
 @RunWith(AndroidJUnit4::class)
 class BackupStorageTest {
+    @Test fun csvExportBlocksNewPlaybackUntilItsSnapshotHasFinished(): Unit = runBlocking {
+        fixture { data, _ ->
+            val entered = java.util.concurrent.CountDownLatch(1)
+            val release = java.util.concurrent.CountDownLatch(1)
+            try {
+                data.exportCsv { object : ByteArrayOutputStream() {
+                    override fun write(bytes: ByteArray, offset: Int, count: Int) {
+                        entered.countDown(); check(release.await(10, java.util.concurrent.TimeUnit.SECONDS))
+                        super.write(bytes, offset, count)
+                    }
+                } }
+                assertTrue(entered.await(10, java.util.concurrent.TimeUnit.SECONDS))
+                assertFalse(data.reservePlayback())
+            } finally { release.countDown() }
+            data.awaitWrites()
+            assertFalse(data.exporting.value)
+            assertTrue(data.reservePlayback()); data.playbackFinished()
+        }
+    }
+
+    @Test fun oversizedHistoryIsRejectedBeforeLoadingWholePayloadOrOpeningDestination(): Unit = runBlocking {
+        fixture { data, _ ->
+            val config = ConfigCodec.encode(MetronomeConfig())
+            val payload = SessionTimelineCodec.encode(SessionTimeline(true, List(500) { SessionConfiguration(it.toLong(), config) }))
+            val count = BackupArchive.MAX_ARCHIVE_BYTES / payload.toByteArray().size + 2
+            check(count <= 100)
+            data.dao.insertSessions(List(count) { PracticeSession("size-$it", 0, 1000, 1000, true, false, "UTC", config, payload) })
+            assertTrue(data.dao.backupSessionBytes() > BackupArchive.MAX_ARCHIVE_BYTES)
+            var opened = false
+            data.exportBackup { opened = true; ByteArrayOutputStream() }; data.awaitWrites()
+            assertFalse(opened); assertFalse(data.backupWorking.value)
+            assertTrue(data.backupNotice.value!!.startsWith("Nie udało się zapisać"))
+            assertTrue(data.reservePlayback()); data.playbackFinished()
+        }
+    }
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
     private suspend fun <T> fixture(action: suspend (AppData, File) -> T): T {
         val dir = File(context.cacheDir, "backup-test-${UUID.randomUUID()}").also { check(it.mkdirs()) }
@@ -28,8 +63,10 @@ class BackupStorageTest {
         val config = ConfigCodec.encode(MetronomeConfig(tempo = Tempo(bpm), sound = SoundConfig(customSampleId = id)))
         val wav = SamplePcm.encodeCanonical(ShortArray(96).also { it[20] = 1000; it[21] = -1000 })
         return BackupSnapshot(config, listOf(Preset(label, label, config, 1, 2)),
-            listOf(PracticeSession(label, 0, 125000, 125000, true, false, "UTC", config)),
-            listOf(PracticeDay(label, "1970-01-01", 125000)), listOf(CustomSampleRecord(id, label, 3)), mapOf(id to wav))
+            listOf(PracticeSession(label, 0, 125000, 125000, true, false, "UTC", config,
+                SessionTimelineCodec.encode(SessionTimeline(true, listOf(SessionConfiguration(0, config)))))),
+            listOf(PracticeDay(label, "1970-01-01", 125000)), listOf(CustomSampleRecord(id, label, 3)), mapOf(id to wav), AppPreferencesCodec.encode(AppPreferences(PracticeDisplayPreferences(label == "B", label == "B"),
+                if (label == "B") StatisticsPreferences(30, 10) else StatisticsPreferences())))
     }
     private suspend fun imported(data: AppData, value: BackupSnapshot, apply: (MetronomeConfig) -> Unit = {}) {
         data.importBackup({ ByteArrayInputStream(bytes(value)) }, apply)

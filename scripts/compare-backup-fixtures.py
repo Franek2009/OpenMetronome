@@ -18,6 +18,13 @@ def config(value):
     return DEFAULTS | dict(line.split("=", 1) for line in value.splitlines() if line.strip())
 
 
+PREFERENCE_DEFAULTS = dict(version="1", awake="false", reduceMotion="false", minimumSessionSeconds="20", activeDayMinutes="5")
+
+
+def preferences(value):
+    return PREFERENCE_DEFAULTS | dict(line.split("=", 1) for line in value.splitlines() if line.strip())
+
+
 def snapshot(path):
     with zipfile.ZipFile(path) as archive:
         data = io.BytesIO(archive.read("openmetronome.dat"))
@@ -30,7 +37,10 @@ def snapshot(path):
             size = read(">i")
             if not 0 <= size <= 1_000_000:
                 raise ValueError("Invalid string size")
-            return data.read(size).decode("utf-8")
+            value = data.read(size)
+            if len(value) != size:
+                raise ValueError("Truncated string")
+            return value.decode("utf-8")
 
         def rows(item):
             count = read(">i")
@@ -38,24 +48,30 @@ def snapshot(path):
                 raise ValueError("Invalid record count")
             return sorted((item() for _ in range(count)), key=lambda row: json.dumps(row, sort_keys=True))
 
-        if read(">i") != 1:
+        version = read(">i")
+        if version not in (1, 2):
             raise ValueError("Unsupported archive version")
         settings = config(string())
         presets = rows(lambda: [string(), string(), config(string()), read(">q"), read(">q")])
-        sessions = rows(lambda: [string(), read(">q"), read(">q"), read(">q"), read(">?"), read(">?"), string(), config(string())])
+        def session():
+            row = [string(), read(">q"), read(">q"), read(">q"), read(">?"), read(">?"), string(), config(string())]
+            timeline = string() if version >= 2 and read(">?") else None
+            return row + [timeline]
+        sessions = rows(session)
         days = rows(lambda: [string(), string(), read(">q")])
         samples = rows(lambda: [string(), string(), read(">q")])
+        app_preferences = preferences(string()) if version >= 2 and read(">?") else preferences("")
         if data.read() != b"":
             raise ValueError("Trailing metadata")
         files = {name: archive.read(name) for name in archive.namelist() if name != "openmetronome.dat"}
-        return settings, presets, sessions, days, samples, files
+        return settings, presets, sessions, days, samples, files, app_preferences
 
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         raise SystemExit("Usage: compare-backup-fixtures.py expected.ombak actual.ombak")
     expected, actual = map(snapshot, sys.argv[1:])
-    for label, before, after in zip(["settings", "presets", "sessions", "days", "samples", "sample bytes"], expected, actual):
+    for label, before, after in zip(["settings", "presets", "sessions", "days", "samples", "sample bytes", "app preferences"], expected, actual):
         if before != after:
             raise ValueError(f"Upgrade changed {label}")
     print("PASS: settings, presets, complete history, day totals and exact sample bytes survived upgrade.")

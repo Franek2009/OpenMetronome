@@ -12,6 +12,7 @@ class PcmRenderer(
     sampleRate: Int, config: MetronomeConfig, random: Random = Random(System.nanoTime()),
     customSamples: Map<String, ShortArray> = emptyMap(),
     private val trace: PcmTrace? = null,
+    private val onConfiguration: ((Long, MetronomeConfig) -> Unit)? = null,
     private val onPulse: (BeatEvent, Boolean) -> Unit = { _, _ -> },
 ) {
     private val training = TrainingController(sampleRate)
@@ -39,6 +40,7 @@ class PcmRenderer(
     private var tracedMuteFlags = 0
     private var tracedApplied: MetronomeConfig? = null
     private var tracedEffective: MetronomeConfig? = null
+    private var historyConfig: MetronomeConfig? = null
     var renderedFrames: Long = 0
         private set
     val activeConfig: MetronomeConfig get() = withCurrentVolume(scheduler.activeConfig)
@@ -59,6 +61,10 @@ class PcmRenderer(
         for (index in 0 until count) {
             if (renderedFrames == scheduler.nextFrame) {
                 val event = scheduler.nextBeat()
+                if (event.barIndex >= 0 && onConfiguration != null && activeConfig != historyConfig) {
+                    historyConfig = activeConfig
+                    onConfiguration.invoke(event.frame, activeConfig)
+                }
                 rhythm = activeConfig.rhythm
                 val trainingSilent = event.barIndex >= 0 && silence.isSilent(event.barIndex - training.startBar, activeConfig.silence)
                 pulseSilent = trainingSilent || activeConfig.beatAccentAt(event.beatInBar) == ClickAccent.MUTE

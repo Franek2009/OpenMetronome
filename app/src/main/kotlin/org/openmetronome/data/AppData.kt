@@ -27,9 +27,28 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
     suspend fun save(config: MetronomeConfig) { store.edit { it[key] = ConfigCodec.encode(config) } }
     private val awakeKey = booleanPreferencesKey("fullscreen_awake")
     private val motionKey = booleanPreferencesKey("reduce_motion")
+    private val sessionThresholdKey = intPreferencesKey("minimum_session_seconds")
+    private val dayThresholdKey = intPreferencesKey("active_day_minutes")
     val display = store.data.map { PracticeDisplayPreferences(it[awakeKey] ?: false, it[motionKey] ?: false) }
+    val statistics = store.data.map { StatisticsPreferences(it[sessionThresholdKey] ?: 20, it[dayThresholdKey] ?: 5) }
     suspend fun saveDisplay(value: PracticeDisplayPreferences) {
         store.edit { it[awakeKey] = value.keepFullscreenAwake; it[motionKey] = value.reduceMotion }
+    }
+    suspend fun saveStatistics(value: StatisticsPreferences) {
+        store.edit { it[sessionThresholdKey] = value.minimumSessionSeconds; it[dayThresholdKey] = value.activeDayMinutes }
+    }
+    suspend fun preferencesSnapshot(): String {
+        val prefs = store.data.first()
+        return AppPreferencesCodec.encode(AppPreferences(PracticeDisplayPreferences(prefs[awakeKey] ?: false, prefs[motionKey] ?: false),
+            StatisticsPreferences(prefs[sessionThresholdKey] ?: 20, prefs[dayThresholdKey] ?: 5)))
+    }
+    suspend fun restorePreferences(payload: String?) {
+        if (payload == null) return // Old archives have no new display/statistics choices.
+        val value = AppPreferencesCodec.decode(payload)
+        store.edit {
+            it[awakeKey] = value.display.keepFullscreenAwake; it[motionKey] = value.display.reduceMotion
+            it[sessionThresholdKey] = value.statistics.minimumSessionSeconds; it[dayThresholdKey] = value.statistics.activeDayMinutes
+        }
     }
 }
 
@@ -56,7 +75,7 @@ class AppData private constructor(
         if ((storageReady.value && !backupWorking.value && !recoveryRequired.value) || applyingBackup.get() == true) action()
     }
     fun reservePlayback(): Boolean = synchronized(admission) {
-        if (!storageReady.value || backupWorking.value || recoveryRequired.value || sampleWorking.value || playbackBusy.value) false
+        if (!storageReady.value || backupWorking.value || exporting.value || recoveryRequired.value || sampleWorking.value || playbackBusy.value) false
         else { playbackBusy.value = true; true }
     }
     fun playbackFinished() = synchronized(admission) { playbackBusy.value = false }
@@ -93,10 +112,10 @@ class AppData private constructor(
     val settings = if (isolatedTestStorage) SettingsRepository(PreferenceDataStoreFactory.create(scope = scope) { settingsFile })
         else SettingsRepository(context.applicationContext)
     val database = if (testDirectory != null) Room.databaseBuilder(context, PracticeDatabase::class.java,
-        File(testDirectory, "practice.db").absolutePath).addMigrations(PracticeDatabase.MIGRATION_1_2).build()
+        File(testDirectory, "practice.db").absolutePath).addMigrations(PracticeDatabase.MIGRATION_1_2, PracticeDatabase.MIGRATION_2_3).build()
         else if (isolatedTestStorage) Room.inMemoryDatabaseBuilder(context.applicationContext, PracticeDatabase::class.java).build()
         else Room.databaseBuilder(context.applicationContext, PracticeDatabase::class.java, "openmetronome.db")
-            .addMigrations(PracticeDatabase.MIGRATION_1_2).build()
+            .addMigrations(PracticeDatabase.MIGRATION_1_2, PracticeDatabase.MIGRATION_2_3).build()
     private val sampleDirectory = if (isolatedTestStorage)
         if (testDirectory != null) File(testDirectory, "samples") else File(context.cacheDir, "sample-library-${UUID.randomUUID()}")
         else File(context.filesDir, "custom-samples")
@@ -141,9 +160,30 @@ class AppData private constructor(
         ready.await()
         emitAll(dao.durationOn(date.toString()))
     })
+    fun statisticsHistory(): Flow<StatisticsHistory> = flow {
+        emit(StatisticsHistory.Loading)
+        ready.await()
+        emitAll(dao.statisticsSessions().map<List<PracticeSession>, StatisticsHistory> { StatisticsHistory.Ready(it) })
+    }.catch { error -> if (error is CancellationException) throw error else emit(StatisticsHistory.Unavailable) }
+    suspend fun calculateAnalytics(sessions: List<PracticeSession>, preferences: StatisticsPreferences, today: java.time.LocalDate): PracticeAnalytics = withContext(Dispatchers.IO) {
+        val owner = currentCoroutineContext()
+        PracticeAnalyticsCalculator.calculate(sessions, preferences, today) { session ->
+            owner.ensureActive()
+            dao.timelineForStatistics(session.id, session.durationMs, session.checkpointAt)?.let {
+                runCatching { SessionTimelineCodec.decode(it, session.durationMs) }.getOrNull()
+            }
+        }
+    }
+    suspend fun sessionTimeline(session: PracticeSession): String? = withContext(Dispatchers.IO) {
+        dao.timelineForStatistics(session.id, session.durationMs, session.checkpointAt)
+    }
     val total = dao.total().catch { error.value = "Nie udało się odczytać statystyk"; emit(PracticeTotal(0, 0)) }
     val displayPreferences = settings.display.catch { error.value = "Nie udało się odczytać ustawień ekranu"; emit(PracticeDisplayPreferences()) }
+    fun statisticsPreferences(): Flow<Result<StatisticsPreferences>?> = settings.statistics
+        .map<StatisticsPreferences, Result<StatisticsPreferences>?> { Result.success(it) }
+        .catch { error -> if (error is CancellationException) throw error else emit(Result.failure(error)) }
     fun saveDisplayPreferences(value: PracticeDisplayPreferences) = operation { settings.saveDisplay(value) }
+    fun saveStatisticsPreferences(value: StatisticsPreferences) = operation { settings.saveStatistics(value) }
     init {
         scope.launch {
             for (action in actions) {
@@ -238,8 +278,11 @@ class AppData private constructor(
                 try {
                     ready.await()
                     retrySessionWrites()
-                    val snapshot = dao.sessionsForExport()
-                    openOutput().bufferedWriter(Charsets.UTF_8).use { SessionCsv.write(snapshot, it) }
+                    val snapshot = dao.csvSessions()
+                    openOutput().bufferedWriter(Charsets.UTF_8).use { writer ->
+                        SessionCsv.write(snapshot.asSequence().map { session -> session.copy(
+                            timeline = dao.timelineForStatistics(session.id, session.durationMs, session.checkpointAt)) }, writer)
+                    }
                     exportNotice.value = "Zapisano CSV. Liczba sesji: ${snapshot.size}."
                 } catch (cancelled: CancellationException) {
                     throw cancelled
@@ -283,17 +326,22 @@ class AppData private constructor(
     }
 
     private suspend fun snapshot(access: CustomSampleRepository.BackupAccess): BackupSnapshot {
+        require(dao.backupSessionBytes() <= BackupArchive.MAX_ARCHIVE_BYTES) { "Backup history exceeds archive limit" }
         val records = dao.allSamples()
         return BackupSnapshot(ConfigCodec.encode(settings.load()), dao.allPresets(), dao.sessionsForExport(),
-            dao.allPracticeDays(), records, access.files(records))
+            dao.allPracticeDays(), records, access.files(records), settings.preferencesSnapshot())
     }
 
-    fun exportBackup(openOutput: () -> OutputStream) = backup("Nie udało się zapisać kopii zapasowej. Plik może być niepełny; dane aplikacji nie zostały zmienione.") {
+    fun exportBackup(openOutput: () -> OutputStream) = exportBackupVersion(false, openOutput)
+    fun exportLegacyBackup(openOutput: () -> OutputStream) = exportBackupVersion(true, openOutput)
+    private fun exportBackupVersion(legacy: Boolean, openOutput: () -> OutputStream) = backup("Nie udało się zapisać kopii zapasowej. Plik może być niepełny; dane aplikacji nie zostały zmienione.") {
         try {
             samples.backup {
                 val snapshot = database.withTransaction { snapshot(this) }
                 // Prepare and validate before touching the user's destination document.
-                val bytes = java.io.ByteArrayOutputStream().also { BackupArchive.write(snapshot, it) }.toByteArray()
+                val bytes = java.io.ByteArrayOutputStream().also {
+                    if (legacy) BackupArchive.writeLegacy(snapshot, it) else BackupArchive.write(snapshot, it)
+                }.toByteArray()
                 openOutput().use { it.write(bytes) }
             }
             backupNotice.value = "Kopia zapasowa została zapisana."
@@ -324,6 +372,7 @@ class AppData private constructor(
                                 restoreCheckpoint(RestoreCheckpoint.DATABASE_CHANGED)
                                 backupFault(BackupStage.SETTINGS)
                                 settings.save(config)
+                                settings.restorePreferences(incoming.preferences)
                                 restoreCheckpoint(RestoreCheckpoint.SETTINGS_WRITTEN)
                                 applyConfiguration(config, applied)
                             }
@@ -332,6 +381,7 @@ class AppData private constructor(
                             try {
                                 backupFault(BackupStage.ROLLBACK_SETTINGS)
                                 settings.save(oldConfig)
+                                settings.restorePreferences(previous.preferences)
                                 applyConfiguration(oldConfig, applied)
                             } catch (rollback: Exception) {
                                 error.addSuppressed(rollback)
@@ -383,6 +433,7 @@ class AppData private constructor(
                 database.withTransaction {
                     replaceRows(pending.snapshot)
                     settings.save(ConfigCodec.decode(pending.snapshot.settings))
+                    settings.restorePreferences(pending.snapshot.preferences)
                     restoreCheckpoint(RestoreCheckpoint.RECOVERY_DATABASE_CHANGED)
                 }
             }

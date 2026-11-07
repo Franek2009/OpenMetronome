@@ -67,28 +67,23 @@ fun MetronomeScreen(
             val layout = InstrumentLayout.choose(maxWidth.value, windowHeightDp)
             val tablet = layout.tablet
             val short = layout == InstrumentLayout.PHONE_WIDE
+            val compactInstrument = short || (!tablet && maxHeight < 600.dp)
             val instrument: @Composable ColumnScope.() -> Unit = {
                 onFullscreen?.let { TextButton(it, Modifier.align(Alignment.End)) { Text("Pełny ekran") } }
-                PulseLamps(state, onBeatAccent, if (tablet) 72.dp else if (short) 32.dp else 44.dp,
-                    short || layout == InstrumentLayout.TABLET_LANDSCAPE)
+                PulseLamps(state, onBeatAccent, if (tablet) 72.dp else if (compactInstrument) 32.dp else 44.dp,
+                    compactInstrument || layout == InstrumentLayout.TABLET_LANDSCAPE)
                 TempoPanel(config, onTempoChange, onIncreaseTempo, onDecreaseTempo, onAdjustTempo, onTapTempo,
-                    large = tablet, short = short, hideHint = layout == InstrumentLayout.TABLET_LANDSCAPE,
-                    onEditTempo = { tempoEditorOpen = true })
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    org.openmetronome.domain.model.TempoPercent.entries.forEach { factor ->
-                        FilterChip(config.tempoPercent == factor, { onConfigChange(config.copy(tempoPercent = factor)) },
-                            modifier = Modifier.sizeIn(minHeight = 48.dp), label = { Text("${factor.percent}%") })
-                    }
-                }
-                Text("Baza ${config.tempo.bpm} BPM × ${config.tempoPercent.percent}% = ${config.effectiveBpmLabel} BPM",
-                    style = MaterialTheme.typography.bodySmall)
+                    large = tablet, short = compactInstrument, hideHint = layout == InstrumentLayout.TABLET_LANDSCAPE,
+                    onEditTempo = { tempoEditorOpen = true },
+                    displayed = state.audio.activeConfig.takeIf { state.keepsScreenOn } ?: config,
+                    onPercent = { onConfigChange(config.copy(tempoPercent = it)) })
             }
             val rhythm: @Composable ColumnScope.() -> Unit = {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton({ soundsOpen = true }) { Text("Brzmienie") }
                     onPresets?.let { OutlinedButton(it) { Text("Moje presety") } }
                 }
-                if (short) OutlinedButton(onTapTempo, Modifier.fillMaxWidth().sizeIn(minHeight = 48.dp)) {
+                if (compactInstrument) OutlinedButton(onTapTempo, Modifier.fillMaxWidth().sizeIn(minHeight = 48.dp)) {
                     Text(stringResource(R.string.tap_tempo))
                 }
                 Text(stringResource(R.string.time_signature_title), style = MaterialTheme.typography.titleMedium)
@@ -229,9 +224,13 @@ private fun PulseLamps(state: MetronomeState, onCycle: (Int) -> Unit, lampSize: 
 @Composable
 private fun TempoPanel(config: MetronomeConfig, onTempo: (Int) -> Unit, onIncrease: () -> Unit,
     onDecrease: () -> Unit, onAdjust: (Int) -> Unit, onTap: () -> Unit, large: Boolean, short: Boolean,
-    hideHint: Boolean, onEditTempo: () -> Unit) {
+    hideHint: Boolean, onEditTempo: () -> Unit, displayed: MetronomeConfig = config,
+    onPercent: (org.openmetronome.domain.model.TempoPercent) -> Unit) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
     val expandedControls = large && maxWidth >= 480.dp
+    val numericSize = minOf(if (expandedControls) 128f else if (large) 80f else if (short) 56f else 72f,
+        (maxWidth.value - (if (expandedControls) 160 else 104) - 24).coerceAtLeast(60f) /
+            (displayed.effectiveBpmLabel.length * .62f * androidx.compose.ui.platform.LocalDensity.current.fontScale)).coerceAtLeast(20f).sp
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Column {
@@ -239,9 +238,9 @@ private fun TempoPanel(config: MetronomeConfig, onTempo: (Int) -> Unit, onIncrea
             TempoStep("−5", "Zmniejsz tempo o 5 BPM", config.tempo.bpm > 20, expandedControls) { onAdjust(-5) }
         }
         Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-            val description = if (config.tempoPercent == org.openmetronome.domain.model.TempoPercent.FULL)
-                stringResource(R.string.tempo_value, config.tempo.bpm) else "Tempo wynikowe ${config.effectiveBpmLabel} BPM"
-            Text(config.effectiveBpmLabel, fontSize = if (expandedControls) 128.sp else if (large) 80.sp else if (short) 56.sp else 72.sp, fontWeight = FontWeight.Light,
+            val description = if (displayed.tempoPercent == org.openmetronome.domain.model.TempoPercent.FULL)
+                stringResource(R.string.tempo_value, displayed.tempo.bpm) else "Tempo wynikowe ${displayed.effectiveBpmLabel} BPM"
+            Text(displayed.effectiveBpmLabel, fontSize = numericSize, maxLines = 1, softWrap = false, fontWeight = FontWeight.Light,
                 textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().sizeIn(minHeight = 80.dp)
                     .clickable(role = Role.Button, onClick = onEditTempo)
                     .semantics { contentDescription = description })
@@ -254,6 +253,14 @@ private fun TempoPanel(config: MetronomeConfig, onTempo: (Int) -> Unit, onIncrea
         }
     }
     }
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        org.openmetronome.domain.model.TempoPercent.entries.forEach { factor ->
+            FilterChip(config.tempoPercent == factor, { onPercent(factor) }, modifier = Modifier.sizeIn(minHeight = 48.dp),
+                label = { Text("${factor.percent}%") })
+        }
+    }
+    Text("Baza ${config.tempo.bpm} BPM × ${config.tempoPercent.percent}% = ${config.effectiveBpmLabel} BPM",
+        style = MaterialTheme.typography.bodySmall)
     val sliderLabel = stringResource(R.string.tempo_slider)
     Slider(config.tempo.bpm.toFloat(), { onTempo(it.roundToInt().coerceIn(20, 300)) }, valueRange = 20f..300f,
         steps = 279, modifier = Modifier.fillMaxWidth().semantics { contentDescription = sliderLabel })
@@ -269,7 +276,7 @@ private fun TempoEditorDialog(initialBpm: Int, onConfirm: (Int) -> Unit, onDismi
         val bpm = draft.toIntOrNull()?.takeIf { it in 20..300 }
         AlertDialog(onDismissRequest = onDismiss, title = { Text("Ustaw tempo") }, text = {
             OutlinedTextField(draft, { if (it.length <= 4 && it.all(Char::isDigit)) draft = it },
-                label = { Text("BPM (20–300)") }, isError = bpm == null, singleLine = true,
+                label = { Text("Bazowe BPM (20–300)") }, isError = bpm == null, singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
         }, confirmButton = { TextButton({ bpm?.let(onConfirm) }, enabled = bpm != null) { Text("Zastosuj") } },
             dismissButton = { TextButton(onDismiss) { Text("Anuluj") } })

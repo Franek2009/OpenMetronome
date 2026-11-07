@@ -1,6 +1,9 @@
 package org.openmetronome.ui
 
 import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import org.junit.Assert.*
@@ -16,6 +19,19 @@ import org.openmetronome.ui.theme.OpenMetronomeTheme
 class FullscreenPracticeTest {
     private val compose = createComposeRule()
     @get:Rule val rules: RuleChain = RuleChain.outerRule(AudioPermissionRule()).around(UnlockedScreenRule()).around(compose)
+
+    @Test fun percentagesAndStopFitSmallPracticeWindowWithoutScrolling() {
+        val state = mutableStateOf(MetronomeState(MetronomeConfig(tempo = Tempo(121))))
+        compose.setContent { OpenMetronomeTheme {
+            Box(Modifier.requiredSize(360.dp, 520.dp)) {
+                MetronomeScreen(state.value, {}, {}, {}, {}, {}, {},
+                    onConfigChange = { state.value = state.value.copy(config = it) }, onFullscreen = {})
+            }
+        } }
+        compose.onNodeWithText("75%").assertIsDisplayed().performClick()
+        compose.onNodeWithContentDescription("Tempo wynikowe 90.75 BPM").assertIsDisplayed()
+        compose.onNodeWithText("Start").assertIsDisplayed()
+    }
 
     @Test fun lockingKeepsStopAvailableAndDoesNotRestartTheSession() {
         val config = MetronomeConfig(tempo = Tempo(121), tempoPercent = TempoPercent.THREE_QUARTERS)

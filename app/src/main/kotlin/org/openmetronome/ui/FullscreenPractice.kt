@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -31,7 +32,8 @@ internal fun FullscreenPractice(state: MetronomeState, onStart: () -> Unit, onSt
         PlaybackControls(state, onStart, onStop, startEnabled && !locked)
     }) { padding ->
         BoxWithConstraints(Modifier.fillMaxSize().padding(padding).safeDrawingPadding()) {
-            val bpmSize = minOf(maxWidth.value * .38f, maxHeight.value * .27f, 180f).coerceAtLeast(40f).sp
+            val bpmSize = minOf(maxWidth.value * .38f, maxHeight.value * .27f, 180f,
+                (maxWidth.value - 32).coerceAtLeast(80f) / (config.effectiveBpmLabel.length * .62f * LocalDensity.current.fontScale)).coerceAtLeast(24f).sp
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically)) {
@@ -42,6 +44,7 @@ internal fun FullscreenPractice(state: MetronomeState, onStart: () -> Unit, onSt
                 Text(config.effectiveBpmLabel,
                     fontSize = bpmSize,
                     fontWeight = FontWeight.Light,
+                    maxLines = 1, softWrap = false,
                     modifier = Modifier.semantics { contentDescription = "Tempo pełnego ekranu: ${config.effectiveBpmLabel} BPM" })
                 Text("BPM · baza ${config.tempo.bpm} × ${config.tempoPercent.percent}%",
                     style = MaterialTheme.typography.titleMedium)
