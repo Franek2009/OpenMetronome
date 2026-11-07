@@ -4,6 +4,7 @@ import java.math.BigInteger
 import org.openmetronome.domain.model.MetronomeConfig
 import org.openmetronome.domain.model.Tempo
 import org.openmetronome.domain.model.ClickAccent
+import org.openmetronome.domain.model.TempoChange
 
 data class BeatEvent(
     val frame: Long,
@@ -37,12 +38,22 @@ class BeatScheduler(
         if (beat == 0) {
             appliedConfig = requestedConfig
             activeConfig = configAtBar(nextFrame, bar, requestedConfig)
+        } else if (requestedConfig.tempoChange == TempoChange.NEXT_BEAT) {
+            // The next emitted pulse keeps its existing frame. Only its following
+            // interval changes; rendered/queued samples are never rewritten.
+            appliedConfig = appliedConfig.copy(tempo = requestedConfig.tempo,
+                tempoPercent = requestedConfig.tempoPercent, tempoChange = requestedConfig.tempoChange,
+                ramp = if (!requestedConfig.ramp.enabled) requestedConfig.ramp else appliedConfig.ramp)
+            activeConfig = activeConfig.copy(tempo = if (!requestedConfig.ramp.enabled) requestedConfig.tempo else activeConfig.tempo,
+                tempoPercent = requestedConfig.tempoPercent, tempoChange = requestedConfig.tempoChange,
+                ramp = appliedConfig.ramp)
         }
         val event = BeatEvent(nextFrame, bar, beat, activeConfig.beatAccentAt(beat) == ClickAccent.ACCENT)
         // Every permitted BPM divides this common denominator. Keeping the same units
         // across tempo changes preserves the fractional phase, without floating-point drift.
-        interval = FRAME_DENOMINATOR.divide(BigInteger.valueOf(activeConfig.tempo.bpm.toLong()))
-            .multiply(BigInteger.valueOf(sampleRate.toLong() * 60))
+        val factor = activeConfig.tempoPercent
+        interval = FRAME_DENOMINATOR.divide(BigInteger.valueOf(activeConfig.tempo.bpm.toLong() * factor.numerator))
+            .multiply(BigInteger.valueOf(sampleRate.toLong() * 60 * factor.denominator))
         position = position.add(interval)
         val wholeFrames = position.divide(FRAME_DENOMINATOR)
         // BigInteger.longValueExact is only available from Android API 31.
@@ -72,6 +83,6 @@ class BeatScheduler(
             .fold(BigInteger.ONE) { lcm, bpm ->
                 val divisor = BigInteger.valueOf(bpm.toLong())
                 lcm.divide(lcm.gcd(divisor)).multiply(divisor)
-            }
+            }.multiply(BigInteger.valueOf(3)) // 75% can introduce an additional factor of three.
     }
 }

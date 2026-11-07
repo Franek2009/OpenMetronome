@@ -54,7 +54,7 @@ open class MetronomeService : Service() {
     private lateinit var recorder: SessionRecorder
     private var finishing: Job? = null
     private var playRequest: Job? = null
-    private var notificationTempo: Int? = null
+    private var notificationTempo: String? = null
     private val requests = StartRequestGate()
     private var renewWakeAt = 0L
 
@@ -108,7 +108,7 @@ open class MetronomeService : Service() {
                     media.isActive = true
                     media.setPlaybackState(PlaybackState.Builder().setActions(PlaybackState.ACTION_STOP or PlaybackState.ACTION_PAUSE)
                         .setState(PlaybackState.STATE_PLAYING, PlaybackState.PLAYBACK_POSITION_UNKNOWN, 1f).build())
-                    val tempo = state.audio.activeConfig?.tempo?.bpm ?: state.config.tempo.bpm
+                    val tempo = (state.audio.activeConfig ?: state.config).effectiveBpmLabel
                     if (notificationTempo != tempo) {
                         getSystemService(NotificationManager::class.java).notify(ID, notification(state))
                         notificationTempo = tempo
@@ -156,7 +156,7 @@ open class MetronomeService : Service() {
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val stop = PendingIntent.getService(this, 1, Intent(this, MetronomeService::class.java).setAction(STOP), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         return Notification.Builder(this, CHANNEL).setSmallIcon(android.R.drawable.ic_media_play)
-            .setContentTitle("OpenMetronome").setContentText("${state.audio.activeConfig?.tempo?.bpm ?: state.config.tempo.bpm} BPM · Stop, aby zakończyć")
+            .setContentTitle("OpenMetronome").setContentText("${(state.audio.activeConfig ?: state.config).effectiveBpmLabel} BPM · Stop, aby zakończyć")
             .setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true)
             .addAction(Notification.Action.Builder(null, "Stop", stop).build())
             .setStyle(Notification.MediaStyle().setMediaSession(media.sessionToken).setShowActionsInCompactView(0)).build()

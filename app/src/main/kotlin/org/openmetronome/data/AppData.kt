@@ -25,6 +25,12 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
     private val key = stringPreferencesKey("configuration_v1")
     suspend fun load(): MetronomeConfig = store.data.first()[key]?.let(ConfigCodec::decode) ?: MetronomeConfig()
     suspend fun save(config: MetronomeConfig) { store.edit { it[key] = ConfigCodec.encode(config) } }
+    private val awakeKey = booleanPreferencesKey("fullscreen_awake")
+    private val motionKey = booleanPreferencesKey("reduce_motion")
+    val display = store.data.map { PracticeDisplayPreferences(it[awakeKey] ?: false, it[motionKey] ?: false) }
+    suspend fun saveDisplay(value: PracticeDisplayPreferences) {
+        store.edit { it[awakeKey] = value.keepFullscreenAwake; it[motionKey] = value.reduceMotion }
+    }
 }
 
 /** Process-scoped repositories; service and UI share storage, never an audio worker. */
@@ -136,6 +142,8 @@ class AppData private constructor(
         emitAll(dao.durationOn(date.toString()))
     })
     val total = dao.total().catch { error.value = "Nie udało się odczytać statystyk"; emit(PracticeTotal(0, 0)) }
+    val displayPreferences = settings.display.catch { error.value = "Nie udało się odczytać ustawień ekranu"; emit(PracticeDisplayPreferences()) }
+    fun saveDisplayPreferences(value: PracticeDisplayPreferences) = operation { settings.saveDisplay(value) }
     init {
         scope.launch {
             for (action in actions) {

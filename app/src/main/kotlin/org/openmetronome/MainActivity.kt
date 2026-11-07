@@ -47,12 +47,6 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT))
         setContent {
             OpenMetronomeTheme {
-                val state by model.state.collectAsStateWithLifecycle()
-                DisposableEffect(state.keepsScreenOn) {
-                    if (state.keepsScreenOn) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                    else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                    onDispose { window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
-                }
                 OpenMetronomeApp(model, (application as OpenMetronomeApplication).data,
                     notificationPermission = if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
                         { { notifications.launch(Manifest.permission.POST_NOTIFICATIONS) } } else null,

@@ -13,7 +13,10 @@ data class MetronomeConfig(
     val rhythm: RhythmConfig = RhythmConfig(),
     val sound: SoundConfig = SoundConfig(),
     val beatAccents: List<ClickAccent> = emptyList(),
+    val tempoPercent: TempoPercent = TempoPercent.FULL,
+    val tempoChange: TempoChange = TempoChange.NEXT_BAR,
 ) {
+    val effectiveBpmLabel: String get() = tempoPercent.display(tempo.bpm)
     init { require(beatAccents.isEmpty() || beatAccents.size == timeSignature.pulsesPerBar) }
 
     fun beatAccentAt(beat: Int): ClickAccent {
