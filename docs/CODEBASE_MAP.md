@@ -1,6 +1,6 @@
 # Mapa kodu OpenMetronome
 
-Mapa wejść do kodu linii 1.1 beta; przed zmianą sprawdź wskazaną implementację.
+Mapa wejść do kodu linii 1.1; przed zmianą sprawdź wskazaną implementację.
 Nie zastępuje wyników testów ani aktualnego stanu wydania.
 
 | Obszar | Najważniejsze miejsca i granice |
@@ -14,7 +14,7 @@ Nie zastępuje wyników testów ani aktualnego stanu wydania.
 | Dane przenośne | `data/BackupArchive.kt`: v2, import v1 i eksport zgodny v1. `SessionCsv.kt`: eksport analityczny. Zmiana Room nie oznacza automatycznie zmiany archiwum. [Format i zgodność](STATISTICS-2.md). |
 | DEV | `app/src/dev/kotlin/org/openmetronome/diagnostics/`: ograniczony bufor, TraceSessionStore, TraceJournal, TraceReports i fabryka. Implementacja magazynu nie należy do PROD. Pełna rejestracja wyłączona w beta. [Zakres i wyniki](V1.1-DEV-INTEGRATION-VALIDATION.md). |
 | Warianty/podpis | `app/build.gradle.kts`: prod/dev × debug/release, pakiety i oddzielne klucze. `scripts/package-release.sh` rozpoznaje DEV wyłącznie przez jawne `--dev`, metadane i certyfikat. [Konfiguracja](BUILD-VARIANTS.md). |
-| CI/wydanie | `.github/workflows/android.yml`: JVM/Lint/PCM/buildy, ciche API26/35, izolacja i aktualizacje testowe. `release.yml`: podpisanie PROD, opcjonalnie DEV (`include_dev`), zawsze draft; `scripts/create-release-draft.sh` sprawdza sumy i dobiera pliki/status. `dev-qualification.yml`: oddzielna ścisła kwalifikacja nieaktywnego rejestratora. |
+| CI/wydanie | `.github/workflows/android.yml` i `scripts/ci-policy.py`: docs/full, lokalne linki i stała bramka CI result; full obejmuje JVM/Lint/PCM/buildy, ciche API26/35, izolację i aktualizacje. [Polityka](CI.md). `release.yml`: podpisanie PROD, opcjonalnie DEV (`include_dev`), zawsze draft; `scripts/create-release-draft.sh` sprawdza sumy i dobiera pliki/status. `dev-qualification.yml`: oddzielna ścisła kwalifikacja nieaktywnego rejestratora. |
 
 ## Weryfikacja zależna od zmiany
 
@@ -22,7 +22,7 @@ Nie zastępuje wyników testów ani aktualnego stanu wydania.
 - UI, Room, recovery i izolacja: `app/src/androidTest/` oraz `androidTestDev/`,
   zawsze na izolowanych danych. `OpenMetronomeTestRunner` blokuje audio/wibracje.
 - PCM offline: `scripts/analyze-click-bank.py`; nigdy nie oznacza fizycznego pomiaru audio.
-- Pełna regresja: CI dokładnego HEAD przed scaleniem oraz końcowego main przed tagiem.
+- Zakres CI: zamknięta lista Markdown daje docs; aplikacja/skrypty/workflow i nieznane zmiany dają full. Ręczne uruchomienie zawsze full. Przed tagiem pełna regresja dokładnego main; zielone docs nie zastępuje tego wyniku. [Procedura](CI.md).
 - Regresja wydania jawnie wyklucza oznaczony benchmark DEV; nie zalicza go jako PASS.
   Osobne `scripts/qualify-dev-emulator.sh` zachowuje budżet +10% i kończy się błędem przy FAIL.
 - Oryginalne podpisane APK: `scripts/verify-upgrade.sh --official` / `--official-beta` / `--official-dev`,
