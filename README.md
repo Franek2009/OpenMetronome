@@ -1,159 +1,134 @@
 # OpenMetronome
 
-> **Przygotowywane 1.1.0 (versionCode 20) nie jest jeszcze opublikowane.**
-> Zbiera funkcje beta.1, trzy zaakceptowane barwy Naturalny / Suchy /
-> Naturalny niski oraz krótsze podpisy w interfejsie, bez redesignu.
-> [Stan walidacji i bramki publikacji](docs/V1.1-RELEASE-VALIDATION.md)
-> · [pochodzenie brzmień](assets/samples/PROVENANCE.md).
-> Planowane wydanie dotyczy zwykłej aplikacji; DEV jest narzędziem diagnostycznym.
-> Pełna rejestracja DEV pozostaje wyłączona po niezaliczonej kwalifikacji.
-
-Metronom na Androida dla muzyków, którzy chcą ćwiczyć nie tylko tempo,
-ale też własne poczucie pulsu. Darmowy, otwartoźródłowy i całkowicie offline.
-Bez reklam, subskrypcji, kont i Google Play Services.
+Metronom na Androida dla muzyków, którzy chcą ćwiczyć tempo i własne poczucie
+pulsu. Darmowy, otwartoźródłowy i całkowicie offline. Bez reklam, subskrypcji,
+kont i Google Play Services.
 
 ## Pobierz i zacznij ćwiczyć
 
-**Nowość do testów: 1.1.0-beta.1 — Prerelease, nie wydanie stabilne.**
+**OpenMetronome 1.1.0 — wydanie stabilne, versionCode 20.**
 
-- [Pobierz zwykły APK — beta](https://github.com/Franek2009/OpenMetronome/releases/download/v1.1.0-beta.1/OpenMetronome-1.1.0-beta.1.apk) — aktualizacja oficjalnego 1.0.0.
-- [Pobierz APK DEV — beta](https://github.com/Franek2009/OpenMetronome/releases/download/v1.1.0-beta.1/OpenMetronome-DEV-1.1.0-beta.1.apk) — osobna aplikacja, dane i ikona DEV.
+### [Pobierz APK 1.1.0](https://github.com/Franek2009/OpenMetronome/releases/download/v1.1.0/OpenMetronome-1.1.0.apk)
 
-[Opis beta i wyniki testów](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.1.0-beta.1)
-· [Sumy SHA-256](https://github.com/Franek2009/OpenMetronome/releases/download/v1.1.0-beta.1/SHA256SUMS)
-· [Certyfikat PROD](https://github.com/Franek2009/OpenMetronome/releases/download/v1.1.0-beta.1/SIGNING-CERT-SHA256.txt)
-· [Certyfikat DEV](https://github.com/Franek2009/OpenMetronome/releases/download/v1.1.0-beta.1/DEV-SIGNING-CERT-SHA256.txt)
+[Opis wydania i wyniki testów](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.1.0)
+· [Sumy SHA-256](https://github.com/Franek2009/OpenMetronome/releases/download/v1.1.0/SHA256SUMS)
+· [Fingerprint certyfikatu](https://github.com/Franek2009/OpenMetronome/releases/download/v1.1.0/SIGNING-CERT-SHA256.txt)
 
-**Najnowsze stabilne wydanie pozostaje 1.0.0:**
-[pobierz APK stabilny](https://github.com/Franek2009/OpenMetronome/releases/download/v1.0.0/OpenMetronome-1.0.0.apk)
-· [opis](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.0.0)
-· [sumy](https://github.com/Franek2009/OpenMetronome/releases/download/v1.0.0/SHA256SUMS).
-Jego APK i tag nie zostały zmienione.
+Wymagany Android **8.0 lub nowszy**. Interfejs jest po polsku; obsługuje
+telefony i tablety w pionie oraz poziomie.
 
-Beta dodaje pełny ekran, procenty tempa, odliczanie, nowe metra i Statystyki 2.0
-z całym czasem ćwiczeń dzisiaj. **Pełna rejestracja sesji DEV jest wyłączona**:
-nie zaliczyła kwalifikacji narzutu API26. DEV ma zwykłe funkcje, własną historię
-oraz przygotowaną obsługę istniejących raportów ZIP. Nie obiecujemy raportu nowej sesji.
-[Zakres ćwiczenia](docs/PRACTICE-1.1.md) · [Statystyki i kopie](docs/STATISTICS-2.md) ·
-[Stan DEV](docs/DEV-DIAGNOSTICS.md) · [Odbiór beta](docs/V1.1-BETA1-VALIDATION.md).
+1. Pobierz APK i otwórz plik. Jeżeli Android poprosi, zezwól przeglądarce
+   lub menedżerowi plików na instalowanie aplikacji z tego źródła.
+2. Zainstaluj aplikację na istniejącej oficjalnej wersji, bez odinstalowywania.
+3. Ustaw tempo i naciśnij **Start**.
 
-Wymagany Android **8.0 lub nowszy**. Aplikacja obsługuje telefony i tablety
-w pionie i poziomie. Interfejs jest po polsku.
+Zachowujemy pakiet `org.openmetronome` i dotychczasowy podpis.
+**APK debug lub z innych źródeł mogą mieć inny certyfikat.** Jeśli Android
+odrzuca aktualizację, nie usuwaj aplikacji ani jej danych w celu obejścia
+niezgodności — [podpis i aktualizacje](docs/RELEASING.md).
+Przed aktualizacją warto zachować własną kopię `.ombak`.
 
-1. Pobierz APK z linku powyżej lub z sekcji Assets na stronie wydania.
-2. Otwórz plik. Jeżeli Android poprosi, zezwól użytej przeglądarce lub menedżerowi
-   plików na instalowanie aplikacji z tego źródła.
-3. Zainstaluj aplikację, ustaw tempo i naciśnij **Start**.
+## Nowości 1.1
 
-Zwykły APK zachowuje dotychczasowy podpis. DEV ma osobny, trwały certyfikat
-i pakiet; nie zastępuje zwykłej aplikacji ani nie kopiuje jej danych. Aktualizację
-każdego z nich instalujesz
-na istniejącą aplikację, bez odinstalowywania, pod warunkiem zgodności podpisów.
-**Wcześniejsze APK debug mogą mieć inny podpis.** Jeśli Android odrzuca
-aktualizację, nie odinstalowuj aplikacji ani nie czyść jej danych, aby obejść
-niezgodność — [szczegóły podpisywania i aktualizacji](docs/RELEASING.md).
+- **Pełny ekran:** duże BPM, puls i takt, blokada dotyku z dostępnym Stop,
+  opcjonalne utrzymywanie ekranu i ograniczenie migania. Przejście bez restartu sesji.
+- **Procenty tempa:** 100/75/50/25% niezależnie od bazy 20–300 BPM;
+  wynik 5–300 BPM. Rampa zmienia bazę. Zmiana tempa od następnego taktu
+  albo następnego pulsu, który silnik może jeszcze bezpiecznie przeplanować.
+- **Trening:** odliczanie 0/1/2 takty poza czasem praktyki, dodatkowe metra
+  5/4, 7/4, 5/8 i 7/8 oraz grupowanie akcentów 5/8 i 7/8.
+- **Statystyki 2.0:** cały czas ćwiczeń dzisiaj, Podsumowanie / Historia /
+  Analiza, kalendarz, filtry i szczegóły sesji. Konfigurowalne progi domyślne
+  20 s/sesję i 5 min/aktywny dzień nie usuwają krótkich sesji z historii.
+  Nieznany przebieg dawnych sesji nie jest przedstawiany jako zero.
+- **Trzy dodatkowe brzmienia:** Naturalny, Suchy i Naturalny niski, każde
+  z osobnym akcentem. Sześć dotychczasowych brzmień zachowano bez zmian.
+- Krótsze podpisy w interfejsie; instrukcje pozostają w dokumentacji.
 
-## Nowości beta 1.1
-
-- Pełny ekran: duże BPM, puls i takt, blokada dotyku z dostępnym Stop,
-  opcjonalne utrzymywanie ekranu i ograniczenie migania. Bez restartu sesji.
-- Baza 20–300 BPM oraz 100/75/50/25%; dokładny wynik 5–300 BPM.
-  Rampa zmienia bazę. Zmiana tempa od taktu lub następnego możliwego pulsu.
-- Odliczanie 0/1/2 takty poza czasem praktyki, metra 5/4, 7/4, 5/8 i 7/8,
-  grupowanie 5/8 i 7/8. Dotychczasowe znaczenie BPM w 6/8 zachowane.
-- Statystyki: Dzisiaj, Podsumowanie / Historia / Analiza, kalendarz i filtry.
-  Progi domyślne 20 s/sesję i 5 min/aktywny dzień nie usuwają krótkich sesji.
-  Przebieg nieznanych starych sesji nie jest przedstawiany jako zero.
-- Import `.ombak` v1/v2, domyślny eksport v2 i osobny eksport zgodny z 1.0
-  z ostrzeżeniem pominięć. Stare 1.0 nie odczyta v2; przed aktualizacją zachowaj kopię v1.
-  Nie zakładamy możliwości cofnięcia instalacji do niższego versionCode.
-
-Opublikowana beta zachowuje sześć dotychczasowych brzmień. Oryginały nowych
-sampli już dostarczono; trzy zaakceptowane barwy znajdą się w przygotowywanym 1.1.0. Osobna barwa
-„Drewniany” nie jest warunkiem wydania. Stabilne 1.1 wymaga praktycznego odbioru
-beta i osobnej decyzji — [checklista użytkownika](docs/V1.1-BETA1-VALIDATION.md).
+[Ćwiczenie i pełny ekran](docs/PRACTICE-1.1.md)
+· [Statystyki i zgodność danych](docs/STATISTICS-2.md)
+· [Pochodzenie sampli i licencje](assets/samples/PROVENANCE.md)
+· [Changelog](CHANGELOG.md)
 
 ## Co potrafi?
 
-- Baza tempa 20–300 BPM: przyciski, suwak, wpisywanie wartości i tap tempo;
-  w beta mnożnik 100/75/50/25% i wynik od 5 BPM.
-- Metrum, akcenty i podziały rytmiczne; w beta osiem metrów i grupowanie 5/8 oraz 7/8.
-- Trening pulsu: losowa cisza, całe ciche takty i stopniowo rosnąca trudność.
+- Zmiana tempa przyciskami, suwakiem, wpisywaniem BPM i tap tempo.
+- Metrum, akcenty, podziały rytmiczne i wizualny puls.
+- Trening pulsu: losowa cisza, całe ciche takty i rosnąca trudność.
 - Automatyczne zwiększanie i zmniejszanie tempa.
-- Sześć wybranych brzmień kliku oraz import własnych sampli WAV/MP3/OGG,
-  regulacja głośności, wizualny puls i opcjonalne wibracje.
-- Odtwarzanie w tle oraz zatrzymywanie z powiadomienia.
-- Presety, lokalna historia ćwiczeń, serie i wykresy statystyk.
-- Eksport historii do CSV oraz pełna kopia ustawień, presetów, historii
-  i własnych sampli w formacie `.ombak`.
+- Dziewięć brzmień, import własnych sampli WAV/MP3/OGG, regulacja głośności
+  i opcjonalne wibracje.
+- Odtwarzanie w tle i zatrzymywanie z powiadomienia.
+- Presety, lokalna historia, serie i statystyki ćwiczeń.
+- Eksport CSV oraz kopie ustawień, presetów, historii i własnych sampli `.ombak`.
 
-W 6/8 BPM oznacza **ósemki — sześć głównych pulsów na takt**.
-CSV służy do analizy historii; do przywracania danych służy kopia `.ombak`.
+W **6/8 BPM oznacza ósemki** — sześć głównych pulsów na takt.
+CSV służy do analizy; do przywracania danych używaj `.ombak`.
 
-- [Ustawienia, trening, statystyki i kopie zapasowe](docs/USAGE.md)
-- [Brzmienia i import własnych sampli](docs/CUSTOM-SAMPLES.md)
+[Instrukcja użytkowania](docs/USAGE.md)
+· [Brzmienia i import własnych sampli](docs/CUSTOM-SAMPLES.md)
+
+## Kopie i zgodność
+
+1.1 importuje `.ombak` v1 i v2; domyślnie eksportuje v2. Starsze 1.0 nie
+odczyta v2. Osobny eksport zgodny v1 ostrzega o pominięciach i odrzuca
+nowe metra lub barwy, których 1.0 nie obsługuje. Nie podmieniamy ich na inne.
+Nie zakładamy możliwości cofnięcia instalacji do niższego versionCode.
 
 ## Jak wygląda?
 
 | Telefon | Tablet |
 | --- | --- |
-| ![Ekran metronomu na telefonie](docs/images/phone.png) | ![Ekran metronomu na tablecie](docs/images/tablet.png) |
+| ![Metronom na telefonie](docs/images/phone.png) | ![Metronom na tablecie](docs/images/tablet.png) |
 
-Powyższe podglądy pochodzą ze stabilnego 1.0.0; beta ma odświeżony układ
-i pełny ekran. Interfejs dopasowuje się do telefonu i tabletu.
+Podglądy pochodzą z 1.0.0. W 1.1 ekran główny ma układ hybrydowy
+oraz osobny pełny ekran; ilustracje nie przedstawiają wszystkich nowych funkcji.
 
-## Weryfikacja, ograniczenia i zgłaszanie błędów
+## Weryfikacja i ograniczenia
 
-Beta ma pełną regresję CI i kontrolę oficjalnie podpisanych APK, w tym
-aktualizację 1.0.0→beta na emulatorach API26/35 oraz oddzielną instalację/reinstalację DEV.
-[Wyniki, hashe i ograniczenia beta](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.1.0-beta.1).
-Benchmark pełnej diagnostyki DEV pozostał niezaliczony i jest osobnym zestawem;
-wyłączenie rejestracji jest sprawdzane testem, a kwalifikacja nie jest liczona jako PASS.
-Użytkownik potwierdził prawidłową aktualizację i import statystyk oraz odsłuch
-prototypów nowych barw. Nie przypisujemy temu niepodanej ścieżki/urządzenia
-ani pełnego M6. Odbiór finalnego podpisanego 1.1 pozostaje osobną bramką.
+Regresja obejmuje JVM, PCM offline, Lint, buildy, ciche testy API26/35,
+migracje, backup/restore i aktualizacje z porównaniem danych.
+Dokładne wyniki kontroli oficjalnego APK i jego sumy znajdują się
+w [opisie wydania](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.1.0)
+i [raporcie 1.1](docs/V1.1-RELEASE-VALIDATION.md).
 
-Poniżej historyczny odbiór linii 1.0, który nie stanowi odbioru beta:
+Użytkownik potwierdził prawidłową aktualizację i import statystyk oraz
+zaakceptował odsłuch prototypów trzech barw. To nie jest automatyczne
+potwierdzenie wszystkich scenariuszy M6 finalnego APK 1.1.
+Historyczny odbiór RC2 na Samsungu A56 opisano w
+[checkliście M6](docs/M6-ACCEPTANCE.md); nie przypisujemy go nowej wersji.
 
-Oficjalnie podpisany APK 1.0.0 przeszedł kontrolę podpisu, sum i metadanych.
-Zaliczono sześć aktualizacji oryginalnych oficjalnych APK beta.3/RC1/RC2→1.0
-na API 26/35, z porównaniem testowych danych i dokładnych bajtów sampla.
-[Pełne wyniki i ograniczenia wydania](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.0.0).
-
-Użytkownik manualnie potwierdził na Samsungu Galaxy A56 działanie oficjalnego
-RC2: aktualizację, uruchomienie i logo, dłuższą praktykę z blokadą, Stop
-z powiadomienia, historię/ustawienia/zapis, akcenty/trening i wibracje.
-Potwierdził też prawidłowy ostatni test przerwania audio, bez podania szczegółów.
-Nie twierdzimy, że osobno sprawdzono wszystkie warianty focus/słuchawek;
-nie oznaczamy całego M6 jako PASS ani nie przypisujemy tego odbioru do
-fizycznego odsłuchu nowego APK 1.0.0.
-
-**Fizyczny jitter i latencja pozostają niezmierzone.** Automatyczne pominięcia
-audio nie są PASS. Pełny dysk może uniemożliwić utrwalenie najnowszych danych;
-nie gwarantujemy wszystkich urządzeń i tras audio.
-[Dokładny zakres odbioru M6](docs/M6-ACCEPTANCE.md) ·
-[Dokumentacja przygotowania 1.0](docs/V1.0-VALIDATION.md).
+**Jitter i latencja fizycznego wyjścia pozostają niezmierzone.** Testy PCM
+nie są pomiarem głośnika. Pełny dysk może uniemożliwić zapis najnowszych danych;
+nie gwarantujemy działania na wszystkich urządzeniach i trasach audio.
 
 Znalazłeś problem? [Zgłoś go na GitHubie](https://github.com/Franek2009/OpenMetronome/issues),
-podając wersję aplikacji, model urządzenia, wersję Androida i kroki odtworzenia.
+podając wersję aplikacji, model urządzenia, Androida i kroki odtworzenia.
 Nie przesyłaj kluczy podpisu ani prywatnych danych.
 
-## Prywatność
+## OpenMetronome DEV
 
-Ustawienia, presety, historia i własne sample pozostają na urządzeniu.
-Nie ma analityki, reklam ani komunikacji z naszym serwerem. Eksport uruchamiasz
-samodzielnie. [Informacja o prywatności](PRIVACY.md).
+DEV jest osobnym narzędziem dla deweloperów, z odrębnym pakietem, danymi,
+podpisem i oznaczoną ikoną. Nie zastępuje zwykłej aplikacji.
+Wydanie 1.1.0 obejmuje wyłącznie zwykły APK.
 
-## Kod i współpraca
+**Pełna rejestracja sesji DEV jest wyłączona** po niezaliczonej kwalifikacji
+narzutu API26. Wynik FAIL pozostaje jawny; nie obiecujemy raportu nowej sesji.
+Kod i dotychczasowa beta DEV pozostają dostępne dla zainteresowanych:
+[stan diagnostyki](docs/DEV-DIAGNOSTICS.md), [warianty i build](docs/BUILD-VARIANTS.md),
+[historyczna beta.1](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.1.0-beta.1).
+Dodatkowe brzmienia, w tym osobna barwa „Drewniany”, nie są warunkiem wydania 1.1.
+
+## Prywatność i współpraca
+
+Dane pozostają na urządzeniu. Nie ma analityki, reklam ani komunikacji
+z naszym serwerem; eksport uruchamiasz samodzielnie. [Prywatność](PRIVACY.md).
 
 Projekt w Kotlinie i Jetpack Compose, na licencji [MIT](LICENSE).
-Można budować z terminala na Linuxie, bez Android Studio.
+Dystrybucja przez GitHub Releases; Google Play i F-Droid nie są obecnie kanałami projektu.
 
-- [Budowanie i testy](docs/BUILDING.md)
-- [Architektura](docs/ARCHITECTURE.md) i [roadmapa](docs/ROADMAP.md)
-- [Zmiany w wersjach](CHANGELOG.md) i [przygotowanie wydania](docs/RELEASING.md)
-
-Aplikacja jest dystrybuowana przez GitHub Releases. Google Play i F-Droid
-nie są obecnie kanałami publikacji projektu.
-
-[Mapa kodu dla współpracy i audytu](docs/CODEBASE_MAP.md).
+[Budowanie i testy](docs/BUILDING.md)
+· [Architektura](docs/ARCHITECTURE.md)
+· [Mapa kodu](docs/CODEBASE_MAP.md)
+· [Roadmapa](docs/ROADMAP.md)
+· [Proces wydawniczy](docs/RELEASING.md)
