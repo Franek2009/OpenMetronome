@@ -8,8 +8,8 @@ import org.openmetronome.data.AppData
 import org.openmetronome.domain.audio.PcmTrace
 import org.openmetronome.domain.model.MetronomeConfig
 
-/** Beta ships without session capture until separate ART qualification passes. */
-internal const val DEV_CAPTURE_QUALIFIED = false
+/** Enabled after exact-head ART qualification; published beta.1 remains unchanged. */
+internal const val DEV_CAPTURE_QUALIFIED = true
 
 internal fun engineDiagnosticHooks(context: Context, data: AppData): EngineDiagnosticHooks {
     if (!DEV_CAPTURE_QUALIFIED) return EngineDiagnosticHooks()

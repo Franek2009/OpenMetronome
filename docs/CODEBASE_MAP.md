@@ -12,7 +12,7 @@ Nie zastępuje wyników testów ani aktualnego stanu wydania.
 | Zapis i odzyskiwanie | `data/AppData.kt` koordynuje operacje, DataStore, import/eksport i blokady. `SessionRecorder.kt` tworzy checkpointy; `SessionWriteQueue.kt` utrwala kolejkę ponowień. Nie zwalniać bezpieczeństwa eksportu przy zaległym zapisie. |
 | Historia/statystyki | `data/PracticeDatabase.kt` (Room 3), `PracticeTimeline.kt`, `SessionTimelineCodec.kt`, `StatisticsPreferences.kt`; schematy w `app/schemas/`. Przebieg starych sesji pozostaje nieznany. [Semantyka](STATISTICS-2.md). |
 | Dane przenośne | `data/BackupArchive.kt`: v2, import v1 i eksport zgodny v1. `SessionCsv.kt`: eksport analityczny. Zmiana Room nie oznacza automatycznie zmiany archiwum. [Format i zgodność](STATISTICS-2.md). |
-| DEV | `app/src/dev/kotlin/org/openmetronome/diagnostics/`: ograniczony bufor, TraceSessionStore, TraceJournal, TraceReports i fabryka. Implementacja magazynu nie należy do PROD. Pełna rejestracja wyłączona w beta. [Zakres i wyniki](V1.1-DEV-INTEGRATION-VALIDATION.md). |
+| DEV | `app/src/dev/kotlin/org/openmetronome/diagnostics/`: ograniczony bufor, TraceSessionStore, TraceJournal, TraceReports i fabryka. Implementacja magazynu nie należy do PROD. Pełna rejestracja aktywna w gałęzi 1.1 po kwalifikacji, wyłączona w opublikowanej beta.1. [Zakres i wyniki](V1.1-DEV-INTEGRATION-VALIDATION.md). |
 | Warianty/podpis | `app/build.gradle.kts`: prod/dev × debug/release, pakiety i oddzielne klucze. `scripts/package-release.sh` rozpoznaje DEV wyłącznie przez jawne `--dev`, metadane i certyfikat. [Konfiguracja](BUILD-VARIANTS.md). |
 | CI/wydanie | `.github/workflows/android.yml`: JVM/Lint/PCM/buildy, ciche API26/35, izolacja i aktualizacje testowe. `release.yml`: osobne podpisanie PROD/DEV i draft. `dev-qualification.yml`: oddzielna ścisła kwalifikacja nieaktywnego rejestratora. |
 
@@ -23,7 +23,7 @@ Nie zastępuje wyników testów ani aktualnego stanu wydania.
   zawsze na izolowanych danych. `OpenMetronomeTestRunner` blokuje audio/wibracje.
 - PCM offline: `scripts/analyze-click-bank.py`; nigdy nie oznacza fizycznego pomiaru audio.
 - Pełna regresja: CI dokładnego HEAD przed scaleniem oraz końcowego main przed tagiem.
-- Regresja wydania jawnie wyklucza oznaczony benchmark DEV; nie zalicza go jako PASS.
+- Regresja wydania jawnie wyklucza oznaczony benchmark DEV; nie zalicza go jako PASS. Osobna kwalifikacja wymagana dla dokładnego HEAD aktywacji.
   Osobne `scripts/qualify-dev-emulator.sh` zachowuje budżet +10% i kończy się błędem przy FAIL.
 - Oryginalne podpisane APK: `scripts/verify-upgrade.sh --official` / `--official-dev`,
   tylko świeże emulatory, znane hashe/certyfikaty i `install -r`, bez przepodpisywania.

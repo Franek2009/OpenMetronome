@@ -155,12 +155,12 @@ class DevDiagnosticsQualificationTest {
         }
     }
 
-    @Test fun betaApplicationKeepsUnqualifiedCaptureDisabled() {
+    @Test fun qualifiedApplicationAttachesFullEngineDiagnosticHooks() {
         val app = context.applicationContext as org.openmetronome.TestApplication
         val hooks = engineDiagnosticHooks(context, app.data)
-        assertFalse(DEV_CAPTURE_QUALIFIED)
-        assertNull(hooks.traceFactory)
-        assertNull(hooks.controls)
+        assertTrue(DEV_CAPTURE_QUALIFIED)
+        assertNotNull(hooks.traceFactory)
+        assertNotNull(hooks.controls)
     }
 
     @org.openmetronome.DevPerformanceQualification

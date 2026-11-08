@@ -1,4 +1,4 @@
-name: DEV recorder qualification (inactive in beta)
+name: DEV recorder qualification
 on:
   workflow_dispatch:
 permissions:

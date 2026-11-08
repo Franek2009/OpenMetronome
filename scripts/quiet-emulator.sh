@@ -22,7 +22,7 @@ mkdir -p "$quiet_report"
     -e notAnnotation org.openmetronome.DevPerformanceQualification \
     "$quiet_package.test/org.openmetronome.OpenMetronomeTestRunner" | tee "$quiet_report/instrumentation.log"
 awk -f scripts/instrumentation-summary.awk "$quiet_report/instrumentation.log" | tee "$quiet_report/summary.txt"
-printf '%s\n' 'DEV performance qualification: NOT RUN in release regression; capture disabled in beta.' > "$quiet_report/qualification-scope.txt"
+printf '%s\n' 'DEV performance qualification: NOT RUN in this regression; consult the separate exact-head qualification workflow.' > "$quiet_report/qualification-scope.txt"
 for quiet_capture in initial landscape sound-controls sound-picker sample-library; do
     "${quiet_adb[@]}" exec-out run-as "$quiet_package" cat "cache/ui-v012-$quiet_capture.png" > "$quiet_report/$quiet_capture.png"
 done
