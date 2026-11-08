@@ -3,8 +3,7 @@
 > W gałęzi rozwojowej (jeszcze poza opublikowanym APK): trzy zaakceptowane
 > barwy Naturalny / Suchy / Naturalny niski, bez zmian wyglądu i dawnych brzmień.
 > [Pochodzenie i warianty](assets/samples/PROVENANCE.md).
-> Gałąź rozwojowa aktywuje pełną rejestrację DEV po kwalifikacji API26/35.
-> [Raport i granice](docs/V1.1-DEV-COST-ANALYSIS.md). Opublikowana beta.1 pozostaje bez zmian.
+> Pełna rejestracja DEV pozostaje wyłączona do zaliczenia kwalifikacji.
 
 Metronom na Androida dla muzyków, którzy chcą ćwiczyć nie tylko tempo,
 ale też własne poczucie pulsu. Darmowy, otwartoźródłowy i całkowicie offline.
@@ -105,9 +104,8 @@ i pełny ekran. Interfejs dopasowuje się do telefonu i tabletu.
 Beta ma pełną regresję CI i kontrolę oficjalnie podpisanych APK, w tym
 aktualizację 1.0.0→beta na emulatorach API26/35 oraz oddzielną instalację/reinstalację DEV.
 [Wyniki, hashe i ograniczenia beta](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.1.0-beta.1).
-W opublikowanej beta.1 benchmark DEV pozostał niezaliczony i rejestracja jest wyłączona.
-Gałąź rozwojowa ma osobną kwalifikację i test podłączenia aktywnych hooków;
-regresja bez benchmarku nadal nie jest zaliczeniem kwalifikacji.
+Benchmark pełnej diagnostyki DEV pozostał niezaliczony i jest osobnym zestawem;
+wyłączenie rejestracji jest sprawdzane testem, a kwalifikacja nie jest liczona jako PASS.
 Praktyczny odbiór beta na fizycznym urządzeniu pozostaje do wykonania przez użytkownika.
 
 Poniżej historyczny odbiór linii 1.0, który nie stanowi odbioru beta:

@@ -62,8 +62,3 @@ przygotowano do osobnego wyboru. Nazwa „Drewniany” nie jest wymaganiem.
 Pełne DEV pozostaje przed bramką +10%, bez zmiany kryterium.
 Aktualizacja i import statystyk manualnie potwierdzone przez użytkownika,
 bez dopisywania wersji, urządzenia lub niezgłoszonych scenariuszy.
-
-
-Aktywacja DEV w gałęzi rozwojowej: po 5/5 CI 42427681439 i 2/2 kwalifikacji
-42427680223 dla 059e47f. To nie zmienia opublikowanej beta.1. Końcowy HEAD
-musi przejść własne bramki, bez podnoszenia +10% lub ukrywania FAIL.

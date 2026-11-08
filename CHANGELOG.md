@@ -10,8 +10,7 @@
 - Manualne potwierdzenie użytkownika: aktualizacja i import statystyk
   działały bez zarzutu; bez rozszerzania zakresu odbioru M6.
 - Dodatkowe próbki VCSL oczekują na wybór odsłuchowy. Pełna rejestracja
-  DEV aktywowano po 5/5 regresji i 2/2 kwalifikacji API26/35 na 059e47f;
-  końcowy HEAD aktywacji wymaga własnej weryfikacji. Wcześniejsze FAIL pozostają jawne.
+  DEV nadal wymaga kwalifikacji +10%; wcześniejsze FAIL pozostają jawne.
 
 
 ## 1.1.0-beta.1 — kandydat do testów użytkownika

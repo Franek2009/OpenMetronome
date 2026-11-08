@@ -1,6 +1,6 @@
 # Prywatność OpenMetronome
 
-Aktualizacja: 2026-11-08. Dotyczy aplikacji Android OpenMetronome.
+Aktualizacja: 2026-10-30. Dotyczy aplikacji Android OpenMetronome.
 
 OpenMetronome działa offline. Nie wymaga konta, nie zawiera reklam ani
 analityki i nie przesyła danych do twórców. Aplikacja nie żąda uprawnienia
@@ -36,9 +36,8 @@ publicznych zgłoszeń. Kontakt z projektem:
 
 ## Opcjonalny wariant DEV
 
-W opublikowanej 1.1.0-beta.1 pełna rejestracja sesji DEV jest wyłączona.
-Gałąź rozwojowa 1.1 aktywuje lokalną rejestrację sesji DEV po kwalifikacji.
-System raportów przechowuje lokalnie: planowane pulsy i konfiguracje,
+W 1.1.0-beta.1 pełna rejestracja sesji DEV jest wyłączona. Przygotowany system
+raportów (w tym odczyt istniejących raportów) przechowuje lokalnie: planowane pulsy i konfiguracje,
 wewnętrzne czasy, błędy, wersję aplikacji, model/producenta urządzenia i wersję Androida.
 Nie zbiera numeru seryjnego, Android ID, treści plików audio ani kluczy podpisu.
 Raporty nie są automatycznie wysyłane; eksport ZIP uruchamia użytkownik.

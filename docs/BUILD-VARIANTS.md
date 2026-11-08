@@ -1,8 +1,7 @@
 # Warianty OpenMetronome
 
-Warianty rozdzielają dane i podpisy zwykłej aplikacji oraz DEV. Opublikowana
-1.1.0-beta.1 DEV ma rejestrację wyłączoną. Gałąź rozwojowa aktywuje ją po
-kwalifikacji API26/35; [wyniki i ograniczenia](V1.1-DEV-COST-ANALYSIS.md).
+Warianty rozdzielają dane i podpisy zwykłej aplikacji oraz DEV. W 1.1 beta DEV
+ma wyłączoną pełną rejestrację sesji: nie zaliczono kwalifikacji narzutu API26.
 Zwykłe funkcje i statystyki działają, istniejące raporty można eksportować.
 [Integracja i granice](V1.1-DEV-INTEGRATION-VALIDATION.md).
 
