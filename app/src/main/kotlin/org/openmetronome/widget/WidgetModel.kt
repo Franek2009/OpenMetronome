@@ -18,12 +18,14 @@ object WidgetModel {
             when (state.audio.status) {
                 PlaybackStatus.PLAYING -> "Gra"
                 PlaybackStatus.STARTING -> "Uruchamianie"
+                PlaybackStatus.STOPPING -> "Zatrzymywanie"
                 PlaybackStatus.ERROR -> "Błąd · otwórz aplikację"
                 else -> "Zatrzymany"
             }, state.keepsScreenOn, state.hasPendingChanges)
     }
     fun edit(config: MetronomeConfig, command: String): MetronomeConfig = when (command) {
-        "minus", "plus" -> config.copy(tempo = Tempo((config.tempo.bpm + if (command == "plus") 1 else -1).coerceIn(20, 300)))
+        "minus", "plus" -> config.copy(tempo = Tempo((config.tempo.bpm + if (command == "plus") 1 else -1).coerceIn(20, 300)),
+            ramp = config.ramp.copy(enabled = false))
         else -> TempoPercent.entries.firstOrNull { it.percent.toString() == command }?.let { config.copy(tempoPercent = it) } ?: config
     }
 }

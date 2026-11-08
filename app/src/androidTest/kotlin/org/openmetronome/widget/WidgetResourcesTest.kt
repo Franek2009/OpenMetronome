@@ -75,6 +75,20 @@ class WidgetResourcesTest {
         }
     }
 
+    @Test fun launcherFailureCannotEscapeIntoPlaybackPublisher() {
+        var lookups = 0
+        val brokenLauncher = object : android.content.ContextWrapper(context) {
+            override fun getSystemService(name: String): Any? {
+                if (name == android.content.Context.APPWIDGET_SERVICE) { lookups++; error("Injected launcher failure") }
+                return super.getSystemService(name)
+            }
+        }
+        instrumentation.runOnMainSync {
+            WidgetHost.publishSnapshot(brokenLauncher, WidgetModel.playback(org.openmetronome.audio.MetronomeState()))
+        }
+        assertTrue("The failing launcher boundary must actually be exercised", lookups > 0)
+    }
+
     @Test fun captureActualRemoteViewsPreviewsWhenRequested() {
         if (InstrumentationRegistry.getArguments().getString("captureUi") != "true") return
         instrumentation.runOnMainSync {

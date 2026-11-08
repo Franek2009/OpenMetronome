@@ -5,7 +5,7 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.widget.RemoteViews
 import kotlinx.coroutines.*
@@ -18,11 +18,17 @@ import org.openmetronome.data.*
 import java.time.LocalDate
 import java.time.ZonedDateTime
 
+/** Optional launcher work must never terminate the playback process. */
+internal val widgetFailureHandler = CoroutineExceptionHandler { _, error ->
+    Log.w("OpenMetronomeWidget", "Widget refresh failed; playback is unaffected", error)
+}
+
 /** A process-local projection, never a persisted claim that playback survived process death. */
 object WidgetHost {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate + widgetFailureHandler)
     private val playback = MutableStateFlow<WidgetPlayback?>(null)
-    private var observing = false
+    private var controlsJob: Job? = null
+    private var dateJob: Job? = null
     private var statisticsJob: Job? = null
     @Volatile private var statistics = "Ładowanie statystyk…"
     private val providers = listOf(MiniWidget::class.java, ControlWidget::class.java, StatisticsWidget::class.java)
@@ -34,21 +40,26 @@ object WidgetHost {
     fun publish(context: Context, state: MetronomeState) = publishSnapshot(context, WidgetModel.playback(state))
     fun publishSnapshot(context: Context, snapshot: WidgetPlayback) {
         playback.value = snapshot
-        if (!hasWidgets(context)) return
-        observe(context.applicationContext)
+        try {
+            if (hasWidgets(context)) observe(context.applicationContext)
+        } catch (error: RuntimeException) {
+            Log.w("OpenMetronomeWidget", "Launcher unavailable", error)
+        }
     }
 
     private fun observe(context: Context) {
         if (!hasWidgets(context)) {
             scope.coroutineContext.cancelChildren()
-            observing = false
+            controlsJob = null
+            dateJob = null
             statisticsJob = null
             return
         }
-        if (!observing) {
-            observing = true
-            scope.launch { playback.filterNotNull().collect { drawControls(context, it) } }
-            scope.launch {
+        if (controlsJob?.isActive != true) {
+            controlsJob = scope.launch { playback.filterNotNull().collect { drawControls(context, it) } }
+        }
+        if (dateJob?.isActive != true) {
+            dateJob = scope.launch {
                 while (hasWidgets(context)) {
                     delay(millisUntilNextPracticeDate(ZonedDateTime.now()))
                     refresh(context)

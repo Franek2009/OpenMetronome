@@ -22,6 +22,7 @@ DEV ma osobny pakiet i dane, więc nie steruje zwykłą aplikacją.
 - Start wznawia odtwarzanie z bieżącą konfiguracją, nie poprzednią przerwaną sesję.
   Ponowne Start podczas uruchamiania/odtwarzania nie tworzy drugiego startu.
 - Zmiana procentu zachowuje bazę; −1/+1 zmienia bazę w zakresie 20–300 BPM.
+  Tak jak w aplikacji, ręczne −1/+1 wyłącza rampę; procent jej nie wyłącza.
   Wynik może być ułamkowy, od 5 BPM. Obowiązuje ustawienie momentu zmiany tempa.
 - Duże BPM pochodzi z zastosowanej konfiguracji. Oczekująca zmiana jest opisana
   przy wybranej bazie/procencie, zamiast udawać, że silnik już ją odtwarza.
@@ -38,6 +39,8 @@ oraz nieeksportowanego odbiornika, który wiąże istniejącą usługę. Start p
 interakcją użytkownika; odświeżenie lub restart systemu nigdy nie uruchamia audio.
 Usługa czeka na wczytanie ustawień przed wykonaniem polecenia z zimnego procesu.
 Nie ma operacji widgetów na wątku PCM i nie ma aktualizacji na każde uderzenie.
+Błąd komunikacji z launcherem jest logowany i nie propaguje się do usługi audio;
+kolejne odświeżenie może ponownie uruchomić obserwator widgetu.
 
 Stan odtwarzania aktualizujemy przy zmianach, z ograniczeniem do około raz na sekundę
 w obserwatorze usługi. Statystyki reagują na zapis historii i zmianę progów.
@@ -62,3 +65,11 @@ Do odbioru użytkownika: dodanie/usunięcie i resize w używanym launcherze,
 wspólne sterowanie z aplikacją i powiadomieniem, czytelność z dużą czcionką,
 zimny proces, zatrzymanie po utracie focus i zachowanie po ponownym uruchomieniu.
 Nie zaliczamy tego odbioru ani fizycznego audio na podstawie testów automatycznych.
+
+## Pochodzenie ilustracji README
+
+Zrzuty aplikacji i renderowane zasoby RemoteViews pochodzą z cichych testów PROD
+na API35: [przebieg 42521205946](https://github.com/Franek2009/OpenMetronome/actions/runs/42521205946),
+commit `926e6fef8158160e17edc146dfb77b2625797137`. Interfejs jest po 1.1;
+widgety są rozwojową funkcją 1.2. Dane są izolowanymi/przykładowymi danymi testowymi.
+Podglądy widgetów nie dokumentują instalacji w launcherze Samsunga.

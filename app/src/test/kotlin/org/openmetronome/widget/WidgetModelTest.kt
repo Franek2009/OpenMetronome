@@ -42,6 +42,15 @@ class WidgetModelTest {
         val error = WidgetModel.playback(MetronomeState(audio = AudioEngineState(PlaybackStatus.ERROR)))
         assertFalse(error.running)
         assertTrue(error.status.contains("Błąd"))
+        val stopping = WidgetModel.playback(MetronomeState(audio = AudioEngineState(PlaybackStatus.STOPPING)))
+        assertEquals("Zatrzymywanie", stopping.status)
+        assertFalse(stopping.running)
+    }
+    @Test fun manualStepsDisableRampLikeTheAppButPercentagesKeepIt() {
+        val config = MetronomeConfig(ramp = TempoRamp(enabled = true))
+        assertFalse(WidgetModel.edit(config, "plus").ramp.enabled)
+        assertFalse(WidgetModel.edit(config, "minus").ramp.enabled)
+        assertTrue(WidgetModel.edit(config, "75").ramp.enabled)
     }
     @Test fun unrelatedCommandsCannotRewriteConfiguration() {
         val config = MetronomeConfig()

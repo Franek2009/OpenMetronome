@@ -18,7 +18,7 @@ open class MetronomeWidget : AppWidgetProvider() {
                 AppWidgetManager.ACTION_APPWIDGET_OPTIONS_CHANGED, Intent.ACTION_DATE_CHANGED,
                 Intent.ACTION_TIME_CHANGED, Intent.ACTION_TIMEZONE_CHANGED)) {
             val pending = goAsync()
-            CoroutineScope(Dispatchers.Main.immediate).launch {
+            CoroutineScope(Dispatchers.Main.immediate + widgetFailureHandler).launch {
                 try { withTimeout(8500) { WidgetHost.refresh(context.applicationContext) } }
                 finally { pending.finish() }
             }
@@ -35,7 +35,7 @@ class WidgetCommandReceiver : BroadcastReceiver() {
         val command = intent.action?.takeIf { it in WidgetModel.commands } ?: return
         val app = context.applicationContext
         val pending = goAsync()
-        CoroutineScope(Dispatchers.Main.immediate).launch {
+        CoroutineScope(Dispatchers.Main.immediate + widgetFailureHandler).launch {
             var bound = false
             var connection: ServiceConnection? = null
             try {

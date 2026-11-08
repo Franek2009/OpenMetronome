@@ -86,12 +86,24 @@ Nie zakładamy możliwości cofnięcia instalacji do niższego versionCode.
 
 ## Jak wygląda?
 
-| Telefon | Tablet |
-| --- | --- |
-| ![Metronom na telefonie](docs/images/phone.png) | ![Metronom na tablecie](docs/images/tablet.png) |
+| Metronom | Pełny ekran | Statystyki |
+| --- | --- | --- |
+| ![Ekran główny po 1.1](docs/images/phone-current.png) | ![Pełny ekran](docs/images/fullscreen-current.png) | ![Podsumowanie statystyk](docs/images/statistics-current.png) |
 
-Podglądy pochodzą z 1.0.0. W 1.1 ekran główny ma układ hybrydowy
-oraz osobny pełny ekran; ilustracje nie przedstawiają wszystkich nowych funkcji.
+Aktualne zrzuty interfejsu po 1.1 pochodzą z cichych testów emulatora API35
+na gałęzi przygotowującej 1.2. Używają izolowanych danych testowych;
+odtwarzanie jest zatrzymane. Nie są odbiorem fizycznego audio.
+
+### Widgety w przygotowaniu do 1.2
+
+| Mini Metronom | Sterowanie | Statystyki |
+| --- | --- | --- |
+| ![Mini Metronom — podgląd](docs/images/widget-mini.png) | ![Sterowanie metronomem — podgląd](docs/images/widget-control.png) | ![Statystyki — podgląd](docs/images/widget-statistics.png) |
+
+Renderowane na emulatorze zasoby widgetów, z przykładowymi danymi.
+Rozmiary i marginesy na pulpicie zależą od launchera.
+**Widgetów nie ma w opublikowanym 1.1.0.**
+[Zawartość, sterowanie i ograniczenia](docs/WIDGETS.md).
 
 ## Weryfikacja i ograniczenia
 
