@@ -88,3 +88,5 @@ Automatyczne wznawianie podpisywania/draftu pozostaje poza tym wdrożeniem.
 ## Tymczasowa próba bramki CI
 
 Dokumentacyjna próba CI; ta gałąź testowa nie jest przeznaczona do scalenia.
+
+Ręczny dispatch tego dokumentacyjnego SHA musi mimo to uruchomić full.
