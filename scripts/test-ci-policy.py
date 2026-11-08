@@ -219,8 +219,11 @@ class GateTest(unittest.TestCase):
     def test_cli_malformed_payload_fails(self):
         with tempfile.TemporaryDirectory() as directory:
             result = subprocess.run([sys.executable, SCRIPT, "result", "--report", str(Path(directory) / "result.json")],
-                                    env=os.environ | {"CI_NEEDS_JSON": "not-json"}, capture_output=True)
+                                    env=os.environ | {"CI_NEEDS_JSON": "not-json",
+                                                      "GITHUB_STEP_SUMMARY": str(Path(directory) / "summary.md"),
+                                                      "GITHUB_OUTPUT": str(Path(directory) / "outputs")}, capture_output=True)
             self.assertEqual(1, result.returncode)
+            self.assertIn("Invalid job result payload", (Path(directory) / "summary.md").read_text())
 
 
 if __name__ == "__main__":
