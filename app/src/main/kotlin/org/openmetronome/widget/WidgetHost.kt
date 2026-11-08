@@ -144,6 +144,7 @@ object WidgetHost {
         error: String? = null): RemoteViews {
         val views = RemoteViews(context.packageName, if (controls) R.layout.widget_control else R.layout.widget_mini)
         views.setOnClickPendingIntent(R.id.widget_title, open(context))
+        views.setViewVisibility(R.id.widget_title, if (context.resources.configuration.fontScale > 1.2f) View.GONE else View.VISIBLE)
         views.setTextViewText(R.id.widget_bpm, value?.let { "${it.bpm} BPM" } ?: "— BPM")
         views.setOnClickPendingIntent(R.id.widget_bpm, open(context))
         views.setTextViewText(R.id.widget_status, error ?: value?.status ?: "Otwórz aplikację")
@@ -152,7 +153,8 @@ object WidgetHost {
         if (controls) {
             views.setTextViewText(R.id.widget_base, value?.let { "Baza ${it.base} × ${it.percent}%${if (it.pending) " · oczekuje" else ""}" } ?: "")
             listOf(R.id.widget_100 to 100, R.id.widget_75 to 75, R.id.widget_50 to 50, R.id.widget_25 to 25).forEach { (view, percent) ->
-                views.setTextViewText(view, "$percent%${if (value?.percent == percent) " ✓" else ""}")
+                views.setTextViewText(view, "$percent%")
+                views.setContentDescription(view, "$percent%${if (value?.percent == percent) ", wybrane" else ""}")
                 views.setInt(view, "setBackgroundResource", if (value?.percent == percent) R.drawable.widget_selected else R.drawable.widget_outline)
                 views.setTextColor(view, if (value?.percent == percent) 0xFF102B1B.toInt() else 0xFFE0E2DB.toInt())
                 views.setOnClickPendingIntent(view, action(context, percent.toString()))

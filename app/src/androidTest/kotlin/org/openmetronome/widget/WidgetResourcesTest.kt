@@ -20,7 +20,8 @@ class WidgetResourcesTest {
             val value = WidgetPlayback("120", 120, 50, "Gra", true, true)
             val view = WidgetHost.controlViews(context, value, true, false).apply(context, FrameLayout(context))
             assertEquals("120 BPM", view.findViewById<TextView>(R.id.widget_bpm).text.toString())
-            assertEquals("50% ✓", view.findViewById<TextView>(R.id.widget_50).text.toString())
+            assertEquals("50%", view.findViewById<TextView>(R.id.widget_50).text.toString())
+            assertTrue(view.findViewById<TextView>(R.id.widget_50).contentDescription.contains("wybrane"))
             assertTrue(view.findViewById<TextView>(R.id.widget_base).text.contains("oczekuje"))
             assertEquals("■ Stop", view.findViewById<TextView>(R.id.widget_play).text.toString())
             assertEquals(View.GONE, view.findViewById<View>(R.id.widget_steps).visibility)
@@ -48,6 +49,32 @@ class WidgetResourcesTest {
             if (type != WidgetCommandReceiver::class.java) assertTrue(info.metaData.containsKey("android.appwidget.provider"))
         }
     }
+    @Test fun minimumSizesKeepTouchTargetsInsidePanelWithLargeFont() {
+        instrumentation.runOnMainSync {
+            for (scale in listOf(1f, 1.5f)) {
+                val configuration = android.content.res.Configuration(context.resources.configuration).apply { fontScale = scale }
+                val sized = context.createConfigurationContext(configuration)
+                val density = sized.resources.displayMetrics.density
+                for (control in listOf(false, true)) {
+                    val value = WidgetPlayback("30.75", 123, 25, "Zatrzymany", false, false)
+                    val view = WidgetHost.controlViews(sized, value, control, false).apply(sized, FrameLayout(sized))
+                    val w = ((if (control) 250 else 110) * density).toInt(); val h = (160 * density).toInt()
+                    view.measure(View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY),
+                        View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY))
+                    view.layout(0, 0, w, h)
+                    for (id in if (control) listOf(R.id.widget_play, R.id.widget_100, R.id.widget_75, R.id.widget_50, R.id.widget_25) else listOf(R.id.widget_play)) {
+                        val button = view.findViewById<View>(id)
+                        val bounds = android.graphics.Rect()
+                        button.getDrawingRect(bounds)
+                        (view as android.view.ViewGroup).offsetDescendantRectToMyCoords(button, bounds)
+                        assertTrue("Clipped control $id font=$scale: $bounds", bounds.top >= 0 && bounds.bottom <= h)
+                        assertTrue("Small touch target $id", button.height >= (48 * density).toInt())
+                    }
+                }
+            }
+        }
+    }
+
     @Test fun captureActualRemoteViewsPreviewsWhenRequested() {
         if (InstrumentationRegistry.getArguments().getString("captureUi") != "true") return
         instrumentation.runOnMainSync {
