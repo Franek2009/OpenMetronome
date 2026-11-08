@@ -74,6 +74,13 @@ Mini Metronom, większy panel Start/Stop z procentami tempa i widget statystyk
 z czasem ćwiczeń dzisiaj. Wszystkie korzystają ze wspólnego stanu aplikacji,
 bez animowanego pulsu ani osobnego zegara audio.
 
+Start/Stop steruje wspólną sesją; dotknięcie BPM otwiera metronom. Procenty
+zmieniają mnożnik bez nadpisywania bazy. Zapis `120 × 75%` pokazuje bazę
+i wybrany procent; strzałka `→` oznacza zmianę oczekującą na zastosowanie.
+Przy 100% ta linia znika. Większa wysokość panelu odsłania −1/+1 bazy.
+Widget statystyk pokazuje zapisany czas dzisiaj, serię i aktywne dni tygodnia;
+dotknięcie otwiera Statystyki.
+
 **To funkcja rozwojowa — APK 1.1.0 wskazany powyżej nie zawiera widgetów.**
 [Obsługa, rozmiary i ograniczenia](docs/WIDGETS.md).
 

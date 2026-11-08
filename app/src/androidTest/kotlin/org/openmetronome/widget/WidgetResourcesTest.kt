@@ -22,7 +22,9 @@ class WidgetResourcesTest {
             assertEquals("120 BPM", view.findViewById<TextView>(R.id.widget_bpm).text.toString())
             assertEquals("50%", view.findViewById<TextView>(R.id.widget_50).text.toString())
             assertTrue(view.findViewById<TextView>(R.id.widget_50).contentDescription.contains("wybrane"))
-            assertTrue(view.findViewById<TextView>(R.id.widget_base).text.contains("oczekuje"))
+            assertEquals("120 × 50% →", view.findViewById<TextView>(R.id.widget_base).text.toString())
+            assertTrue(view.findViewById<TextView>(R.id.widget_base).contentDescription.contains("oczekuje"))
+            assertEquals(View.GONE, view.findViewById<View>(R.id.widget_status).visibility)
             assertEquals("■ Stop", view.findViewById<TextView>(R.id.widget_play).text.toString())
             assertEquals(View.GONE, view.findViewById<View>(R.id.widget_steps).visibility)
             val expanded = WidgetHost.controlViews(context, value, true, true).apply(context, FrameLayout(context))
@@ -34,6 +36,11 @@ class WidgetResourcesTest {
             val view = WidgetHost.controlViews(context, null, false, false).apply(context, FrameLayout(context))
             assertEquals("— BPM", view.findViewById<TextView>(R.id.widget_bpm).text.toString())
             assertNull(view.findViewById<View>(R.id.widget_50))
+            assertEquals(View.VISIBLE, view.findViewById<View>(R.id.widget_status).visibility)
+            val ready = WidgetHost.controlViews(context, WidgetPlayback("120", 120, 100, "Zatrzymany", false, false), true, false)
+                .apply(context, FrameLayout(context))
+            assertEquals(View.GONE, ready.findViewById<View>(R.id.widget_base).visibility)
+            assertEquals(View.GONE, ready.findViewById<View>(R.id.widget_status).visibility)
             assertTrue(view.findViewById<TextView>(R.id.widget_status).text.contains("aplikację"))
         }
     }

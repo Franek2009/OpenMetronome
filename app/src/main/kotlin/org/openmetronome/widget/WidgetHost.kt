@@ -157,15 +157,21 @@ object WidgetHost {
     internal fun controlViews(context: Context, value: WidgetPlayback?, controls: Boolean, expanded: Boolean,
         error: String? = null): RemoteViews {
         val views = RemoteViews(context.packageName, if (controls) R.layout.widget_control else R.layout.widget_mini)
-        views.setOnClickPendingIntent(R.id.widget_title, open(context))
-        views.setViewVisibility(R.id.widget_title, if (context.resources.configuration.fontScale > 1.2f) View.GONE else View.VISIBLE)
         views.setTextViewText(R.id.widget_bpm, value?.let { "${it.bpm} BPM" } ?: "— BPM")
         views.setOnClickPendingIntent(R.id.widget_bpm, open(context))
-        views.setTextViewText(R.id.widget_status, error ?: value?.status ?: "Otwórz aplikację")
+        val status = error ?: value?.status ?: "Otwórz aplikację"
+        val needsStatus = error != null || value == null || value.status !in setOf("Gra", "Zatrzymany")
+        views.setTextViewText(R.id.widget_status, status)
+        views.setViewVisibility(R.id.widget_status, if (needsStatus) View.VISIBLE else View.GONE)
+        views.setContentDescription(R.id.widget_bpm, value?.let { "${it.bpm} BPM, ${it.status}" } ?: status)
         views.setTextViewText(R.id.widget_play, if (value?.running == true) "■ Stop" else "▶ Start")
         views.setOnClickPendingIntent(R.id.widget_play, if (value == null) open(context) else action(context, if (value.running) "stop" else "start"))
         if (controls) {
-            views.setTextViewText(R.id.widget_base, value?.let { "Baza ${it.base} × ${it.percent}%${if (it.pending) " · oczekuje" else ""}" } ?: "")
+            views.setTextViewText(R.id.widget_base, value?.let { "${it.base} × ${it.percent}%${if (it.pending) " →" else ""}" } ?: "")
+            views.setViewVisibility(R.id.widget_base, if (value != null && (value.percent != 100 || value.pending)) View.VISIBLE else View.GONE)
+            views.setContentDescription(R.id.widget_base, value?.let {
+                "Baza ${it.base} BPM, ${it.percent}%${if (it.pending) ", zmiana oczekuje na zastosowanie" else ""}"
+            } ?: "")
             listOf(R.id.widget_100 to 100, R.id.widget_75 to 75, R.id.widget_50 to 50, R.id.widget_25 to 25).forEach { (view, percent) ->
                 views.setTextViewText(view, "$percent%")
                 views.setContentDescription(view, "$percent%${if (value?.percent == percent) ", wybrane" else ""}")

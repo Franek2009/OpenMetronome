@@ -25,7 +25,10 @@ DEV ma osobny pakiet i dane, więc nie steruje zwykłą aplikacją.
   Tak jak w aplikacji, ręczne −1/+1 wyłącza rampę; procent jej nie wyłącza.
   Wynik może być ułamkowy, od 5 BPM. Obowiązuje ustawienie momentu zmiany tempa.
 - Duże BPM pochodzi z zastosowanej konfiguracji. Oczekująca zmiana jest opisana
-  przy wybranej bazie/procencie, zamiast udawać, że silnik już ją odtwarza.
+  strzałką `→` przy wybranej bazie/procencie. Przy 100% bez oczekującej zmiany
+  pomocnicza linia znika. Nazwa aplikacji i powtarzany stan Gra/Zatrzymany
+  nie zajmują miejsca w widgetach; stan pozostaje dostępny dla TalkBack.
+  Widoczne pozostają błędy i przejściowe stany uruchamiania/zatrzymywania.
 - Backup i odzyskiwanie zapisów zachowują blokady Start/edycji. Odrzucone polecenie
   informuje o konieczności otwarcia aplikacji. Stop pozostaje dostępny.
 - Dzisiejszy czas obejmuje wszystkie zapisane sesje. Seria i aktywne dni respektują
