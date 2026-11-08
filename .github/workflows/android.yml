@@ -43,6 +43,7 @@ jobs:
           bash scripts/test-verification-parser.sh
           bash scripts/test-release-tools.sh
           python3 scripts/test-release-draft.py
+          python3 scripts/test-release-smoke-lines.py
           python3 scripts/test-official-upgrade-guards.py
           python3 scripts/test-upgrade-tools.py
           python3 scripts/test-dev-icon-input.py
