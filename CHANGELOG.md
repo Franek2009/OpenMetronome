@@ -1,5 +1,14 @@
 # Zmiany
 
+## W przygotowaniu — 1.2
+
+- Trzy widgety pulpitu: Mini Metronom, Sterowanie i Statystyki.
+  Wspólny stan z aplikacją; procenty zachowują bazę, większy widget oferuje −1/+1.
+- Statystyki widgetu pokazują zapisany czas dzisiaj, serię i aktywne dni tygodnia.
+- Bez zmian silnika PCM, bazy Room, formatu backupu, podpisu i opublikowanego 1.1.0.
+- Odświeżenie ilustracji README; podglądy widgetów są oznaczone jako rozwojowe.
+  [Obsługa i ograniczenia](docs/WIDGETS.md).
+
 ## 1.1.0 — opublikowane stabilne wydanie
 
 - Trzy zaakceptowane barwy oparte na CC0 Druminfected: Naturalny, Suchy,

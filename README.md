@@ -68,6 +68,15 @@ CSV służy do analizy; do przywracania danych używaj `.ombak`.
 [Instrukcja użytkowania](docs/USAGE.md)
 · [Brzmienia i import własnych sampli](docs/CUSTOM-SAMPLES.md)
 
+## W przygotowaniu: widgety 1.2
+
+Mini Metronom, większy panel Start/Stop z procentami tempa i widget statystyk
+z czasem ćwiczeń dzisiaj. Wszystkie korzystają ze wspólnego stanu aplikacji,
+bez animowanego pulsu ani osobnego zegara audio.
+
+**To funkcja rozwojowa — APK 1.1.0 wskazany powyżej nie zawiera widgetów.**
+[Obsługa, rozmiary i ograniczenia](docs/WIDGETS.md).
+
 ## Kopie i zgodność
 
 1.1 importuje `.ombak` v1 i v2; domyślnie eksportuje v2. Starsze 1.0 nie

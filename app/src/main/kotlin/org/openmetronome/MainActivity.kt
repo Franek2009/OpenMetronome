@@ -15,6 +15,7 @@ import android.Manifest
 import android.os.Build
 import android.content.pm.PackageManager
 import org.openmetronome.ui.OpenMetronomeApp
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.DisposableEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -30,11 +31,15 @@ import org.openmetronome.ui.MetronomeViewModel
 import org.openmetronome.ui.theme.OpenMetronomeTheme
 
 class MainActivity : ComponentActivity() {
+    private var widgetRequest by androidx.compose.runtime.mutableIntStateOf(0)
+    private var widgetStatistics by androidx.compose.runtime.mutableStateOf(false)
     private lateinit var model: MetronomeViewModel
     private val notifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) { recreate() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        widgetStatistics = intent.getBooleanExtra("widget_statistics", false)
+        widgetRequest = if (savedInstanceState == null && intent.hasExtra("widget_statistics")) 1 else 0
         volumeControlStream = AudioManager.STREAM_MUSIC
         model = ViewModelProvider(this, object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -48,10 +53,20 @@ class MainActivity : ComponentActivity() {
         setContent {
             OpenMetronomeTheme {
                 OpenMetronomeApp(model, (application as OpenMetronomeApplication).data,
+                    widgetStatistics = widgetStatistics, widgetRequest = widgetRequest,
                     notificationPermission = if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
                         { { notifications.launch(Manifest.permission.POST_NOTIFICATIONS) } } else null,
                 )
             }
+        }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.hasExtra("widget_statistics")) {
+            widgetStatistics = intent.getBooleanExtra("widget_statistics", false)
+            widgetRequest++
         }
     }
 

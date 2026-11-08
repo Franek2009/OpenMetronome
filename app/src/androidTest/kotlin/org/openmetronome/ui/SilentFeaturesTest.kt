@@ -439,6 +439,37 @@ class SilentFeaturesTest {
         assertEquals(PlaybackStatus.STOPPED, model.state.value.audio.status)
     }
 
+    @Test fun readmeCapturesCurrentFullscreenAndStatisticsWithoutPlayback() {
+        compose.onNodeWithText("Pełny ekran").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("Tempo pełnego ekranu: 120 BPM").assertIsDisplayed()
+        captureUi("fullscreen")
+        compose.onNodeWithText("Wróć").performClick()
+        page("Statystyki")
+        compose.onNodeWithText("Podsumowanie").assertIsDisplayed()
+        captureUi("statistics")
+        assertEquals(PlaybackStatus.STOPPED, model.state.value.audio.status)
+    }
+
+    @Test fun widgetLinksCanNavigateRepeatedlyWithoutChangingConfiguration() {
+        fun open(statistics: Boolean) {
+            compose.activity.startActivity(android.content.Intent(compose.activity, MainActivity::class.java)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .putExtra("widget_statistics", statistics))
+            compose.waitForIdle()
+        }
+        open(true)
+        compose.onNodeWithText("Podsumowanie").assertIsDisplayed()
+        page("Metronom")
+        open(true)
+        compose.onNodeWithText("Podsumowanie").assertIsDisplayed()
+        open(false)
+        compose.onNodeWithText("Pełny ekran").assertIsDisplayed()
+        compose.runOnIdle {
+            assertEquals(120, model.state.value.config.tempo.bpm)
+            assertEquals(PlaybackStatus.STOPPED, model.state.value.audio.status)
+        }
+    }
+
     private fun expandTraining() {
         val collapsed = compose.onAllNodesWithText("Trening pulsu").fetchSemanticsNodes().isNotEmpty()
         val toggle = compose.onNodeWithTag("training-toggle").performScrollTo()

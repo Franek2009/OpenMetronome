@@ -48,7 +48,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 
 @Composable
-fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, notificationPermission: (() -> Unit)? = null) {
+fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, widgetStatistics: Boolean = false, widgetRequest: Int = 0, notificationPermission: (() -> Unit)? = null) {
     val state by model.state.collectAsStateWithLifecycle()
     val error by data.error.collectAsStateWithLifecycle()
     val sampleWorking by data.sampleWorking.collectAsStateWithLifecycle()
@@ -80,6 +80,7 @@ fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, notificationPermi
         return
     }
     var page by rememberSaveable { mutableStateOf("Metronom") }
+    LaunchedEffect(widgetRequest) { if (widgetRequest > 0) { fullscreen = false; page = if (widgetStatistics) "Statystyki" else "Metronom" } }
     var report by rememberSaveable { mutableStateOf<String?>(null) }
     BackHandler(enabled = page != "Metronom" && report == null) { page = "Metronom" }
     val context = LocalContext.current
