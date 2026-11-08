@@ -68,7 +68,7 @@ class MetronomeScreenTest {
         compose.onNodeWithContentDescription("Puls 1: akcent").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText(text(R.string.start)).assertIsDisplayed().assertIsEnabled()
         compose.onNodeWithText(text(R.string.foreground_notice))
-            .assertIsDisplayed()
+            .assertDoesNotExist()
     }
 
     @Test

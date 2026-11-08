@@ -332,8 +332,6 @@ private fun StatisticsScreen(data: AppData, model: MetronomeViewModel) {
         TextButton({ legacyWarning = true }, enabled = backupEnabled) { Text("Kopia zgodna z 1.0 (v1)") }
         if (!backupEnabled && !backupWorking && !recoveryRequired) Text("Zatrzymaj metronom i poczekaj na zakończenie zapisu oraz innych operacji, aby użyć kopii zapasowej.")
         notice?.let { Text(it) }; backupNotice?.let { Text(it) }
-        Text("CSV służy do analizy historii. Kopia .ombak zawiera ustawienia, presety, historię i własne sample.", style = MaterialTheme.typography.bodySmall)
-        Text("Planowana cisza jest częścią ćwiczenia. Zapis co 5 s; przy awarii ostatnie sekundy mogą nie zostać zapisane.")
     }
     if (thresholdsOpen && preferences != null) StatisticsThresholdDialog(preferences, { thresholdsOpen = false }, data::saveStatisticsPreferences)
     if (legacyWarning) AlertDialog(onDismissRequest = { legacyWarning = false }, title = { Text("Kopia zgodna z 1.0") },
@@ -427,6 +425,5 @@ private fun SettingsScreen(model: MetronomeViewModel, data: AppData,
         notificationPermission?.let { TextButton(it) { Text("Zezwól na powiadomienia") } }
         OutlinedButton(diagnostics) { Text(stringResource(R.string.diagnostics_open)) }
         DistributionDiagnostics(data)
-        Text("Ciemny motyw · dane tylko na urządzeniu", style = MaterialTheme.typography.bodySmall)
     }
 }

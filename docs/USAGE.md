@@ -135,3 +135,30 @@ odłożony do własnego użytkowania — nie jest zaliczony, ale nie blokuje wer
 Odbiór sprzętowy nowych barw pozostaje osobny. Aktualne wyniki:
 [raport 0.8](V0.8-VALIDATION.md); wcześniejsze wyniki:
 [historia M2–M5](M2-M5-VALIDATION.md).
+
+
+## Objaśnienia przeniesione z ekranów aplikacji
+
+Na ekranach pozostają wartości, statusy, błędy i ostrzeżenia operacji.
+Stałe instrukcje są tutaj zamiast pod każdym przyciskiem:
+
+- Tap tempo: stuknij co najmniej dwa razy w rytmie pulsu.
+- Lampki przełączają zwykły puls → akcent → cisza.
+- Metronom może działać przy zablokowanym ekranie; zatrzymasz go przyciskiem
+  Stop lub z powiadomienia.
+- Odliczanie nie zwiększa czasu praktyki; jego zmiana dotyczy następnego Start.
+- Wybór barwy nie odtwarza dźwięku. Zmiana podczas grania następuje od taktu.
+  Głośność zmienia się płynnie; przyciski telefonu sterują głośnością systemową.
+  Kliki są głośniejsze niż przed 0.9, więc zaczynaj odsłuch od niższej głośności.
+- Import przyjmuje WAV/MP3/OGG do 10 MiB i 10 s, usuwa początkową ciszę,
+  skraca klik do 40 ms i tworzy wyższy akcent. Oryginał pozostaje bez zmian.
+- Dzisiaj korzysta z zapisów sesji, odświeżanych około co 5 s. Krótkie sesje
+  pozostają w historii. Daty sesji zachowują zapisaną strefę czasową.
+- Progi przeliczają istniejącą historię bez usuwania sesji. Brak przebiegu
+  starszej lub niekompletnej sesji nie jest zerowym czasem ćwiczeń.
+- Analiza treningu mierzy czas używania konfiguracji, nie faktyczną długość
+  ciszy, jakość gry ani fizyczną precyzję audio.
+- CSV służy do analizy; `.ombak` zawiera ustawienia, presety, historię i własne
+  sample. Planowana cisza liczy się jako ćwiczenie. Checkpoint co około 5 s
+  nie gwarantuje zachowania ostatnich sekund przy awarii lub błędzie dysku.
+- Aplikacja ma ciemny motyw, działa offline, bez reklam i kont.

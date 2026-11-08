@@ -41,7 +41,6 @@ fun SoundControls(config: MetronomeConfig, onChange: (MetronomeConfig) -> Unit, 
         OutlinedButton(onClick = { showPicker = true }, modifier = Modifier.sizeIn(minHeight = 48.dp).semantics { contentDescription = "Wybierz brzmienie" }) {
             Text(stringResource(R.string.selected_sound, selectedName))
         }
-        Text(stringResource(R.string.sound_hint), style = MaterialTheme.typography.bodySmall)
     }
     if (showPicker) {
         AlertDialog(
@@ -49,10 +48,6 @@ fun SoundControls(config: MetronomeConfig, onChange: (MetronomeConfig) -> Unit, 
             title = { Text("Brzmienie") },
             text = {
                     LazyColumn(Modifier.fillMaxWidth().heightIn(max = 360.dp).selectableGroup()) {
-                        item {
-                            Text("Wybór nie uruchamia dźwięku. Zmiana podczas grania nastąpi na granicy taktu.",
-                                Modifier.padding(bottom = 8.dp))
-                        }
                         items(ClickSound.visible, key = { it.name }) { sound ->
                             Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).selectable(
                                 selected = config.sound.customSampleId == null && config.sound.clickSound == sound,

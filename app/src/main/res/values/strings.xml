@@ -10,7 +10,6 @@
   <string name="increase_tempo">Zwiększ tempo o 1 BPM</string>
   <string name="tempo_slider">Ustaw tempo</string>
   <string name="tap_tempo">Tap tempo</string>
-  <string name="tap_tempo_hint">Stuknij co najmniej dwa razy w rytmie pulsu</string>
   <string name="sound_title">Dźwięk</string>
   <string name="sound_curated_full">Pełny</string>
   <string name="sound_curated_low">Niski</string>
@@ -61,7 +60,6 @@
   <string name="sound_full_dense">33 — Pełny nasycony</string>
   <string name="sound_full_low_dense">34 — Pełny niski i gęsty</string>
   <string name="sound_full_high_tight">35 — Pełny wyższy i zwarty</string>
-  <string name="sound_hint">Od wersji 0.9 kliki są głośniejsze — zacznij odsłuch od niższej głośności. Głośność zmienia się płynnie; barwa od następnego taktu. Przyciski telefonu regulują głośność systemową. Wybór barwy nie uruchamia odtwarzania.</string>
   <string name="time_signature_title">Metrum</string>
   <string name="time_signature_value">%1$d/%2$d</string>
   <string name="time_signature_accessibility">Metrum %1$d na %2$d</string>
@@ -79,7 +77,6 @@
   <string name="audio_initialization_failed">Nie udało się uruchomić wyjścia audio. Spróbuj ponownie.</string>
   <string name="audio_device_lost">Utracono wyjście audio. Sprawdź połączenie i uruchom metronom ponownie.</string>
   <string name="audio_playback_failed">Odtwarzanie zostało przerwane przez błąd audio. Spróbuj ponownie.</string>
-  <string name="offline_note">Bez reklam. Bez konta. Całkowicie offline.</string>
     <string name="sound_sample_natural">Naturalny</string>
     <string name="sound_sample_short">Suchy</string>
     <string name="sound_sample_low">Naturalny niski</string>

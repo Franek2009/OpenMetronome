@@ -41,7 +41,7 @@ fun SampleLibraryControls(model: MetronomeViewModel, data: AppData) {
         OutlinedButton({ importer.launch(arrayOf("audio/*", "application/ogg")) }, enabled = stopped && !working && samples.size < 32) {
             Text(if (working) "Przygotowywanie sampla…" else "Importuj sample")
         }
-        Text("WAV, MP3 lub OGG, maks. 10 MiB i 10 s. Import usuwa ciszę, skraca do 40 ms i tworzy wyższy akcent. Plik źródłowy pozostaje bez zmian.", style = MaterialTheme.typography.bodySmall)
+        Text("WAV/MP3/OGG · do 10 MiB i 10 s · klik do 40 ms", style = MaterialTheme.typography.bodySmall)
         if (!stopped) Text("Zatrzymaj metronom, aby importować lub edytować bibliotekę.")
         notice?.let { Text(it) }
         samples.forEach { sample ->
