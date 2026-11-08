@@ -10,7 +10,7 @@ class ConfigCodecTest {
             val payload = "version=1\nvolumePercent=73\nclickSound=${sound.name}"
             assertEquals(SoundConfig(73, sound), ConfigCodec.decode(payload).sound)
         }
-        assertEquals(43, ClickSound.entries.size)
+        assertEquals(46, ClickSound.entries.size)
     }
 
     @Test fun `old payloads retain classic full volume and extended fields round trip`() {

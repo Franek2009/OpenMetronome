@@ -58,7 +58,7 @@ class StorageTest {
             }
             val restored = db.practice().presets().first().map { ConfigCodec.decode(it.config).sound }.toSet()
             assertEquals(ClickSound.entries.map { SoundConfig(37, it) }.toSet(), restored)
-            assertEquals(43, restored.size)
+            assertEquals(ClickSound.entries.size, restored.size)
         } finally { owner.cancelAndJoin(); db.close(); file.delete() } // Only this UUID-named test fixture.
     }
 

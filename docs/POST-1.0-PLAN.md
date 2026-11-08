@@ -52,3 +52,13 @@ Kwalifikacja DEV ma osobny workflow dispatch API26/35 i niezmieniony próg +10%.
 Nie jest bramką beta z wyłączoną rejestracją; jej wcześniejsze FAIL pozostają
 udokumentowane. Regresja beta wymaga testu pustych hooków i raportuje kwalifikację
 jako NOT RUN, nie PASS. Nie usuwamy benchmarku ani nie uruchamiamy fizycznego audio.
+
+
+## Domknięcie 1.1 — aktualna decyzja użytkownika
+
+Odstąpiono od odświeżania UI i nowej wizualizacji. Obecny wygląd zostaje.
+Trzy warianty Druminfected zaakceptowano odsłuchowo; kolejne CC0 VCSL
+przygotowano do osobnego wyboru. Nazwa „Drewniany” nie jest wymaganiem.
+Pełne DEV pozostaje przed bramką +10%, bez zmiany kryterium.
+Aktualizacja i import statystyk manualnie potwierdzone przez użytkownika,
+bez dopisywania wersji, urządzenia lub niezgłoszonych scenariuszy.

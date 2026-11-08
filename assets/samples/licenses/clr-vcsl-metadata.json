@@ -1,0 +1,204 @@
+[
+  {
+    "id": "cm-4f1cca8e1a0030d4",
+    "title": "Cowbell",
+    "category": "drum-percussion",
+    "type": "drum",
+    "family": "musical",
+    "mood": "neutral",
+    "use": [
+      "game",
+      "video",
+      "podcast"
+    ],
+    "loop": "unknown",
+    "bpm": "unknown",
+    "duration": 0.94,
+    "bytes": 165900,
+    "format": "wav",
+    "tags": [
+      "drum",
+      "percussion",
+      "cowbells",
+      "musical"
+    ],
+    "file": "audio/drum-percussion/cm-4f1cca8e1a0030d4__cowbell1-normal-v3-rr1-mid.wav",
+    "license": {
+      "name": "CC0",
+      "plain": "CC0 public domain. Free for any use, no credit required.",
+      "url": "https://creativecommons.org/publicdomain/zero/1.0/"
+    },
+    "credit": "\"Cowbells, Cowbell1 Normal v3 rr1 Mid\" by Versilian Studios / VCSL contributors, CC0, via https://versilian-studios.com/vcsl/",
+    "creator": "Versilian Studios / VCSL contributors",
+    "source": "https://versilian-studios.com/vcsl/",
+    "sourcePack": "Versilian Community Sample Library",
+    "facets": {
+      "kind": "kind.sound",
+      "who": "who.versilian-studios-vcsl-contributors",
+      "topic": [
+        "topic.music",
+        "topic.subject.drum-percussion",
+        "topic.mood.neutral",
+        "topic.drum",
+        "topic.percussion",
+        "topic.cowbells",
+        "topic.musical"
+      ],
+      "place": "place.clrmusic",
+      "rights": "rights.cc0",
+      "score": 56
+    }
+  },
+  {
+    "id": "cm-66c188d948b4067c",
+    "title": "Cowbell Two",
+    "category": "drum-percussion",
+    "type": "drum",
+    "family": "musical",
+    "mood": "neutral",
+    "use": [
+      "game",
+      "video",
+      "podcast"
+    ],
+    "loop": "unknown",
+    "bpm": "unknown",
+    "duration": 1.79,
+    "bytes": 315048,
+    "format": "wav",
+    "tags": [
+      "drum",
+      "percussion",
+      "cowbells",
+      "musical"
+    ],
+    "file": "audio/drum-percussion/cm-66c188d948b4067c__cowbell2-normal-v3-rr1-mid.wav",
+    "license": {
+      "name": "CC0",
+      "plain": "CC0 public domain. Free for any use, no credit required.",
+      "url": "https://creativecommons.org/publicdomain/zero/1.0/"
+    },
+    "credit": "\"Cowbells, Cowbell2 Normal v3 rr1 Mid\" by Versilian Studios / VCSL contributors, CC0, via https://versilian-studios.com/vcsl/",
+    "creator": "Versilian Studios / VCSL contributors",
+    "source": "https://versilian-studios.com/vcsl/",
+    "sourcePack": "Versilian Community Sample Library",
+    "facets": {
+      "kind": "kind.sound",
+      "who": "who.versilian-studios-vcsl-contributors",
+      "topic": [
+        "topic.music",
+        "topic.subject.drum-percussion",
+        "topic.mood.neutral",
+        "topic.drum",
+        "topic.percussion",
+        "topic.cowbells",
+        "topic.musical"
+      ],
+      "place": "place.clrmusic",
+      "rights": "rights.cc0",
+      "score": 56
+    }
+  },
+  {
+    "id": "cm-ea36f14271e270a9",
+    "title": "Tom Stick H Hit S Four",
+    "category": "drum-percussion",
+    "type": "drum",
+    "family": "musical",
+    "mood": "neutral",
+    "use": [
+      "game",
+      "video",
+      "podcast"
+    ],
+    "loop": "unknown",
+    "bpm": "unknown",
+    "duration": 3.16,
+    "bytes": 557280,
+    "format": "wav",
+    "tags": [
+      "drum",
+      "percussion",
+      "tom-1",
+      "stick",
+      "musical"
+    ],
+    "file": "audio/drum-percussion/cm-ea36f14271e270a9__tomh-hits-v4-rr2-mid.wav",
+    "license": {
+      "name": "CC0",
+      "plain": "CC0 public domain. Free for any use, no credit required.",
+      "url": "https://creativecommons.org/publicdomain/zero/1.0/"
+    },
+    "credit": "\"Tom 1 Stick, Tom H Hit S v4 rr2 Mid\" by Versilian Studios / VCSL contributors, CC0, via https://versilian-studios.com/vcsl/",
+    "creator": "Versilian Studios / VCSL contributors",
+    "source": "https://versilian-studios.com/vcsl/",
+    "sourcePack": "Versilian Community Sample Library",
+    "facets": {
+      "kind": "kind.sound",
+      "who": "who.versilian-studios-vcsl-contributors",
+      "topic": [
+        "topic.music",
+        "topic.subject.drum-percussion",
+        "topic.mood.neutral",
+        "topic.drum",
+        "topic.percussion",
+        "topic.tom-1",
+        "topic.stick"
+      ],
+      "place": "place.clrmusic",
+      "rights": "rights.cc0",
+      "score": 56
+    }
+  },
+  {
+    "id": "cm-a8df90acd53384e9",
+    "title": "Tom Stick L Hit S Three",
+    "category": "drum-percussion",
+    "type": "drum",
+    "family": "musical",
+    "mood": "neutral",
+    "use": [
+      "game",
+      "video",
+      "podcast"
+    ],
+    "loop": "unknown",
+    "bpm": "unknown",
+    "duration": 3.42,
+    "bytes": 603516,
+    "format": "wav",
+    "tags": [
+      "drum",
+      "percussion",
+      "tom-2",
+      "stick",
+      "musical"
+    ],
+    "file": "audio/drum-percussion/cm-a8df90acd53384e9__toml-hits-v4-rr1-mid.wav",
+    "license": {
+      "name": "CC0",
+      "plain": "CC0 public domain. Free for any use, no credit required.",
+      "url": "https://creativecommons.org/publicdomain/zero/1.0/"
+    },
+    "credit": "\"Tom 2 Stick, Tom L Hit S v4 rr1 Mid\" by Versilian Studios / VCSL contributors, CC0, via https://versilian-studios.com/vcsl/",
+    "creator": "Versilian Studios / VCSL contributors",
+    "source": "https://versilian-studios.com/vcsl/",
+    "sourcePack": "Versilian Community Sample Library",
+    "facets": {
+      "kind": "kind.sound",
+      "who": "who.versilian-studios-vcsl-contributors",
+      "topic": [
+        "topic.music",
+        "topic.subject.drum-percussion",
+        "topic.mood.neutral",
+        "topic.drum",
+        "topic.percussion",
+        "topic.tom-2",
+        "topic.stick"
+      ],
+      "place": "place.clrmusic",
+      "rights": "rights.cc0",
+      "score": 56
+    }
+  }
+]

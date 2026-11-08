@@ -1,17 +1,15 @@
-# Oryginalne źródła przyszłej barwy „Drewniany” — 1.0.1
+# Oryginalne źródła sampli
 
-Barwa odłożona do 1.0.1; brak plików nie blokuje RC2 ani stabilnego 1.0.0.
+Oryginałów użytkownika nie nadpisujemy. Ten folder nie jest zasobem runtime
+APK. Aktualny audyt, autorzy, licencje i decyzje: [PROVENANCE](../PROVENANCE.md).
 
-Oczekiwane oryginalne pliki z Freesound (nie przekonwertowane podglądy):
+Dostarczono Druminfected 250552, dwa cowbelle i dwa tomy VCSL przez CLR,
+a także dzwonek Seidhepriest 191959. Pierwsze pięć ma potwierdzone CC0.
+Dzwonek ma CC BY-NC 4.0: pozostaje wyłącznie lokalnym plikiem użytkownika,
+bez dołączania do APK/PR lub tworzenia podglądów pochodnych.
+Osobnego akcentu Druminfected 250551 nie dostarczono; nowe pary korzystają
+z jawnie opisanej pochodnej, nie udają osobnego nagrania.
 
-- `250552__druminfected__metronome.wav` — [zwykły klik](https://freesound.org/people/Druminfected/sounds/250552/).
-- `250551__druminfected__metronomeup.wav` — [osobny akcent](https://freesound.org/people/Druminfected/sounds/250551/).
-
-Autor/uploader Druminfected, licencja [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
-Nazwy mogą się różnić, ale trzeba zachować dowód, z której strony pochodzi plik.
-Nie dołączać loginów, cookies ani danych konta. Oryginałów nie nadpisywać.
-
-W chwili przygotowania tej dokumentacji oba WAV-y są **niedostępne**.
-Po dostarczeniu należy zapisać SHA-256, potwierdzić format i przeprowadzić
-[kwalifikację](../../../docs/SAMPLE-QUALIFICATION.md) przed włączeniem do aplikacji.
-Ten folder nie jest zasobem runtime i sam nie dodaje barwy do APK.
+Pomiary: `python3 scripts/audit-source-samples.py`.
+Warianty odsłuchowe: [previews](../previews/README.md).
+Oryginalny audyt historyczny: [kwalifikacja](../../../docs/SAMPLE-QUALIFICATION.md).

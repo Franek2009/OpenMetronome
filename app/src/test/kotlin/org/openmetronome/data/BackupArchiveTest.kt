@@ -27,6 +27,23 @@ class BackupArchiveTest {
         assertThrows(Exception::class.java) { BackupArchive.writeLegacy(newMeter, out) }
         assertEquals(0, out.size())
     }
+    @Test fun `sampled sound IDs round trip v2 but legacy export fails before writing any bytes`() {
+        for (sound in org.openmetronome.domain.model.ClickSound.sampled) {
+            val payload = ConfigCodec.encode(MetronomeConfig(sound = org.openmetronome.domain.model.SoundConfig(37, sound)))
+            val original = snapshot()
+            for (value in listOf(original.copy(settings = payload),
+                original.copy(presets = original.presets.map { it.copy(config = payload) }),
+                original.copy(sessions = original.sessions.map { it.copy(config = payload) }))) {
+                val restored = BackupArchive.read(ByteArrayInputStream(encoded(value)))
+                assertEquals(value.settings, restored.settings)
+                assertEquals(value.presets, restored.presets)
+                assertEquals(value.sessions.map { it.config }, restored.sessions.map { it.config })
+                val destination = ByteArrayOutputStream()
+                assertThrows(IllegalArgumentException::class.java) { BackupArchive.writeLegacy(value, destination) }
+                assertEquals(0, destination.size())
+            }
+        }
+    }
     private val sampleId = UUID.randomUUID().toString()
     private val wav = SamplePcm.encodeCanonical(ShortArray(96).also { it[20] = 1000; it[21] = -1000 })
     private val config = ConfigCodec.encode(MetronomeConfig(tempo = Tempo(91)))

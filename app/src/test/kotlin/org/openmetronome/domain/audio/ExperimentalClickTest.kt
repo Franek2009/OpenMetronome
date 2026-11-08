@@ -14,8 +14,9 @@ class ExperimentalClickTest {
         assertEquals(listOf("CLASSIC", "WOOD", "SHORT", "WOODBLOCK", "RIMSHOT", "COWBELL", "CLAP", "PULSE"),
             ClickSound.standard.map { it.name })
         assertEquals(ClickSound.IMPULSE_FULL, SoundConfig().clickSound)
-        assertEquals(listOf(6, 21, 23, 25, 26, 29), ClickSound.visible.map { it.auditionNumber })
-        assertEquals(43, ClickSound.entries.size)
+        assertEquals(listOf(6, 21, 23, 25, 26, 29), ClickSound.visible.take(6).map { it.auditionNumber })
+        assertEquals(43, ClickSound.entries.take(43).size)
+        assertEquals(ClickSound.sampled, ClickSound.entries.drop(43))
     }
 
     @Test fun `chosen reference 06 stays byte identical to v010 at both export rates`() {

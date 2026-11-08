@@ -1,0 +1,65 @@
+[
+  {
+    "file": "01-natural-normal.wav",
+    "sha256": "2fdb03fd5bfd643504fc5444f34c4866bdaec6c8f842e81f26d0ab932d7fbb48",
+    "frames": 1920,
+    "peak": 29162,
+    "dc_lsb": 0.0
+  },
+  {
+    "file": "01-natural-accent.wav",
+    "sha256": "46763b58cac1dd6551ca92d62142d7cfb7cd7b1de5a63fe51007b6a913bbe94b",
+    "frames": 1920,
+    "peak": 29162,
+    "dc_lsb": -0.005208333333333333
+  },
+  {
+    "file": "01-natural-demo.wav",
+    "sha256": "b60fd93d80f6c0f0bfff5139fc9ab5dc6156c38f583687badc06ead33dcc1aad",
+    "frames": 240000,
+    "peak": 29162,
+    "dc_lsb": -8.333333333333333e-05
+  },
+  {
+    "file": "02-short-normal.wav",
+    "sha256": "b8535aa59a1eacf1a34c8b144c69172957d7371477c91463b3674cb9490cf640",
+    "frames": 1152,
+    "peak": 29162,
+    "dc_lsb": 0.0078125
+  },
+  {
+    "file": "02-short-accent.wav",
+    "sha256": "ecf53da03cee50dee1d2c6c70e19400222e03e90ef63ece406f65374f5249724",
+    "frames": 1152,
+    "peak": 29162,
+    "dc_lsb": 0.015625
+  },
+  {
+    "file": "02-short-demo.wav",
+    "sha256": "a4de6c5e87bc5d0039503d3476f22a442dbce119c107708800db8bc571479f7c",
+    "frames": 240000,
+    "peak": 29162,
+    "dc_lsb": 0.000375
+  },
+  {
+    "file": "03-low-normal.wav",
+    "sha256": "f70ec214433653a279cf6635f220299d4536c212ad6e6aa39fba8dba2113f1b2",
+    "frames": 1920,
+    "peak": 29162,
+    "dc_lsb": 0.0015625
+  },
+  {
+    "file": "03-low-accent.wav",
+    "sha256": "c44b13f275c1341fc06d5a859624a76592ecbde7b8c7d773d0a1ccd25bd3c14e",
+    "frames": 1920,
+    "peak": 29162,
+    "dc_lsb": -0.0015625
+  },
+  {
+    "file": "03-low-demo.wav",
+    "sha256": "ffc82621d4e5a9b2c16c0bb328e6e05144b79ed24b8ee4209a6abea4ea6b8a7d",
+    "frames": 240000,
+    "peak": 29162,
+    "dc_lsb": 5e-05
+  }
+]

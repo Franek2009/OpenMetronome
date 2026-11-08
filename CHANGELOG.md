@@ -1,5 +1,18 @@
 # Zmiany
 
+## Unreleased — domknięcie 1.1
+
+- Trzy zaakceptowane barwy oparte na CC0 Druminfected: Naturalny, Suchy,
+  Naturalny niski, z osobno przygotowanymi akcentami. Dotychczasowe ID i PCM zachowane.
+- Eksport zgodny v1 odrzuca nowe ID przed zapisem; v2 zachowuje je bez
+  migracji Room lub zmiany formatu archiwum.
+- Wygląd aplikacji pozostaje bez zmian na decyzję użytkownika.
+- Manualne potwierdzenie użytkownika: aktualizacja i import statystyk
+  działały bez zarzutu; bez rozszerzania zakresu odbioru M6.
+- Dodatkowe próbki VCSL oczekują na wybór odsłuchowy. Pełna rejestracja
+  DEV nadal wymaga kwalifikacji +10%; wcześniejsze FAIL pozostają jawne.
+
+
 ## 1.1.0-beta.1 — kandydat do testów użytkownika
 
 - Pełny ekran z dużym BPM, pulsem/taktem, blokadą dotyku i dostępnym Stop.

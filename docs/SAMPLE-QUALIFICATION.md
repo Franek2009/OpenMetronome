@@ -1,5 +1,12 @@
 # „Drewniany” — odłożona kwalifikacja na 1.0.1
 
+> Aktualizacja domknięcia 1.1: oryginały dostarczono. Trzy pochodne
+> Druminfected zaakceptowano odsłuchowo i zintegrowano na gałęzi roboczej.
+> VCSL CC0 oczekuje na wybór; Seidhepriest BY-NC odrzucony z dystrybucji.
+> Aktualne pomiary i pochodzenie: [PROVENANCE](../assets/samples/PROVENANCE.md).
+> Poniższy audyt historyczny zachowano, nie jest bieżącym statusem prac.
+
+
 Decyzja wydawnicza: barwa odłożona do **1.0.1**, poza RC2 i stabilnym 1.0.0.
 Brak WAV-ów nie blokuje tych wydań. Zachowujemy audyt jako materiał przyszłych prac.
 

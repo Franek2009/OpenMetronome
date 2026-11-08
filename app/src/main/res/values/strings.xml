@@ -80,4 +80,7 @@
   <string name="audio_device_lost">Utracono wyjście audio. Sprawdź połączenie i uruchom metronom ponownie.</string>
   <string name="audio_playback_failed">Odtwarzanie zostało przerwane przez błąd audio. Spróbuj ponownie.</string>
   <string name="offline_note">Bez reklam. Bez konta. Całkowicie offline.</string>
+    <string name="sound_sample_natural">Naturalny</string>
+    <string name="sound_sample_short">Suchy</string>
+    <string name="sound_sample_low">Naturalny niski</string>
 </resources>

@@ -45,6 +45,7 @@ jobs:
           python3 scripts/test-upgrade-tools.py
           python3 scripts/test-dev-icon-input.py
           python3 scripts/test-dev-trace-tools.py
+          python3 scripts/generate-sampled-bank.py --check
 
       - name: Unit tests, Lint and builds (release is unsigned)
         run: >-
