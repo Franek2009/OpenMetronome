@@ -60,6 +60,7 @@ jobs:
           bash scripts/test-verification-parser.sh
           bash scripts/test-release-tools.sh
           python3 scripts/test-release-draft.py
+          python3 scripts/test-release-smoke-lines.py
           python3 scripts/test-official-upgrade-guards.py
           ./gradlew --no-daemon --console=plain :app:testProdDebugUnitTest :app:lintProdDebug :app:lintProdRelease :app:assembleProdDebug :app:assembleProdDebugAndroidTest :app:assembleProdRelease :app:testDevDebugUnitTest :app:lintDevDebug :app:lintDevRelease :app:assembleDevDebug :app:assembleDevDebugAndroidTest :app:assembleDevRelease
           python3 scripts/verify-build-variants.py
@@ -269,9 +270,7 @@ jobs:
           disable-animations: true
           script: |
             ANDROID_SERIAL=emulator-5554 bash scripts/smoke-release.sh "$(find prod-assets -name '*.apk')" app/build/reports/release-smoke/prod
-            if [[ '${{ inputs.include_dev }}' == true ]]; then
-              ANDROID_SERIAL=emulator-5554 bash scripts/smoke-release.sh --dev "$(find dev-assets -name '*.apk')" app/build/reports/release-smoke/dev
-            fi
+            if [ '${{ inputs.include_dev }}' = true ]; then ANDROID_SERIAL=emulator-5554 bash scripts/smoke-release.sh --dev "$(find dev-assets -name '*.apk')" app/build/reports/release-smoke/dev; fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
