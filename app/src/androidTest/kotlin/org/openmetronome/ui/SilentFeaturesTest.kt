@@ -451,11 +451,16 @@ class SilentFeaturesTest {
     }
 
     @Test fun widgetLinksCanNavigateRepeatedlyWithoutChangingConfiguration() {
+        // ActivityScenario matches lifecycle events by the original intent filter identity.
+        // Keep action/categories/identifier while exercising actual onNewIntent delivery.
+        val scenarioIntent = android.content.Intent(compose.activity.intent)
         fun open(statistics: Boolean) {
-            compose.activity.startActivity(android.content.Intent(compose.activity, MainActivity::class.java)
-                .addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            compose.activity.startActivity(android.content.Intent(scenarioIntent)
+                .setFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 .putExtra("widget_statistics", statistics))
-            compose.waitForIdle()
+            compose.waitUntil(10000) {
+                compose.onAllNodesWithText(if (statistics) "Podsumowanie" else "Pełny ekran").fetchSemanticsNodes().isNotEmpty()
+            }
         }
         open(true)
         compose.onNodeWithText("Podsumowanie").assertIsDisplayed()
