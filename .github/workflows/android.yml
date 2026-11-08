@@ -14,7 +14,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  scope:
+    name: CI scope and docs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      mode: ${{ steps.scope.outputs.mode }}
+      head: ${{ steps.scope.outputs.head }}
+    steps:
+      - name: Checkout exact candidate and comparison history
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Test scope, links and final gate
+        run: python3 scripts/test-ci-policy.py
+      - name: Classify changes and check local documentation
+        id: scope
+        run: python3 scripts/ci-policy.py scope
+      - name: Upload scope evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-scope
+          path: app/build/reports/ci/scope.json
+          if-no-files-found: ignore
+          retention-days: 14
+
   verify:
+    needs: scope
+    if: needs.scope.outputs.mode == 'full'
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
@@ -96,7 +126,7 @@ jobs:
           retention-days: 14
 
   quiet:
-    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+    if: needs.scope.outputs.mode == 'full'
     name: quiet prod + dev (API ${{ matrix.api }})
     strategy:
       fail-fast: false
@@ -106,7 +136,7 @@ jobs:
             arch: x86
           - api: 35
             arch: x86_64
-    needs: verify
+    needs: [scope, verify]
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
@@ -156,9 +186,9 @@ jobs:
 
 
   upgrade:
-    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+    if: needs.scope.outputs.mode == 'full'
     name: upgrade (API ${{ matrix.api }})
-    needs: verify
+    needs: [scope, verify]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
@@ -208,3 +238,37 @@ jobs:
           name: upgrade-report-api${{ matrix.api }}
           path: app/build/reports/upgrade-validation/
           retention-days: 14
+
+  result:
+    name: CI result
+    if: always()
+    needs: [scope, verify, quiet, upgrade]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Detect workflow cancellation
+        id: cancellation
+        if: cancelled()
+        run: echo 'detected=true' >> "$GITHUB_OUTPUT"
+      - name: Enforce all checks required by the selected scope
+        if: always()
+        env:
+          CI_NEEDS_JSON: ${{ toJSON(needs) }}
+          CI_EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          CI_CANCELLED: ${{ steps.cancellation.outputs.detected || 'false' }}
+        run: python3 scripts/ci-policy.py result
+      - name: Upload final gate evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-result
+          path: app/build/reports/ci/result.json
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Reject cancellation arriving during final reporting
+        if: cancelled()
+        run: exit 1
