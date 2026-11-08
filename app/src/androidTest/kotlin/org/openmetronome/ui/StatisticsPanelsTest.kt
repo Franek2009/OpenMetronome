@@ -25,7 +25,7 @@ class StatisticsPanelsTest {
         val stats = PracticeAnalyticsCalculator.calculate(listOf(session("old")), StatisticsPreferences(), today)
         compose.setContent { OpenMetronomeTheme { PracticeAnalysisPanel(stats) } }
         compose.onNodeWithText("Znany przebieg: 0 min 00 s").assertIsDisplayed()
-        compose.onNodeWithText("Bez pełnego przebiegu: 5 min 00 s. Brak danych nie jest zerem.").assertIsDisplayed()
+        compose.onNodeWithText("Bez pełnego przebiegu: 5 min 00 s").assertIsDisplayed()
         compose.onNodeWithText("Tempo wynikowe").assertDoesNotExist()
     }
 
