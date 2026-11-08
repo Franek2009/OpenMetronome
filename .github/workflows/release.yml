@@ -8,6 +8,12 @@ on:
         required: true
         type: string
 
+      include_dev:
+        description: Include separately signed DEV APK (not required for PROD)
+        required: true
+        type: boolean
+        default: true
+
 permissions:
   contents: read
 
@@ -53,6 +59,8 @@ jobs:
         run: |
           bash scripts/test-verification-parser.sh
           bash scripts/test-release-tools.sh
+          python3 scripts/test-release-draft.py
+          python3 scripts/test-official-upgrade-guards.py
           ./gradlew --no-daemon --console=plain :app:testProdDebugUnitTest :app:lintProdDebug :app:lintProdRelease :app:assembleProdDebug :app:assembleProdDebugAndroidTest :app:assembleProdRelease :app:testDevDebugUnitTest :app:lintDevDebug :app:lintDevRelease :app:assembleDevDebug :app:assembleDevDebugAndroidTest :app:assembleDevRelease
           python3 scripts/verify-build-variants.py
           python3 scripts/analyze-click-bank.py
@@ -170,6 +178,7 @@ jobs:
           retention-days: 14
 
   sign-dev:
+    if: ${{ inputs.include_dev }}
     needs: verify
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -214,7 +223,7 @@ jobs:
           retention-days: 14
 
   smoke:
-    name: official PROD + DEV (API ${{ matrix.api }})
+    name: official selected variants (API ${{ matrix.api }})
     strategy:
       fail-fast: false
       matrix:
@@ -224,6 +233,7 @@ jobs:
           - api: 35
             arch: x86_64
     needs: [verify, sign, sign-dev]
+    if: ${{ !cancelled() && needs.verify.result == 'success' && needs.sign.result == 'success' && (needs.sign-dev.result == 'success' || (!inputs.include_dev && needs.sign-dev.result == 'skipped')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -236,6 +246,7 @@ jobs:
           name: official-signed-apk
           path: prod-assets
       - uses: actions/download-artifact@v4
+        if: ${{ inputs.include_dev }}
         with:
           name: official-signed-dev-apk
           path: dev-assets
@@ -258,7 +269,9 @@ jobs:
           disable-animations: true
           script: |
             ANDROID_SERIAL=emulator-5554 bash scripts/smoke-release.sh "$(find prod-assets -name '*.apk')" app/build/reports/release-smoke/prod
-            ANDROID_SERIAL=emulator-5554 bash scripts/smoke-release.sh --dev "$(find dev-assets -name '*.apk')" app/build/reports/release-smoke/dev
+            if [[ '${{ inputs.include_dev }}' == true ]]; then
+              ANDROID_SERIAL=emulator-5554 bash scripts/smoke-release.sh --dev "$(find dev-assets -name '*.apk')" app/build/reports/release-smoke/dev
+            fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -268,6 +281,7 @@ jobs:
 
   draft:
     needs: [verify, quiet, sign, sign-dev, smoke]
+    if: ${{ !cancelled() && needs.verify.result == 'success' && needs.sign.result == 'success' && needs.quiet.result == 'success' && needs.smoke.result == 'success' && (needs.sign-dev.result == 'success' || (!inputs.include_dev && needs.sign-dev.result == 'skipped')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -282,6 +296,7 @@ jobs:
           name: official-signed-apk
           path: prod-assets
       - uses: actions/download-artifact@v4
+        if: ${{ inputs.include_dev }}
         with:
           name: official-signed-dev-apk
           path: dev-assets
@@ -289,17 +304,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-          source scripts/release-info.sh
-          (cd prod-assets && sha256sum --check SHA256SUMS)
-          (cd dev-assets && sha256sum --check SHA256SUMS)
-          mkdir release-assets
-          cp "prod-assets/$release_apk_name" prod-assets/SIGNING-CERT-SHA256.txt release-assets/
-          cp "dev-assets/$release_dev_apk_name" dev-assets/DEV-SIGNING-CERT-SHA256.txt release-assets/
-          cd release-assets
-          sha256sum "$release_apk_name" "$release_dev_apk_name" SIGNING-CERT-SHA256.txt DEV-SIGNING-CERT-SHA256.txt > SHA256SUMS
-          sha256sum --check SHA256SUMS
-          gh release create "$release_tag" "$release_apk_name" "$release_dev_apk_name" SHA256SUMS SIGNING-CERT-SHA256.txt DEV-SIGNING-CERT-SHA256.txt \
-            --verify-tag --draft --prerelease --title "OpenMetronome $release_version" \
-            --notes-file "../docs/releases/$release_version.md"
+          RELEASE_INCLUDE_DEV: ${{ inputs.include_dev }}
+        run: bash scripts/create-release-draft.sh prod-assets dev-assets

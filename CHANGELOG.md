@@ -1,12 +1,18 @@
 # Zmiany
 
-## Unreleased — domknięcie 1.1
+## 1.1.0 — przygotowanie wydania (nieopublikowane)
 
 - Trzy zaakceptowane barwy oparte na CC0 Druminfected: Naturalny, Suchy,
   Naturalny niski, z osobno przygotowanymi akcentami. Dotychczasowe ID i PCM zachowane.
 - Eksport zgodny v1 odrzuca nowe ID przed zapisem; v2 zachowuje je bez
   migracji Room lub zmiany formatu archiwum.
-- Wygląd aplikacji pozostaje bez zmian na decyzję użytkownika.
+- Bez redesignu: usunięto zbędne podpisy i opisy funkcji z interfejsu.
+  Zachowano ostrzeżenia o danych, błędach i znaczenie BPM; instrukcje w README.
+- Wydanie zbiera pełny ekran, procenty tempa, odliczanie, nowe metra
+  i Statystyki 2.0 opisane przy beta.1 poniżej.
+- Metadane PROD: 1.1.0, versionCode 20. Planowany draft zawiera wyłącznie
+  zwykły APK, SHA256SUMS i fingerprint certyfikatu, bez APK DEV.
+  Tagowanie, oficjalne podpisanie i publikacja wymagają odrębnych zgód.
 - Manualne potwierdzenie użytkownika: aktualizacja i import statystyk
   działały bez zarzutu; bez rozszerzania zakresu odbioru M6.
 - Dodatkowe próbki VCSL oczekują na wybór odsłuchowy. Pełna rejestracja

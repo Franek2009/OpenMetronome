@@ -1,9 +1,12 @@
 # OpenMetronome
 
-> W gałęzi rozwojowej (jeszcze poza opublikowanym APK): trzy zaakceptowane
-> barwy Naturalny / Suchy / Naturalny niski, bez zmian wyglądu i dawnych brzmień.
-> [Pochodzenie i warianty](assets/samples/PROVENANCE.md).
-> Pełna rejestracja DEV pozostaje wyłączona do zaliczenia kwalifikacji.
+> **Przygotowywane 1.1.0 (versionCode 20) nie jest jeszcze opublikowane.**
+> Zbiera funkcje beta.1, trzy zaakceptowane barwy Naturalny / Suchy /
+> Naturalny niski oraz krótsze podpisy w interfejsie, bez redesignu.
+> [Stan walidacji i bramki publikacji](docs/V1.1-RELEASE-VALIDATION.md)
+> · [pochodzenie brzmień](assets/samples/PROVENANCE.md).
+> Planowane wydanie dotyczy zwykłej aplikacji; DEV jest narzędziem diagnostycznym.
+> Pełna rejestracja DEV pozostaje wyłączona po niezaliczonej kwalifikacji.
 
 Metronom na Androida dla muzyków, którzy chcą ćwiczyć nie tylko tempo,
 ale też własne poczucie pulsu. Darmowy, otwartoźródłowy i całkowicie offline.
@@ -66,7 +69,7 @@ niezgodność — [szczegóły podpisywania i aktualizacji](docs/RELEASING.md).
   Nie zakładamy możliwości cofnięcia instalacji do niższego versionCode.
 
 Opublikowana beta zachowuje sześć dotychczasowych brzmień. Oryginały nowych
-sampli już dostarczono; postęp gałęzi rozwojowej opisano powyżej. Osobna barwa
+sampli już dostarczono; trzy zaakceptowane barwy znajdą się w przygotowywanym 1.1.0. Osobna barwa
 „Drewniany” nie jest warunkiem wydania. Stabilne 1.1 wymaga praktycznego odbioru
 beta i osobnej decyzji — [checklista użytkownika](docs/V1.1-BETA1-VALIDATION.md).
 
@@ -106,7 +109,9 @@ aktualizację 1.0.0→beta na emulatorach API26/35 oraz oddzielną instalację/r
 [Wyniki, hashe i ograniczenia beta](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.1.0-beta.1).
 Benchmark pełnej diagnostyki DEV pozostał niezaliczony i jest osobnym zestawem;
 wyłączenie rejestracji jest sprawdzane testem, a kwalifikacja nie jest liczona jako PASS.
-Praktyczny odbiór beta na fizycznym urządzeniu pozostaje do wykonania przez użytkownika.
+Użytkownik potwierdził prawidłową aktualizację i import statystyk oraz odsłuch
+prototypów nowych barw. Nie przypisujemy temu niepodanej ścieżki/urządzenia
+ani pełnego M6. Odbiór finalnego podpisanego 1.1 pozostaje osobną bramką.
 
 Poniżej historyczny odbiór linii 1.0, który nie stanowi odbioru beta:
 

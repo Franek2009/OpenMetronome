@@ -7,12 +7,14 @@ upgrade_serial="${ANDROID_SERIAL:?Set disposable emulator serial}"
 [[ "$upgrade_serial" =~ ^emulator-[0-9]+$ ]] || { echo 'Refusing a physical device' >&2; exit 1; }
 upgrade_official=false
 upgrade_dev=false
+upgrade_beta=false
 case "${1:-}" in
     --official) upgrade_official=true; shift ;;
+    --official-beta) upgrade_official=true; upgrade_beta=true; shift ;;
     --official-dev) upgrade_official=true; upgrade_dev=true; shift
         release_package="$release_dev_package"; release_version="$release_dev_version" ;;
 esac
-[[ $# == 2 ]] || { echo 'Usage: verify-upgrade.sh [--official|--official-dev] old.apk new.apk' >&2; exit 2; }
+[[ $# == 2 ]] || { echo 'Usage: verify-upgrade.sh [--official|--official-beta|--official-dev] old.apk new.apk' >&2; exit 2; }
 : "${ANDROID_HOME:?Set ANDROID_HOME}"
 upgrade_old="$1"
 upgrade_new="$2"
@@ -28,6 +30,9 @@ upgrade_baseline_version=0.13.0-beta.3
 upgrade_expected_cert=563cd960efc3fc5b483ceae4b96e66728af9e2bb0c52d6162fe37cded72ac4a2
 if [[ "$upgrade_official" == true ]]; then
     upgrade_baseline_code=18; upgrade_baseline_version=1.0.0
+    if [[ "$upgrade_beta" == true ]]; then
+        upgrade_baseline_code=19; upgrade_baseline_version=1.1.0-beta.1
+    fi
     if [[ "$upgrade_dev" == true ]]; then
         upgrade_baseline_code="$release_code"; upgrade_baseline_version="$release_version"
         upgrade_expected_cert="${OM_DEV_CERT_SHA256:?Set the expected public DEV certificate}"
@@ -35,7 +40,11 @@ if [[ "$upgrade_official" == true ]]; then
 fi
 grep -q "^package: name='$release_package' versionCode='$upgrade_baseline_code' versionName='$upgrade_baseline_version'" <<< "$upgrade_old_badging"
 grep -q "^package: name='$release_package' versionCode='$release_code' versionName='$release_version'" <<< "$upgrade_new_badging"
-[[ "$release_code" -gt 15 ]]
+if [[ "$upgrade_dev" == true ]]; then
+    [[ "$release_code" -ge "$upgrade_baseline_code" ]]
+else
+    [[ "$release_code" -gt "$upgrade_baseline_code" ]]
+fi
 if grep -q 'application-debuggable' <<< "$upgrade_old_badging" ||
     grep -q 'application-debuggable' <<< "$upgrade_new_badging"; then
     echo 'Upgrade validation requires non-debuggable release APKs.' >&2; exit 1
