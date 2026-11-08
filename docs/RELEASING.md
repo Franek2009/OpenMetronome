@@ -1,8 +1,8 @@
 # Wydawanie OpenMetronome
 
 Kanał początkowy: publiczny GitHub Releases. Format instalacyjny Androida:
-APK, nie AppImage. Aktualne oficjalne wydanie to
-[stabilne 1.0.0](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.0.0).
+APK, nie AppImage. Bieżące wydanie i linki sprawdzamy w
+[README](../README.md) i [GitHub Releases](https://github.com/Franek2009/OpenMetronome/releases/latest).
 Opublikowane pliki i tagi pozostają niezmienne.
 Nie uruchamiać tagowania, podpisywania ani publikacji bez osobnej zgody.
 
@@ -38,16 +38,13 @@ na 64-znakowy odcisk SHA-256 certyfikatu, bez dwukropków, małymi literami.
 Nie myl go z SHA-256 pliku APK; certyfikat pozostaje ten sam między wydaniami.
 Klucz jest używany tylko w zadaniu podpisującym, nie w CI pull requestów.
 
-## Stan wydań i najbliższe metadane
+## Metadane następnego wydania
 
-RC2 jest opublikowany: versionCode 17, versionName 1.0.0-rc.2.
-Oficjalny certyfikat SHA-256 pozostaje:
+Przed nowym wydaniem sprawdź rzeczywisty main, publiczne wydania, drafty i tagi.
+Ustal rosnący wolny versionCode oraz zatwierdzony versionName; nie wnioskuj
+z historycznego opisu poprzedniego RC. Zachowaj istniejący certyfikat SHA-256:
 `563cd960efc3fc5b483ceae4b96e66728af9e2bb0c52d6162fe37cded72ac4a2`.
-Nie tworzyć nowego klucza. PR 1.0.0 przygotowuje code 18, bez zmian
-funkcjonalnych względem RC2. Numer 18 nie występuje w sprawdzonych wydaniach
-ani tagach; przed oficjalnym procesem ponownie sprawdzić dostępność.
-Nie ma jeszcze tagu ani podpisanego APK stable.
-[Dokładny plan kontroli i bramki](V1.0-VALIDATION.md).
+Nie twórz nowego klucza. Opublikowane APK i tagi są niezmienne.
 
 Unsigned CI i próba aktualizacji kopii z podpisem testowym nie są dowodem
 zgodności podpisu produkcyjnego. Po utworzeniu oficjalnego draftu wykonać
@@ -57,9 +54,13 @@ Sama ponowna instalacja tej samej wersji w smoke nie zastępuje aktualizacji.
 
 ## Proces — wyłącznie po odpowiednim zatwierdzeniu
 
-1. Uaktualnij versionName/versionCode w Gradle, changelog i opis w `docs/releases/`.
-2. Zatwierdź zmiany na main. CI musi zaliczyć JVM, parsery, Lint debug/release
-   oraz kompilację debug/test/release. Release w zwykłym CI jest niepodpisany.
+1. Przygotuj razem versionName/versionCode, changelog i szkic opisu w
+   `docs/releases/`, przed końcową regresją.
+2. Przed tagowaniem sprawdź pełne zielone CI dokładnego SHA main: scope=full,
+   JVM, parsery, Lint, buildy, PCM oraz ciche testy i aktualizacje API26/35.
+   Jeśli ostatni wynik to docs-only, uruchom `gh workflow run android.yml --ref main`
+   i sprawdź nowy headSha oraz wszystkie wymagane zadania. Zielone docs-only
+   nie wystarcza. [Zakres CI i bramka](CI.md). Release w zwykłym CI jest niepodpisany.
 3. Utwórz i wyślij tag `v` + versionName wskazujący aktualny commit main.
 4. Po osobnej zgodzie ręcznie uruchom **Prepare signed prerelease** z gałęzi main
    i tym tagiem. Dla 1.1.0 ustaw `include_dev=false` (wyłącznie PROD).
