@@ -24,7 +24,7 @@ internal fun StatisticsThresholdDialog(value: StatisticsPreferences, close: () -
     val minutes = day.toIntOrNull()?.takeIf { it in 0..1440 }
     AlertDialog(onDismissRequest = close, title = { Text("Progi aktywności") }, text = {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Progi przeliczają statystyki także dla starej historii. Żadna sesja nie zostanie usunięta.")
+            Text("Zmiana progów przeliczy historię. Sesje nie zostaną usunięte.")
             OutlinedTextField(session, { if (it.length <= 4 && it.all(Char::isDigit)) session = it },
                 label = { Text("Minimum sesji, sekundy (0–3600)") }, isError = seconds == null,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
@@ -60,7 +60,7 @@ internal fun StatisticsHistoryPanel(sessions: List<PracticeSession>, activeDates
         Text(monthText, style = MaterialTheme.typography.titleLarge)
         TextButton({ monthText = month.plusMonths(1).toString() }) { Text("→") }
     }
-    Text("Kalendarz: • oznacza aktywny dzień według progów. Daty sesji zachowują ich zapisaną strefę.", style = MaterialTheme.typography.bodySmall)
+    Text("• aktywny dzień", style = MaterialTheme.typography.bodySmall)
     val leading = month.atDay(1).dayOfWeek.value - 1
     Row(Modifier.fillMaxWidth()) {
         listOf("Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd").forEach { Text(it, Modifier.weight(1f)) }
@@ -89,7 +89,7 @@ internal fun StatisticsHistoryPanel(sessions: List<PracticeSession>, activeDates
             FilterChip(status == index, { status = index }, label = { Text(label) })
         }
     }
-    Text("${filtered.size} sesji · krótkie również pozostają w historii")
+    Text("${filtered.size} sesji")
     filtered.take(shown).forEach { session ->
         Card(Modifier.fillMaxWidth().clickable { selected = session }) {
             Column(Modifier.padding(12.dp)) {
@@ -130,7 +130,7 @@ internal fun StatisticsHistoryPanel(sessions: List<PracticeSession>, activeDates
 internal fun PracticeAnalysisPanel(value: PracticeAnalytics) {
     Text("Analiza zaliczonych sesji", style = MaterialTheme.typography.titleLarge)
     Text("Znany przebieg: ${dailyPracticeDuration(value.knownMs)}")
-    Text("Bez pełnego przebiegu: ${dailyPracticeDuration(value.unknownMs)}. Brak danych nie jest zerem.")
+    Text("Bez pełnego przebiegu: ${dailyPracticeDuration(value.unknownMs)}")
     if (value.knownMs == 0L) { Text("Szczegółowa analiza pojawi się po zapisaniu nowych sesji."); return }
     Text("Tempo wynikowe", style = MaterialTheme.typography.titleMedium)
     value.tempoMs.forEach { (label, ms) -> Text("$label: ${dailyPracticeDuration(ms)}") }
@@ -138,5 +138,4 @@ internal fun PracticeAnalysisPanel(value: PracticeAnalytics) {
     value.meterMs.forEach { (label, ms) -> Text("$label: ${dailyPracticeDuration(ms)}") }
     Text("Z włączonym treningiem ciszy: ${dailyPracticeDuration(value.trainingMs)}")
     Text("Z włączoną rampą: ${dailyPracticeDuration(value.rampMs)}")
-    Text("To czas korzystania z konfiguracji treningu; nie pomiar faktycznej ciszy, jakości gry ani fizycznej precyzji audio.", style = MaterialTheme.typography.bodySmall)
 }

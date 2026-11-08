@@ -73,7 +73,7 @@ fun MetronomeScreen(
                 PulseLamps(state, onBeatAccent, if (tablet) 72.dp else if (compactInstrument) 32.dp else 44.dp,
                     compactInstrument || layout == InstrumentLayout.TABLET_LANDSCAPE)
                 TempoPanel(config, onTempoChange, onIncreaseTempo, onDecreaseTempo, onAdjustTempo, onTapTempo,
-                    large = tablet, short = compactInstrument, hideHint = layout == InstrumentLayout.TABLET_LANDSCAPE,
+                    large = tablet, short = compactInstrument,
                     onEditTempo = { tempoEditorOpen = true },
                     displayed = state.audio.activeConfig.takeIf { state.keepsScreenOn } ?: config,
                     onPercent = { onConfigChange(config.copy(tempoPercent = it)) })
@@ -117,8 +117,6 @@ fun MetronomeScreen(
                     Text("Aktualnie: ${active.effectiveBpmLabel} BPM · wyciszenia ${active.silence.probability}%",
                         style = MaterialTheme.typography.bodySmall)
                 }
-                Text(stringResource(R.string.offline_note), style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             when (layout) {
                 InstrumentLayout.TABLET_PORTRAIT -> {
@@ -169,7 +167,6 @@ fun MetronomeScreen(
         confirmButton = { TextButton({ soundsOpen = false }) { Text("Gotowe") } })
     if (metersOpen) AlertDialog(onDismissRequest = { metersOpen = false }, title = { Text("Metrum") },
         text = { Column(Modifier.verticalScroll(rememberScrollState())) {
-            Text("BPM liczy ćwierćnuty w /4 oraz ósemki w /8, również w 6/8.")
             TimeSignature.entries.forEach { signature ->
                 TextButton({ onTimeSignatureChange(signature); metersOpen = false }, Modifier.fillMaxWidth()) {
                     Text("${signature.numerator}/${signature.denominator}")
@@ -214,8 +211,6 @@ private fun PulseLamps(state: MetronomeState, onCycle: (Int) -> Unit, lampSize: 
             }
         }
     }
-    if (!short) Text("Dotknij lampki: zwykły → akcent → cisza", style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant)
     if (pulse != null) Text(if (pulse.bar < 0) "Odliczanie: ${-pulse.bar} takt · puls ${pulse.beat + 1}"
         else "Takt ${pulse.bar + 1} · puls ${pulse.beat + 1}${if (pulse.silent) " · cisza" else ""}",
         style = MaterialTheme.typography.labelMedium)
@@ -224,7 +219,7 @@ private fun PulseLamps(state: MetronomeState, onCycle: (Int) -> Unit, lampSize: 
 @Composable
 private fun TempoPanel(config: MetronomeConfig, onTempo: (Int) -> Unit, onIncrease: () -> Unit,
     onDecrease: () -> Unit, onAdjust: (Int) -> Unit, onTap: () -> Unit, large: Boolean, short: Boolean,
-    hideHint: Boolean, onEditTempo: () -> Unit, displayed: MetronomeConfig = config,
+    onEditTempo: () -> Unit, displayed: MetronomeConfig = config,
     onPercent: (org.openmetronome.domain.model.TempoPercent) -> Unit) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
     val expandedControls = large && maxWidth >= 480.dp
@@ -265,8 +260,6 @@ private fun TempoPanel(config: MetronomeConfig, onTempo: (Int) -> Unit, onIncrea
     Slider(config.tempo.bpm.toFloat(), { onTempo(it.roundToInt().coerceIn(20, 300)) }, valueRange = 20f..300f,
         steps = 279, modifier = Modifier.fillMaxWidth().semantics { contentDescription = sliderLabel })
     if (!short) OutlinedButton(onTap, Modifier.fillMaxWidth().sizeIn(minHeight = if (large) 64.dp else 48.dp)) { Text(stringResource(R.string.tap_tempo)) }
-    if (!short && !hideHint) Text(stringResource(R.string.tap_tempo_hint), style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 /** Hoisted above layout branches so IME, rotation and resizing cannot dispose the editor. */

@@ -36,7 +36,7 @@ internal fun DailyPracticeSummary(value: DailyPractice, retry: () -> Unit) {
                     modifier = Modifier.semantics { contentDescription = "Dzisiaj ćwiczono: ${dailyPracticeDuration(value.durationMs)}" },
                     style = MaterialTheme.typography.headlineMedium)
             }
-            Text("${value.date} · z zapisów sesji, aktualizacja około co 5 s", style = MaterialTheme.typography.bodySmall)
+            Text("${value.date}", style = MaterialTheme.typography.bodySmall)
         }
     }
 }

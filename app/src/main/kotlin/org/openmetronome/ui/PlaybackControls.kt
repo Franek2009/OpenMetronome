@@ -31,7 +31,7 @@ fun PlaybackControls(state: MetronomeState, onStart: () -> Unit, onStop: () -> U
                     PlaybackStatus.STOPPED -> R.string.start
                 }))
             }
-            Text(if (state.audio.diagnostics?.let { it.countInFrames > 0 && it.framesPlayed < it.countInFrames } == true)
+            if (state.keepsScreenOn || state.audio.status == PlaybackStatus.ERROR) Text(if (state.audio.diagnostics?.let { it.countInFrames > 0 && it.framesPlayed < it.countInFrames } == true)
                 "Odliczanie przed praktyką" else if (state.hasPendingChanges && state.config.tempoChange == org.openmetronome.domain.model.TempoChange.NEXT_BEAT)
                 "Tempo od następnego możliwego pulsu; pozostałe zmiany od taktu" else stringResource(when {
                 state.audio.status == PlaybackStatus.ERROR -> when (state.audio.failure) {
@@ -45,7 +45,7 @@ fun PlaybackControls(state: MetronomeState, onStart: () -> Unit, onStop: () -> U
                 state.hasPendingChanges -> R.string.pending_change
                 state.audio.status == PlaybackStatus.STARTING -> R.string.starting
                 state.audio.status == PlaybackStatus.PLAYING -> R.string.playing
-                else -> R.string.foreground_notice
+                else -> R.string.stopping
             }), modifier = Modifier.widthIn(max = 560.dp), maxLines = 2,
                 overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.bodySmall)
