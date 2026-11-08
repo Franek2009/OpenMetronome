@@ -77,7 +77,7 @@ bez animowanego pulsu ani osobnego zegara audio.
 Start/Stop steruje wspólną sesją; dotknięcie BPM otwiera metronom. Procenty
 zmieniają mnożnik bez nadpisywania bazy. Zapis `120 × 75%` pokazuje bazę
 i wybrany procent; strzałka `→` oznacza zmianę oczekującą na zastosowanie.
-Przy 100% ta linia znika. Większa wysokość panelu odsłania −1/+1 bazy.
+Przy 100%, bez oczekującej zmiany, ta linia znika. Większa wysokość panelu odsłania −1/+1 bazy.
 Widget statystyk pokazuje zapisany czas dzisiaj, serię i aktywne dni tygodnia;
 dotknięcie otwiera Statystyki.
 

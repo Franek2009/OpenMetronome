@@ -72,7 +72,7 @@ Nie zaliczamy tego odbioru ani fizycznego audio na podstawie testów automatyczn
 ## Pochodzenie ilustracji README
 
 Zrzuty aplikacji i renderowane zasoby RemoteViews pochodzą z cichych testów PROD
-na API35: [przebieg 42521205946](https://github.com/Franek2009/OpenMetronome/actions/runs/42521205946),
-commit `926e6fef8158160e17edc146dfb77b2625797137`. Interfejs jest po 1.1;
+na API35: [przebieg 42529192488](https://github.com/Franek2009/OpenMetronome/actions/runs/42529192488),
+commit `020c2ca2d1a081c5f327cad00618f080f9c9ae74`. Interfejs jest po 1.1;
 widgety są rozwojową funkcją 1.2. Dane są izolowanymi/przykładowymi danymi testowymi.
 Podglądy widgetów nie dokumentują instalacji w launcherze Samsunga.
