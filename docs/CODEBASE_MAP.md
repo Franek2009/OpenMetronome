@@ -14,7 +14,7 @@ Nie zastępuje wyników testów ani aktualnego stanu wydania.
 | Dane przenośne | `data/BackupArchive.kt`: v2, import v1 i eksport zgodny v1. `SessionCsv.kt`: eksport analityczny. Zmiana Room nie oznacza automatycznie zmiany archiwum. [Format i zgodność](STATISTICS-2.md). |
 | DEV | `app/src/dev/kotlin/org/openmetronome/diagnostics/`: ograniczony bufor, TraceSessionStore, TraceJournal, TraceReports i fabryka. Implementacja magazynu nie należy do PROD. Pełna rejestracja wyłączona w beta. [Zakres i wyniki](V1.1-DEV-INTEGRATION-VALIDATION.md). |
 | Warianty/podpis | `app/build.gradle.kts`: prod/dev × debug/release, pakiety i oddzielne klucze. `scripts/package-release.sh` rozpoznaje DEV wyłącznie przez jawne `--dev`, metadane i certyfikat. [Konfiguracja](BUILD-VARIANTS.md). |
-| CI/wydanie | `.github/workflows/android.yml`: JVM/Lint/PCM/buildy, ciche API26/35, izolacja i aktualizacje testowe. `release.yml`: osobne podpisanie PROD/DEV i draft. `dev-qualification.yml`: oddzielna ścisła kwalifikacja nieaktywnego rejestratora. |
+| CI/wydanie | `.github/workflows/android.yml`: JVM/Lint/PCM/buildy, ciche API26/35, izolacja i aktualizacje testowe. `release.yml`: podpisanie PROD, opcjonalnie DEV (`include_dev`), zawsze draft; `scripts/create-release-draft.sh` sprawdza sumy i dobiera pliki/status. `dev-qualification.yml`: oddzielna ścisła kwalifikacja nieaktywnego rejestratora. |
 
 ## Weryfikacja zależna od zmiany
 
@@ -25,7 +25,7 @@ Nie zastępuje wyników testów ani aktualnego stanu wydania.
 - Pełna regresja: CI dokładnego HEAD przed scaleniem oraz końcowego main przed tagiem.
 - Regresja wydania jawnie wyklucza oznaczony benchmark DEV; nie zalicza go jako PASS.
   Osobne `scripts/qualify-dev-emulator.sh` zachowuje budżet +10% i kończy się błędem przy FAIL.
-- Oryginalne podpisane APK: `scripts/verify-upgrade.sh --official` / `--official-dev`,
+- Oryginalne podpisane APK: `scripts/verify-upgrade.sh --official` / `--official-beta` / `--official-dev`,
   tylko świeże emulatory, znane hashe/certyfikaty i `install -r`, bez przepodpisywania.
 
 Nie uruchamiać audio/wibracji ani operacji na telefonach bez zgody. Nie czyścić

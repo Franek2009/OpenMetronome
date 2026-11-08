@@ -61,22 +61,25 @@ Sama ponowna instalacja tej samej wersji w smoke nie zastępuje aktualizacji.
 2. Zatwierdź zmiany na main. CI musi zaliczyć JVM, parsery, Lint debug/release
    oraz kompilację debug/test/release. Release w zwykłym CI jest niepodpisany.
 3. Utwórz i wyślij tag `v` + versionName wskazujący aktualny commit main.
-4. Ręcznie uruchom **Prepare signed prerelease** z gałęzi main i tym tagiem.
+4. Po osobnej zgodzie ręcznie uruchom **Prepare signed prerelease** z gałęzi main
+   i tym tagiem. Dla 1.1.0 ustaw `include_dev=false` (wyłącznie PROD).
+   Domyślne `true` zachowuje wcześniejszy proces obu wariantów.
    Kod jest przypięty do zweryfikowanego SHA. Proces nie przyjmuje obcego refa
    do zadania z sekretami; sprawdza zgodność tagu z wersją i HEAD main.
 5. Workflow ponownie sprawdza projekt, podpisuje APK, odrzuca debug/obcy
-   certyfikat i tworzy **draft prerelease**, nigdy nie publikuje samoczynnie.
+   certyfikat i tworzy **draft**, nigdy nie publikuje samoczynnie.
+   Wersja bez sufiksu ma `prerelease=false`; beta/RC mają `prerelease=true`.
    Ponowny przebieg nie nadpisuje istniejącego wydania.
 6. Osobne zadania quiet uruchamiają oba debug flavory na świeżych API26/35,
    z allowAudio=false i allowHaptics=false. Parser wymaga kompletu bez pominięć.
-   Kolejne świeże emulatory API26/35 sprawdzają oba podpisane release:
+   Kolejne świeże emulatory API26/35 sprawdzają wybrane podpisane release:
    instalacja, zapis BPM i ponowna instalacja z zachowaniem ustawień, bez Start.
    Zadania emulatorów nie otrzymują kluczy. Dopiero po ich zaliczeniu powstaje
    draft. Odbiór fizycznego audio i nowych barw pozostaje osobną bramką.
 7. Pobierz pliki z draftu, sprawdź SHA256SUMS i podpis. Potwierdź kopię klucza.
    Wykonaj także oficjalny→oficjalny upgrade i kontrolę zgodności plików
    draftu z dokładnie testowanym artefaktem. Dopiero po osobnej zgodzie
-   opublikuj prerelease; potem sprawdź publiczny plik i status.
+   opublikuj wydanie z właściwym statusem; potem sprawdź publiczny plik i status.
 
 Publikowany zestaw beta: dwa APK, SHA256SUMS i dwa fingerprinty certyfikatów
 oraz opis zmian.
@@ -86,9 +89,9 @@ Nie publikuj APK instrumentacji. Opis wydania jest wybierany według versionName
 
 Nie wystarczy przemianować APK RC2: nowa wersja i rosnący versionCode wymagają
 nowego podpisanego artefaktu z tego samego klucza i ponownej kontroli aktualizacji.
-Istniejący workflow zawsze tworzy draft z `prerelease=true`, również dla tagu
-`v1.0.0`. Po końcowym odbiorze i osobnej zgodzie publikacja stable wymaga
-jawnego `prerelease=false`; nie zmieniamy workflow tylko z powodu nazwy wersji.
+Historyczny proces 1.0 tworzył draft z `prerelease=true`; publikacja stable
+po osobnej zgodzie zmieniła status na `prerelease=false`. Obecny helper
+rozpoznaje sufiks wersji, zawsze zachowując `draft=true`.
 Pełna kolejność i kryteria: [RC2 i 1.0](V1.0-RC2-READINESS.md).
 
 ## Lokalna kontrola podpisu
@@ -132,14 +135,18 @@ Również dystrybucja poza Play podlega ewoluującym zasadom Androida:
 [Warianty](BUILD-VARIANTS.md) rozdzielają pakiety, dane i trwałe certyfikaty.
 Workflow **Prepare signed prerelease** sprawdza dokładny tag na HEAD main,
 ponawia JVM/Lint/PCM/buildy i ciche testy obu flavorów API26/35, po czym tworzy
-wyłącznie draft. Dwa osobne zadania podpisują prodRelease i devRelease;
+wyłącznie draft. Przy `include_dev=true` dwa osobne zadania podpisują prodRelease i devRelease;
 sekrety OM_* oraz OM_DEV_* nigdy nie są mieszane ani zastępowane.
 
 `package-release.sh` domyślnie akceptuje wyłącznie PROD i jego certyfikat.
 DEV wymaga jawnego `--dev`, pakietu org.openmetronome.dev, wersji z -dev
 oraz OM_DEV_CERT_SHA256. Zmiana nazwy pliku nie obchodzi walidacji.
-Zadania bez kluczy sprawdzają oba podpisane APK na świeżych API26/35, bez Start.
-Draft ma dwa APK, SHA256SUMS i dwa publiczne fingerprinty certyfikatów.
+Zadania bez kluczy sprawdzają wybrane podpisane APK na świeżych API26/35, bez Start.
+Przy `include_dev=true` draft ma dwa APK, SHA256SUMS i dwa fingerprinty.
+Przy `false` zadanie podpisania DEV jest pomijane i nie otrzymuje sekretów.
+Draft PROD zawiera dokładnie trzy pliki: APK, SHA256SUMS i
+SIGNING-CERT-SHA256.txt. `scripts/create-release-draft.sh` sprawdza wejściowe
+sumy i składa pliki bez budowania, podpisywania lub nadpisywania wydania.
 
 Przed publikacją pobierz ponownie draft i artefakty, porównaj wszystkie bajty,
 metadane, manifest/uprawnienia i zawartość DEX. Sprawdź podpis/certyfikat,
@@ -148,7 +155,12 @@ Skrypt `verify-upgrade.sh --official old.apk new.apk` wymaga znanych SHA-256 obu
 plików (OFFICIAL_BASELINE_SHA256 i OFFICIAL_CANDIDATE_SHA256), certyfikatu PROD
 i czystego emulatora. Nie używa klucza ani przepodpisywania. `--official-dev`
 sprawdza import danych i ponowną instalację tego samego DEV z jego certyfikatem.
-Domyślny tryb CI nadal testuje przepodpisane kopie z jednorazowym kluczem.
+Dla oficjalnej beta.1 (code 19) użyj `--official-beta`; dla 1.0 (code 18)
+`--official`. Oba tryby wymagają rosnącego versionCode i oryginalnych APK.
+Dla 1.1.0 wymagane są cztery aktualizacje: obie bazy na API26 oraz API35.
+Porównujemy ustawienia, presety, historię, statystyki i dokładne bajty sampla.
+Domyślny tryb CI nadal testuje przepodpisane kopie z jednorazowym kluczem;
+nie zastępuje to kontroli oficjalnych podpisów po przygotowaniu draftu.
 
 Zaktualizuj opis draftu do rzeczywistych wyników. Publiczna beta ma
 `prerelease=true`, `draft=false`, `make_latest=false`; 1.0.0 pozostaje latest stable.
