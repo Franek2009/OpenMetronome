@@ -19,6 +19,32 @@ open class MetronomeService : Service() {
     inner class LocalBinder : Binder() {
         val controller get() = this@MetronomeService.controller
         fun stopPlayback() = this@MetronomeService.stopPlayback()
+        suspend fun widgetCommand(command: String) {
+            if (command == "stop") {
+                stopPlayback()
+                org.openmetronome.widget.WidgetHost.publish(this@MetronomeService, controller.state.value)
+                return
+            }
+            settingsReady.await()
+            check(settingsLoaded) { "Settings unavailable" }
+            val data = (application as OpenMetronomeApplication).data
+            data.ready.await()
+            when (command) {
+                "start" -> if (!controller.state.value.keepsScreenOn && !waitingForStart) check(startPlayback()) { "Playback unavailable" }
+                "stop" -> stopPlayback()
+                else -> {
+                    check(command in org.openmetronome.widget.WidgetModel.commands) { "Unknown widget command" }
+                    var admitted = false
+                    data.editConfiguration {
+                        admitted = true
+                        controller.editConfig { org.openmetronome.widget.WidgetModel.edit(it, command) }
+                        data.saveSettings(controller.state.value.config)
+                    }
+                    check(admitted) { "Configuration unavailable" }
+                }
+            }
+            org.openmetronome.widget.WidgetHost.publish(this@MetronomeService, controller.state.value)
+        }
         fun startPlayback(): Boolean {
             val data = (application as OpenMetronomeApplication).data
             if (!data.reservePlayback()) return false
@@ -54,6 +80,7 @@ open class MetronomeService : Service() {
     private var waitingForStart = false
     private var lastPulseFrame = -1L
     private val settingsReady = CompletableDeferred<Unit>()
+    private var settingsLoaded = false
     private lateinit var recorder: SessionRecorder
     private var finishing: Job? = null
     private var playRequest: Job? = null
@@ -80,14 +107,22 @@ open class MetronomeService : Service() {
         val data = (application as OpenMetronomeApplication).data
         scope.launch {
             try {
-                data.ready.await()
+                data.awaitWrites() // A cold widget must see previously queued configuration writes.
                 val saved = withContext(Dispatchers.IO) { data.settings.load() }
                 if (controller.configurationRevision == 0L) controller.editConfig { saved }
                 else data.saveSettings(controller.state.value.config)
+                settingsLoaded = true
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) { data.error.value = "Nie udało się odczytać ustawień. Zachowano oryginalne dane." }
             settingsReady.complete(Unit)
             controller.state.map { it.config }.distinctUntilChanged().drop(1).collect(data::saveSettings)
+        }
+        scope.launch {
+            controller.state.map { org.openmetronome.widget.WidgetModel.playback(it) }
+                .distinctUntilChanged().conflate().collect { snapshot ->
+                    org.openmetronome.widget.WidgetHost.publishSnapshot(this@MetronomeService, snapshot)
+                    delay(1000) // Launcher updates never follow individual PCM pulses.
+                }
         }
         // A separate finite load barrier, not the never-ending preferences collector.
         recorder = SessionRecorder(data) { audioEngine.observations?.history(it) }
@@ -239,6 +274,7 @@ open class MetronomeService : Service() {
         playRequest?.cancel()
         controller.stop()
         endForeground()
+        org.openmetronome.widget.WidgetHost.publish(this, controller.state.value)
         controller.close()
         scope.cancel()
         if (wake.isHeld) wake.release()

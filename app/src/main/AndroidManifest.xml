@@ -14,6 +14,34 @@
       android:label="@string/app_name"
       android:supportsRtl="true"
       android:theme="@style/Theme.OpenMetronome">
+    <receiver android:name=".widget.MiniWidget" android:exported="false" android:label="@string/widget_mini_name">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+        <action android:name="android.intent.action.DATE_CHANGED" />
+        <action android:name="android.intent.action.TIME_SET" />
+        <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+      </intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_mini" />
+    </receiver>
+    <receiver android:name=".widget.ControlWidget" android:exported="false" android:label="@string/widget_control_name">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+        <action android:name="android.intent.action.DATE_CHANGED" />
+        <action android:name="android.intent.action.TIME_SET" />
+        <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+      </intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_control" />
+    </receiver>
+    <receiver android:name=".widget.StatisticsWidget" android:exported="false" android:label="@string/widget_statistics_name">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+        <action android:name="android.intent.action.DATE_CHANGED" />
+        <action android:name="android.intent.action.TIME_SET" />
+        <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+      </intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_statistics" />
+    </receiver>
+    <receiver android:name=".widget.WidgetCommandReceiver" android:exported="false" />
     <service android:name=".platform.audio.MetronomeService" android:exported="false"
         android:foregroundServiceType="mediaPlayback" android:stopWithTask="false" />
     <activity
