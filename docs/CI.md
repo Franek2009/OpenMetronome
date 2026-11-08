@@ -87,4 +87,4 @@ Automatyczne wznawianie podpisywania/draftu pozostaje poza tym wdrożeniem.
 
 ## Tymczasowa próba bramki CI
 
-[Celowo błędny odnośnik testowy](missing-ci-probe.md)
+Dokumentacyjna próba CI; ta gałąź testowa nie jest przeznaczona do scalenia.
