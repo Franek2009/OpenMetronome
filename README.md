@@ -28,7 +28,27 @@ odrzuca aktualizację, nie usuwaj aplikacji ani jej danych w celu obejścia
 niezgodności — [podpis i aktualizacje](docs/RELEASING.md).
 Przed aktualizacją warto zachować własną kopię `.ombak`.
 
-## Nowości 1.1
+## Przygotowanie 1.2.0 — widgety pulpitu
+
+**versionName 1.2.0 · versionCode 21.** Wersja przygotowywana do wydania;
+publicznym, oficjalnie podpisanym APK pozostaje 1.1.0 z linku powyżej.
+
+Mini Metronom, większy panel Start/Stop z procentami tempa i widget statystyk
+z czasem ćwiczeń dzisiaj. Wszystkie korzystają ze wspólnego stanu aplikacji,
+bez animowanego pulsu ani osobnego zegara audio.
+
+Start/Stop steruje wspólną sesją; dotknięcie BPM otwiera metronom. Procenty
+zmieniają mnożnik bez nadpisywania bazy. Zapis `120 × 75%` pokazuje bazę
+i wybrany procent; strzałka `→` oznacza zmianę oczekującą na zastosowanie.
+Przy 100%, bez oczekującej zmiany, ta linia znika. Większa wysokość panelu odsłania −1/+1 bazy.
+Widget statystyk pokazuje zapisany czas dzisiaj, serię i aktywne dni tygodnia;
+dotknięcie otwiera Statystyki.
+
+**To funkcja rozwojowa — APK 1.1.0 wskazany powyżej nie zawiera widgetów.**
+[Obsługa, rozmiary i ograniczenia](docs/WIDGETS.md)
+· [Szkic opisu wydania 1.2.0](docs/releases/1.2.0.md).
+
+## Funkcje wprowadzone w 1.1
 
 - **Pełny ekran:** duże BPM, puls i takt, blokada dotyku z dostępnym Stop,
   opcjonalne utrzymywanie ekranu i ograniczenie migania. Przejście bez restartu sesji.
@@ -68,25 +88,10 @@ CSV służy do analizy; do przywracania danych używaj `.ombak`.
 [Instrukcja użytkowania](docs/USAGE.md)
 · [Brzmienia i import własnych sampli](docs/CUSTOM-SAMPLES.md)
 
-## W przygotowaniu: widgety 1.2
-
-Mini Metronom, większy panel Start/Stop z procentami tempa i widget statystyk
-z czasem ćwiczeń dzisiaj. Wszystkie korzystają ze wspólnego stanu aplikacji,
-bez animowanego pulsu ani osobnego zegara audio.
-
-Start/Stop steruje wspólną sesją; dotknięcie BPM otwiera metronom. Procenty
-zmieniają mnożnik bez nadpisywania bazy. Zapis `120 × 75%` pokazuje bazę
-i wybrany procent; strzałka `→` oznacza zmianę oczekującą na zastosowanie.
-Przy 100%, bez oczekującej zmiany, ta linia znika. Większa wysokość panelu odsłania −1/+1 bazy.
-Widget statystyk pokazuje zapisany czas dzisiaj, serię i aktywne dni tygodnia;
-dotknięcie otwiera Statystyki.
-
-**To funkcja rozwojowa — APK 1.1.0 wskazany powyżej nie zawiera widgetów.**
-[Obsługa, rozmiary i ograniczenia](docs/WIDGETS.md).
-
 ## Kopie i zgodność
 
-1.1 importuje `.ombak` v1 i v2; domyślnie eksportuje v2. Starsze 1.0 nie
+1.2 zachowuje bazę i formaty danych z 1.1, bez nowej migracji Room
+ani zmiany `.ombak`. Importuje v1 i v2; domyślnie eksportuje v2. Starsze 1.0 nie
 odczyta v2. Osobny eksport zgodny v1 ostrzega o pominięciach i odrzuca
 nowe metra lub barwy, których 1.0 nie obsługuje. Nie podmieniamy ich na inne.
 Nie zakładamy możliwości cofnięcia instalacji do niższego versionCode.
@@ -101,7 +106,7 @@ Aktualne zrzuty interfejsu po 1.1 pochodzą z cichych testów emulatora API35
 na gałęzi przygotowującej 1.2. Używają izolowanych danych testowych;
 odtwarzanie jest zatrzymane. Nie są odbiorem fizycznego audio.
 
-### Widgety w przygotowaniu do 1.2
+### Widgety 1.2.0 — podglądy
 
 | Mini Metronom | Sterowanie | Statystyki |
 | --- | --- | --- |
@@ -116,7 +121,11 @@ Rozmiary i marginesy na pulpicie zależą od launchera.
 
 Regresja obejmuje JVM, PCM offline, Lint, buildy, ciche testy API26/35,
 migracje, backup/restore i aktualizacje z porównaniem danych.
-Dokładne wyniki kontroli oficjalnego APK i jego sumy znajdują się
+Testy kodu widgetów i aktualne CI są w [PR #33](https://github.com/Franek2009/OpenMetronome/pull/33).
+Oficjalny APK 1.2.0 oraz jego aktualizacja z 1.1 wymagają osobnej kontroli
+po podpisaniu; dotychczasowe testy CI nie zastępują tej weryfikacji.
+
+Dokładne wyniki kontroli opublikowanego APK 1.1.0 i jego sumy znajdują się
 w [opisie wydania](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.1.0)
 i [raporcie 1.1](docs/V1.1-RELEASE-VALIDATION.md).
 

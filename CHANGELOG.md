@@ -1,11 +1,13 @@
 # Zmiany
 
-## W przygotowaniu — 1.2
+## 1.2.0 — przygotowanie wydania
 
 - Trzy widgety pulpitu: Mini Metronom, Sterowanie i Statystyki.
   Wspólny stan z aplikacją; procenty zachowują bazę, większy widget oferuje −1/+1.
 - Statystyki widgetu pokazują zapisany czas dzisiaj, serię i aktywne dni tygodnia.
 - Bez zmian silnika PCM, bazy Room, formatu backupu, podpisu i opublikowanego 1.1.0.
+- Minimalistyczne podpisy widgetów; instrukcje w README, pełne opisy dla TalkBack.
+- Metadane przygotowywanego PROD: 1.2.0, versionCode 21.
 - Odświeżenie ilustracji README; podglądy widgetów są oznaczone jako rozwojowe.
   [Obsługa i ograniczenia](docs/WIDGETS.md).
 

@@ -2,7 +2,7 @@
 
 Kanał początkowy: publiczny GitHub Releases. Format instalacyjny Androida:
 APK, nie AppImage. Aktualne oficjalne wydanie to
-[stabilne 1.0.0](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.0.0).
+[stabilne 1.1.0](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.1.0).
 Opublikowane pliki i tagi pozostają niezmienne.
 Nie uruchamiać tagowania, podpisywania ani publikacji bez osobnej zgody.
 
@@ -40,14 +40,15 @@ Klucz jest używany tylko w zadaniu podpisującym, nie w CI pull requestów.
 
 ## Stan wydań i najbliższe metadane
 
-RC2 jest opublikowany: versionCode 17, versionName 1.0.0-rc.2.
-Oficjalny certyfikat SHA-256 pozostaje:
+Opublikowane 1.1.0 ma versionCode 20. Przygotowywane 1.2.0 ma versionCode 21;
+sprawdzono brak wcześniejszego użycia 21 w dostępnej historii i wydaniach.
+Przed tagowaniem ponownie sprawdzić zajętość tagu i aktualny main po jego CI.
+Oficjalny certyfikat PROD SHA-256 pozostaje:
 `563cd960efc3fc5b483ceae4b96e66728af9e2bb0c52d6162fe37cded72ac4a2`.
-Nie tworzyć nowego klucza. PR 1.0.0 przygotowuje code 18, bez zmian
-funkcjonalnych względem RC2. Numer 18 nie występuje w sprawdzonych wydaniach
-ani tagach; przed oficjalnym procesem ponownie sprawdzić dostępność.
-Nie ma jeszcze tagu ani podpisanego APK stable.
-[Dokładny plan kontroli i bramki](V1.0-VALIDATION.md).
+Nie tworzyć nowego klucza. Podniesienie wersji nie jest zgodą na tag,
+użycie klucza ani publikację. Nie przygotowano jeszcze oficjalnego APK 1.2.0.
+[Szkic opisu wydania](releases/1.2.0.md) musi otrzymać rzeczywiste wyniki
+podpisania i aktualizacji przed publikacją.
 
 Unsigned CI i próba aktualizacji kopii z podpisem testowym nie są dowodem
 zgodności podpisu produkcyjnego. Po utworzeniu oficjalnego draftu wykonać
@@ -62,7 +63,7 @@ Sama ponowna instalacja tej samej wersji w smoke nie zastępuje aktualizacji.
    oraz kompilację debug/test/release. Release w zwykłym CI jest niepodpisany.
 3. Utwórz i wyślij tag `v` + versionName wskazujący aktualny commit main.
 4. Po osobnej zgodzie ręcznie uruchom **Prepare signed prerelease** z gałęzi main
-   i tym tagiem. Dla 1.1.0 ustaw `include_dev=false` (wyłącznie PROD).
+   i tym tagiem. Dla 1.2.0 ustaw `include_dev=false` (wyłącznie PROD).
    Domyślne `true` zachowuje wcześniejszy proces obu wariantów.
    Kod jest przypięty do zweryfikowanego SHA. Proces nie przyjmuje obcego refa
    do zadania z sekretami; sprawdza zgodność tagu z wersją i HEAD main.
