@@ -90,7 +90,10 @@ object WidgetHost {
 
     }
 
-    fun widgetsChanged(context: Context) = observe(context.applicationContext)
+    fun widgetsChanged(context: Context) {
+        try { observe(context.applicationContext) }
+        catch (error: RuntimeException) { Log.w("OpenMetronomeWidget", "Launcher unavailable", error) }
+    }
 
     suspend fun refresh(context: Context) {
         val app = context.applicationContext as OpenMetronomeApplication
