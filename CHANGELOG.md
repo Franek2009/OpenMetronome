@@ -1,18 +1,23 @@
 # Zmiany
 
-## 1.1.0 — przygotowanie wydania (nieopublikowane)
+## 1.1.0 — opublikowane stabilne wydanie
 
 - Trzy zaakceptowane barwy oparte na CC0 Druminfected: Naturalny, Suchy,
   Naturalny niski, z osobno przygotowanymi akcentami. Dotychczasowe ID i PCM zachowane.
-- Eksport zgodny v1 odrzuca nowe ID przed zapisem; v2 zachowuje je bez
-  migracji Room lub zmiany formatu archiwum.
+- Eksport zgodny v1 odrzuca nowe ID przed zapisem; v2 zachowuje je.
+  Same nowe barwy nie wymagają dodatkowej migracji Room lub wersji archiwum
+  względem beta.1.
 - Bez redesignu: usunięto zbędne podpisy i opisy funkcji z interfejsu.
   Zachowano ostrzeżenia o danych, błędach i znaczenie BPM; instrukcje w README.
 - Wydanie zbiera pełny ekran, procenty tempa, odliczanie, nowe metra
   i Statystyki 2.0 opisane przy beta.1 poniżej.
-- Metadane PROD: 1.1.0, versionCode 20. Planowany draft zawiera wyłącznie
-  zwykły APK, SHA256SUMS i fingerprint certyfikatu, bez APK DEV.
-  Tagowanie, oficjalne podpisanie i publikacja wymagają odrębnych zgód.
+- Metadane PROD: 1.1.0, versionCode 20. Opublikowano zwykły APK,
+  SHA256SUMS i fingerprint dotychczasowego certyfikatu, bez APK DEV.
+  Cztery aktualizacje oficjalnych 1.0/beta.1 na API26/35 PASS.
+- Pierwszy workflow podpisania zakończył się FAIL przez błąd warunku shell
+  po zaliczonych smoke aplikacji. Naprawiono runner i dodano regresję;
+  draft odtworzono z tego samego artefaktu, bez nowego builda lub podpisu.
+  [Rzeczywiste wyniki i ograniczenia](docs/V1.1-RELEASE-VALIDATION.md).
 - Manualne potwierdzenie użytkownika: aktualizacja i import statystyk
   działały bez zarzutu; bez rozszerzania zakresu odbioru M6.
 - Dodatkowe próbki VCSL oczekują na wybór odsłuchowy. Pełna rejestracja
