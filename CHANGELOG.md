@@ -1,14 +1,15 @@
 # Zmiany
 
-## 1.2.0 — przygotowanie wydania
+## 1.2.0 — wydanie stabilne
 
 - Trzy widgety pulpitu: Mini Metronom, Sterowanie i Statystyki.
   Wspólny stan z aplikacją; procenty zachowują bazę, większy widget oferuje −1/+1.
 - Statystyki widgetu pokazują zapisany czas dzisiaj, serię i aktywne dni tygodnia.
 - Bez zmian silnika PCM, bazy Room, formatu backupu, podpisu i opublikowanego 1.1.0.
 - Minimalistyczne podpisy widgetów; instrukcje w README, pełne opisy dla TalkBack.
-- Metadane przygotowywanego PROD: 1.2.0, versionCode 21.
-- Odświeżenie ilustracji README; podglądy widgetów są oznaczone jako rozwojowe.
+- PROD 1.2.0, versionCode 21, dotychczasowy certyfikat. Oficjalny workflow
+  i aktualizacje oryginalnych APK 1.1.0 → 1.2.0 na API26/35 PASS.
+- Aktualne ilustracje README i podglądy widgetów z przykładowymi danymi.
   [Obsługa i ograniczenia](docs/WIDGETS.md).
 
 ## 1.1.0 — opublikowane stabilne wydanie

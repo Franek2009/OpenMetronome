@@ -1,7 +1,7 @@
-# Widgety — przygotowanie 1.2
+# Widgety OpenMetronome 1.2
 
-Funkcja na gałęzi rozwojowej; opublikowany APK 1.1.0 jej nie zawiera.
-Widgety są rozszerzeniem obecnego interfejsu, bez nowego silnika audio.
+Dostępne od wersji 1.2.0. Widgety rozszerzają obecny interfejs,
+bez nowego silnika audio.
 
 ## Zestaw
 
@@ -74,5 +74,5 @@ Nie zaliczamy tego odbioru ani fizycznego audio na podstawie testów automatyczn
 Zrzuty aplikacji i renderowane zasoby RemoteViews pochodzą z cichych testów PROD
 na API35: [przebieg 42529192488](https://github.com/Franek2009/OpenMetronome/actions/runs/42529192488),
 commit `020c2ca2d1a081c5f327cad00618f080f9c9ae74`. Interfejs jest po 1.1;
-widgety są rozwojową funkcją 1.2. Dane są izolowanymi/przykładowymi danymi testowymi.
+widgety przedstawiają funkcję dodaną w 1.2. Dane są izolowanymi/przykładowymi danymi testowymi.
 Podglądy widgetów nie dokumentują instalacji w launcherze Samsunga.

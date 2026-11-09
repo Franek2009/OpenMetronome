@@ -2,7 +2,7 @@
 
 Kanał początkowy: publiczny GitHub Releases. Format instalacyjny Androida:
 APK, nie AppImage. Aktualne oficjalne wydanie to
-[stabilne 1.1.0](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.1.0).
+[stabilne 1.2.0](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.2.0).
 Opublikowane pliki i tagi pozostają niezmienne.
 Nie uruchamiać tagowania, podpisywania ani publikacji bez osobnej zgody.
 
@@ -40,15 +40,15 @@ Klucz jest używany tylko w zadaniu podpisującym, nie w CI pull requestów.
 
 ## Stan wydań i najbliższe metadane
 
-Opublikowane 1.1.0 ma versionCode 20. Przygotowywane 1.2.0 ma versionCode 21;
-sprawdzono brak wcześniejszego użycia 21 w dostępnej historii i wydaniach.
-Przed tagowaniem ponownie sprawdzić zajętość tagu i aktualny main po jego CI.
+1.2.0 ma versionCode 21; poprzednie 1.1.0 ma code 20.
+Tag `v1.2.0` pozostaje na `22c19cfb8a6917f1b4cdd675b21429a1097907be`.
 Oficjalny certyfikat PROD SHA-256 pozostaje:
 `563cd960efc3fc5b483ceae4b96e66728af9e2bb0c52d6162fe37cded72ac4a2`.
-Nie tworzyć nowego klucza. Podniesienie wersji nie jest zgodą na tag,
-użycie klucza ani publikację. Nie przygotowano jeszcze oficjalnego APK 1.2.0.
-[Szkic opisu wydania](releases/1.2.0.md) musi otrzymać rzeczywiste wyniki
-podpisania i aktualizacji przed publikacją.
+Nie tworzyć nowego klucza. Weryfikacja oryginalnego oficjalnego 1.1.0 → 1.2.0
+na świeżych API26/35 PASS, bez przepodpisywania i kasowania danych.
+[Raport kontroli artefaktu](V1.2-RELEASE-VALIDATION.md).
+Kolejne wydanie wymaga wyższego, ponownie sprawdzonego versionCode oraz osobnych
+zgód na tagowanie, oficjalne podpisanie i publikację.
 
 Unsigned CI i próba aktualizacji kopii z podpisem testowym nie są dowodem
 zgodności podpisu produkcyjnego. Po utworzeniu oficjalnego draftu wykonać

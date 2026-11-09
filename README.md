@@ -6,13 +6,13 @@ kont i Google Play Services.
 
 ## Pobierz i zacznij ćwiczyć
 
-**OpenMetronome 1.1.0 — wydanie stabilne, versionCode 20.**
+**OpenMetronome 1.2.0 — wydanie stabilne, versionCode 21.**
 
-### [Pobierz APK 1.1.0](https://github.com/Franek2009/OpenMetronome/releases/download/v1.1.0/OpenMetronome-1.1.0.apk)
+### [Pobierz APK 1.2.0](https://github.com/Franek2009/OpenMetronome/releases/download/v1.2.0/OpenMetronome-1.2.0.apk)
 
-[Opis wydania i wyniki testów](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.1.0)
-· [Sumy SHA-256](https://github.com/Franek2009/OpenMetronome/releases/download/v1.1.0/SHA256SUMS)
-· [Fingerprint certyfikatu](https://github.com/Franek2009/OpenMetronome/releases/download/v1.1.0/SIGNING-CERT-SHA256.txt)
+[Opis wydania i wyniki testów](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.2.0)
+· [Sumy SHA-256](https://github.com/Franek2009/OpenMetronome/releases/download/v1.2.0/SHA256SUMS)
+· [Fingerprint certyfikatu](https://github.com/Franek2009/OpenMetronome/releases/download/v1.2.0/SIGNING-CERT-SHA256.txt)
 
 Wymagany Android **8.0 lub nowszy**. Interfejs jest po polsku; obsługuje
 telefony i tablety w pionie oraz poziomie.
@@ -28,10 +28,7 @@ odrzuca aktualizację, nie usuwaj aplikacji ani jej danych w celu obejścia
 niezgodności — [podpis i aktualizacje](docs/RELEASING.md).
 Przed aktualizacją warto zachować własną kopię `.ombak`.
 
-## Przygotowanie 1.2.0 — widgety pulpitu
-
-**versionName 1.2.0 · versionCode 21.** Wersja przygotowywana do wydania;
-publicznym, oficjalnie podpisanym APK pozostaje 1.1.0 z linku powyżej.
+## Nowości 1.2 — widgety pulpitu
 
 Mini Metronom, większy panel Start/Stop z procentami tempa i widget statystyk
 z czasem ćwiczeń dzisiaj. Wszystkie korzystają ze wspólnego stanu aplikacji,
@@ -44,9 +41,8 @@ Przy 100%, bez oczekującej zmiany, ta linia znika. Większa wysokość panelu o
 Widget statystyk pokazuje zapisany czas dzisiaj, serię i aktywne dni tygodnia;
 dotknięcie otwiera Statystyki.
 
-**To funkcja rozwojowa — APK 1.1.0 wskazany powyżej nie zawiera widgetów.**
 [Obsługa, rozmiary i ograniczenia](docs/WIDGETS.md)
-· [Szkic opisu wydania 1.2.0](docs/releases/1.2.0.md).
+· [Opis wydania 1.2.0](docs/releases/1.2.0.md).
 
 ## Funkcje wprowadzone w 1.1
 
@@ -106,7 +102,7 @@ Aktualne zrzuty interfejsu po 1.1 pochodzą z cichych testów emulatora API35
 na gałęzi przygotowującej 1.2. Używają izolowanych danych testowych;
 odtwarzanie jest zatrzymane. Nie są odbiorem fizycznego audio.
 
-### Widgety 1.2.0 — podglądy
+### Widgety 1.2.0
 
 | Mini Metronom | Sterowanie | Statystyki |
 | --- | --- | --- |
@@ -114,20 +110,20 @@ odtwarzanie jest zatrzymane. Nie są odbiorem fizycznego audio.
 
 Renderowane na emulatorze zasoby widgetów, z przykładowymi danymi.
 Rozmiary i marginesy na pulpicie zależą od launchera.
-**Widgetów nie ma w opublikowanym 1.1.0.**
 [Zawartość, sterowanie i ograniczenia](docs/WIDGETS.md).
 
 ## Weryfikacja i ograniczenia
 
 Regresja obejmuje JVM, PCM offline, Lint, buildy, ciche testy API26/35,
 migracje, backup/restore i aktualizacje z porównaniem danych.
-Testy kodu widgetów i aktualne CI są w [PR #33](https://github.com/Franek2009/OpenMetronome/pull/33).
-Oficjalny APK 1.2.0 oraz jego aktualizacja z 1.1 wymagają osobnej kontroli
-po podpisaniu; dotychczasowe testy CI nie zastępują tej weryfikacji.
+Oficjalny APK 1.2.0 przeszedł kontrolę podpisu i dwie rzeczywiste aktualizacje
+z oryginalnego oficjalnego 1.1.0 na świeżych API26/35, z porównaniem danych
+i dokładnych bajtów własnego sampla. [Raport 1.2](docs/V1.2-RELEASE-VALIDATION.md).
+Odbiór widgetów w launcherze Samsunga pozostaje niepotwierdzony.
 
-Dokładne wyniki kontroli opublikowanego APK 1.1.0 i jego sumy znajdują się
-w [opisie wydania](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.1.0)
-i [raporcie 1.1](docs/V1.1-RELEASE-VALIDATION.md).
+Dokładne wyniki kontroli APK 1.2.0 i jego sumy znajdują się
+w [opisie wydania](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.2.0)
+i [raporcie 1.2](docs/V1.2-RELEASE-VALIDATION.md).
 
 Użytkownik potwierdził prawidłową aktualizację i import statystyk oraz
 zaakceptował odsłuch prototypów trzech barw. To nie jest automatyczne
@@ -147,7 +143,7 @@ Nie przesyłaj kluczy podpisu ani prywatnych danych.
 
 DEV jest osobnym narzędziem dla deweloperów, z odrębnym pakietem, danymi,
 podpisem i oznaczoną ikoną. Nie zastępuje zwykłej aplikacji.
-Wydanie 1.1.0 obejmuje wyłącznie zwykły APK.
+Wydanie 1.2.0 obejmuje wyłącznie zwykły APK.
 
 **Pełna rejestracja sesji DEV jest wyłączona** po niezaliczonej kwalifikacji
 narzutu API26. Wynik FAIL pozostaje jawny; nie obiecujemy raportu nowej sesji.
