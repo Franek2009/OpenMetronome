@@ -83,4 +83,42 @@ class FullscreenPracticeTest {
             kotlinx.coroutines.runBlocking { data.closeTestStorage() }
         }
     }
+    @Test fun widgetNavigationLeavesFullscreenOnceWithoutEngineCommands() {
+        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+        val data = org.openmetronome.data.AppData(context, isolatedTestStorage = true)
+        kotlinx.coroutines.runBlocking { data.ready.await() }
+        var commands = 0
+        val port = object : MetronomePort {
+            override val state = kotlinx.coroutines.flow.MutableStateFlow(MetronomeState())
+            override fun start() { commands++ }
+            override fun stop() { commands++ }
+            override fun close() = Unit
+            override fun editConfig(transform: (MetronomeConfig) -> MetronomeConfig) { state.value = state.value.copy(config = transform(state.value.config)) }
+        }
+        val model = MetronomeViewModel(port)
+        val request = mutableIntStateOf(0)
+        val statistics = mutableStateOf(false)
+        val visible = mutableStateOf(true)
+        try {
+            compose.setContent { if (visible.value) OpenMetronomeTheme {
+                OpenMetronomeApp(model, data, widgetStatistics = statistics.value, widgetRequest = request.intValue)
+            } }
+            compose.onNodeWithText("Pełny ekran").performScrollTo().performClick()
+            compose.runOnIdle { statistics.value = true; request.intValue++ }
+            compose.onNodeWithText("Podsumowanie").assertExists()
+            compose.onNodeWithText("Metronom").performClick()
+            compose.onNodeWithText("Pełny ekran").performScrollTo().performClick()
+            compose.onNodeWithText("Wróć").performClick()
+            compose.onNodeWithText("Pełny ekran").assertExists()
+            compose.onNodeWithText("Pełny ekran").performScrollTo().performClick()
+            compose.runOnIdle { statistics.value = false; request.intValue++ }
+            compose.onNodeWithText("Pełny ekran").assertExists()
+            compose.runOnIdle { assertEquals(0, commands) }
+        } finally {
+            compose.runOnIdle { visible.value = false }
+            compose.waitForIdle()
+            kotlinx.coroutines.runBlocking { data.closeTestStorage() }
+        }
+    }
+
 }

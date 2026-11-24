@@ -137,6 +137,23 @@ class SilentFeaturesTest {
         assertEquals(PlaybackStatus.STOPPED, model.state.value.audio.status)
     }
 
+    @Test fun presetEditingSurvivesRecreationAndClosesWhenPresetIsDeleted() {
+        page("Presety")
+        field("Nazwa presetu", "Test obrotu")
+        click("Zapisz jako nowy")
+        awaitPresets { it.size == 1 }
+        click("Edytuj")
+        field("Nazwa presetu", "Nowa nazwa")
+        compose.activityRule.scenario.recreate()
+        compose.onNodeWithText("Edytujesz: Test obrotu").assertExists()
+        compose.onNodeWithText("Zmień nazwę").assertExists()
+        val preset = runBlocking { data.dao.presets().first().single() }
+        runBlocking(Dispatchers.IO) { data.dao.deletePreset(preset.id) }
+        awaitPresets { it.isEmpty() }
+        compose.onNodeWithText("Zmień nazwę").assertDoesNotExist()
+        assertTrue(runBlocking { data.dao.presets().first().isEmpty() })
+    }
+
     @Test fun presetsSupportCreateLoadRenameReplaceAndConfirmedDeletion() {
         val config = MetronomeConfig(tempo = Tempo(87), silence = SilenceConfig(50, true, 3, 2),
             rhythm = RhythmConfig(Subdivision.TRIPLETS), sound = SoundConfig(37, ClickSound.WOOD))

@@ -3,24 +3,27 @@
 Każdy etap kończy się weryfikacją i wspólnym przeglądem. Samo przygotowanie
 plików nie oznacza przejścia testów ani ukończenia etapu.
 
-## Bieżący etap — rozwój po stabilnym 1.0.0
+## Bieżący etap — stabilizacja 1.2.1
 
-[Stabilne 1.0.0 jest opublikowane](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.0.0).
-Opublikowane APK i tag pozostają niezmienne. Odbiór manualny i niezmierzone
-parametry fizycznego audio nadal opisuje [M6](M6-ACCEPTANCE.md).
+[OpenMetronome 1.2.0](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.2.0)
+pozostaje wydaniem stabilnym. Zawiera trzy widgety; szczegóły i ograniczenia
+odbioru opisują [widgety](WIDGETS.md) oraz [walidacja wydania](V1.2-RELEASE-VALIDATION.md).
+Etap 1.2.1 obejmuje weryfikację i poprawki stabilności widgetów oraz drobnych
+problemów cyklu życia. Sam plan nie oznacza zakończenia testów ani wydania.
 
-[Zatwierdzony zakres 1.1 beta](POST-1.0-PLAN.md) jest wdrażany małymi PR:
-#17/18 (ikona DEV i Dzisiaj), #19 (pełny ekran, procenty, tempo od pulsu,
-odliczanie i metra), #20 (Statystyki 2.0, progi, historia konfiguracji, Room 3,
-backup v2) i #21 (przygotowana diagnostyka DEV, bez aktywacji w beta).
-Funkcje te nie zmieniają opublikowanego APK 1.0.0.
+## Kierunki po 1.2.1 — planowane
 
-Kolejny krok: 1.1.0-beta.1 / code 19 z dwoma osobno podpisanymi APK,
-pełną regresją API26/35 i oficjalną aktualizacją 1.0→beta. Publikacja wyłącznie
-Prerelease po sprawdzeniu artefaktów; stable 1.1 wymaga odbioru i osobnej decyzji.
-[Raport i checklista beta](V1.1-BETA1-VALIDATION.md).
-Nie wykonujemy operacji na telefonach, fizycznego audio ani wibracji.
-„Drewniany” pozostaje niezależnym zadaniem po dostarczeniu i kwalifikacji oryginałów.
+- **1.3:** ręczne aktywności muzyczne, oddzielne statystyki, cele oraz grupowanie
+  odtwarzań w sesje przy zachowaniu faktycznych okresów pracy metronomu.
+  Import z Garmin Forerunner 55 wymaga najpierw analizy rzeczywistych plików FIT;
+  automatyczna synchronizacja nie jest potwierdzona.
+- **1.4:** rozważana opcjonalna synchronizacja local-first, z możliwością
+  samodzielnego hostowania serwera i pełną pracą offline. Architektura nie jest
+  jeszcze zatwierdzona.
+
+Powyższe funkcje nie są deklaracją ich implementacji ani terminu wydania.
+Parametry fizycznego audio pozostają oddzielone od testów oprogramowania;
+aktualny zakres odbioru opisuje [M6](M6-ACCEPTANCE.md).
 
 Poniżej historyczne etapy; ich otwarte bramki nie zastępują aktualnego
 udokumentowanego zakresu manualnego odbioru.
@@ -208,7 +211,8 @@ sprzętowego testu odcięcia zasilania.
 
 - Samsung SM-A145R, Android 15 / API 35: dotychczasowy telefon testowy.
 - Samsung Galaxy A56 5G: główny telefon; użytkownik potwierdził zachowanie danych
-  przy aktualizacji oficjalna beta.3→RC1. Brak pełnego odbioru RC2.
+  przy aktualizacji oficjalna beta.3→RC1; później potwierdził wybrane próby RC2,
+  opisane w [M6](M6-ACCEPTANCE.md).
 - Lenovo TB-X505F: podłączone urządzenie raportuje TrebleDroid_vanilla,
   Android 13 / API 33; pakietu Google Play Services nie wykryto. Wstępnie
   wskazany LineageOS 20 nie jest potwierdzoną nazwą aktualnego obrazu systemu.
