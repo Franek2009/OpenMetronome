@@ -88,8 +88,10 @@ class FullscreenPracticeTest {
         val data = org.openmetronome.data.AppData(context, isolatedTestStorage = true)
         kotlinx.coroutines.runBlocking { data.ready.await() }
         var commands = 0
+        val config = MetronomeConfig()
+        val snapshot = MetronomeState(config, AudioEngineState(PlaybackStatus.PLAYING, config))
         val port = object : MetronomePort {
-            override val state = kotlinx.coroutines.flow.MutableStateFlow(MetronomeState())
+            override val state = kotlinx.coroutines.flow.MutableStateFlow(snapshot)
             override fun start() { commands++ }
             override fun stop() { commands++ }
             override fun close() = Unit
@@ -113,7 +115,7 @@ class FullscreenPracticeTest {
             compose.onNodeWithText("Pełny ekran").performScrollTo().performClick()
             compose.runOnIdle { statistics.value = false; request.intValue++ }
             compose.onNodeWithText("Pełny ekran").assertExists()
-            compose.runOnIdle { assertEquals(0, commands) }
+            compose.runOnIdle { assertEquals(0, commands); assertEquals(snapshot, model.state.value) }
         } finally {
             compose.runOnIdle { visible.value = false }
             compose.waitForIdle()

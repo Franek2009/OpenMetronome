@@ -39,7 +39,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         widgetStatistics = intent.getBooleanExtra("widget_statistics", false)
-        widgetRequest = if (savedInstanceState == null && intent.hasExtra("widget_statistics")) 1 else 0
+        widgetRequest = savedInstanceState?.getInt("widget_request")
+            ?: if (intent.hasExtra("widget_statistics")) 1 else 0
         volumeControlStream = AudioManager.STREAM_MUSIC
         model = ViewModelProvider(this, object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -68,6 +69,11 @@ class MainActivity : ComponentActivity() {
             widgetStatistics = intent.getBooleanExtra("widget_statistics", false)
             widgetRequest++
         }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putInt("widget_request", widgetRequest)
+        super.onSaveInstanceState(outState)
     }
 
     override fun onStart() { super.onStart(); model.visibility(true) }

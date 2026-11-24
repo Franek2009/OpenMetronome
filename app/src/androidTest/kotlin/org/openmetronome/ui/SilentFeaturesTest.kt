@@ -137,6 +137,27 @@ class SilentFeaturesTest {
         assertEquals(PlaybackStatus.STOPPED, model.state.value.audio.status)
     }
 
+    @Test fun widgetRequestIsNotReplayedAfterRecreationOrNavigation() {
+        compose.runOnIdle {
+            compose.activity.startActivity(android.content.Intent(compose.activity, MainActivity::class.java)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .putExtra("widget_statistics", true))
+        }
+        compose.onNodeWithText("Podsumowanie").assertExists()
+        page("Metronom")
+        compose.activityRule.scenario.recreate()
+        compose.onNodeWithText("Pełny ekran").assertExists()
+        compose.onNodeWithText("Pełny ekran").performScrollTo().performClick()
+        compose.onNodeWithText("Wróć").performClick()
+        compose.onNodeWithText("Pełny ekran").assertExists()
+        compose.runOnIdle {
+            compose.activity.startActivity(android.content.Intent(compose.activity, MainActivity::class.java)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .putExtra("widget_statistics", true))
+        }
+        compose.onNodeWithText("Podsumowanie").assertExists()
+    }
+
     @Test fun presetEditingSurvivesRecreationAndClosesWhenPresetIsDeleted() {
         page("Presety")
         field("Nazwa presetu", "Test obrotu")

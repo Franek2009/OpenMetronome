@@ -59,6 +59,15 @@ fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, widgetStatistics:
     val display by data.displayPreferences.collectAsStateWithLifecycle(initialValue = PracticeDisplayPreferences())
     val customSamples by data.samples.items.collectAsStateWithLifecycle()
     var fullscreen by rememberSaveable { mutableStateOf(false) }
+    var page by rememberSaveable { mutableStateOf("Metronom") }
+    var handledWidgetRequest by rememberSaveable { mutableIntStateOf(0) }
+    LaunchedEffect(widgetRequest) {
+        if (widgetRequest > 0 && widgetRequest != handledWidgetRequest) {
+            handledWidgetRequest = widgetRequest
+            fullscreen = false
+            page = if (widgetStatistics) "Statystyki" else "Metronom"
+        }
+    }
     val view = LocalView.current
     DisposableEffect(view, fullscreen, state.keepsScreenOn, display.keepFullscreenAwake) {
         val old = view.keepScreenOn
@@ -79,8 +88,6 @@ fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, widgetStatistics:
         FullscreenPractice(state, model::start, model::stop, { fullscreen = false }, canStart, display.reduceMotion)
         return
     }
-    var page by rememberSaveable { mutableStateOf("Metronom") }
-    LaunchedEffect(widgetRequest) { if (widgetRequest > 0) { fullscreen = false; page = if (widgetStatistics) "Statystyki" else "Metronom" } }
     var report by rememberSaveable { mutableStateOf<String?>(null) }
     BackHandler(enabled = page != "Metronom" && report == null) { page = "Metronom" }
     val context = LocalContext.current
@@ -166,7 +173,8 @@ private fun PageButtons(page: String, select: (String) -> Unit) {
 private fun PresetsScreen(data: AppData, model: MetronomeViewModel) {
     val presets by data.presets.collectAsStateWithLifecycle(initialValue = emptyList())
     var name by rememberSaveable { mutableStateOf("") }
-    var selected by remember { mutableStateOf<Preset?>(null) }
+    var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
+    val selected = presets.firstOrNull { it.id == selectedId }
     var deleting by remember { mutableStateOf<Preset?>(null) }
     val editorFocus = remember { FocusRequester() }
     // Keep Done within Compose: Oreo can restore cleared window focus to its sole editor.
@@ -175,11 +183,11 @@ private fun PresetsScreen(data: AppData, model: MetronomeViewModel) {
         OutlinedTextField(name, { name = it.take(120) }, label = { Text("Nazwa presetu") }, singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { editorFocus.requestFocus() }))
-        Button({ data.savePreset(name, model.state.value.config); name = ""; selected = null }, enabled = name.isNotBlank()) { Text("Zapisz jako nowy") }
+        Button({ data.savePreset(name, model.state.value.config); name = ""; selectedId = null }, enabled = name.isNotBlank()) { Text("Zapisz jako nowy") }
         selected?.let { preset ->
             Text("Edytujesz: ${preset.name}")
-            TextButton({ data.renamePreset(preset, name); selected = null }, enabled = name.isNotBlank()) { Text("Zmień nazwę") }
-            TextButton({ data.savePreset(name, model.state.value.config, preset); selected = null }, enabled = name.isNotBlank()) { Text("Zastąp bieżącymi ustawieniami") }
+            TextButton({ data.renamePreset(preset, name); selectedId = null }, enabled = name.isNotBlank()) { Text("Zmień nazwę") }
+            TextButton({ data.savePreset(name, model.state.value.config, preset); selectedId = null }, enabled = name.isNotBlank()) { Text("Zastąp bieżącymi ustawieniami") }
         }
         if (presets.isEmpty()) Text("Nie zapisano jeszcze presetów.")
         presets.forEach { preset ->
@@ -191,7 +199,7 @@ private fun PresetsScreen(data: AppData, model: MetronomeViewModel) {
                             try { model.setConfig(ConfigCodec.decode(preset.config)) }
                             catch (_: Exception) { data.error.value = "Nie można odczytać tego presetu. Nie został zmieniony." }
                         }) { Text("Wczytaj") }
-                        TextButton({ selected = preset; name = preset.name }) { Text("Edytuj") }
+                        TextButton({ selectedId = preset.id; name = preset.name }) { Text("Edytuj") }
                         TextButton({ deleting = preset }) { Text("Usuń") }
                     }
                 }
@@ -201,7 +209,7 @@ private fun PresetsScreen(data: AppData, model: MetronomeViewModel) {
     deleting?.let { preset ->
         AlertDialog(onDismissRequest = { deleting = null }, title = { Text("Usunąć preset?") },
             text = { Text("${preset.name}\nHistoria ćwiczeń pozostanie zachowana.") },
-            confirmButton = { TextButton({ data.deletePreset(preset); deleting = null; if (selected?.id == preset.id) selected = null }) { Text("Usuń") } },
+            confirmButton = { TextButton({ data.deletePreset(preset); deleting = null; if (selectedId == preset.id) selectedId = null }) { Text("Usuń") } },
             dismissButton = { TextButton({ deleting = null }) { Text("Anuluj") } })
     }
 }

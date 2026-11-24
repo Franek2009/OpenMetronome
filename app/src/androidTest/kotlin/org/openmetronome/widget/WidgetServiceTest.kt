@@ -57,7 +57,15 @@ class WidgetServiceTest {
                 binder.widgetCommand("start")
             }
             withTimeout(10000) { while (fake.state.value.status != PlaybackStatus.PLAYING) delay(20) }
-            withContext(Dispatchers.Main) { binder.widgetCommand("start"); binder.widgetCommand("stop") }
+            // Concurrent edits all target the same bound service and must not lose increments.
+            coroutineScope {
+                repeat(20) { launch(Dispatchers.Main) { binder.widgetCommand("plus") } }
+            }
+            withContext(Dispatchers.Main) {
+                assertEquals(143, binder.controller.state.value.config.tempo.bpm)
+                binder.widgetCommand("start")
+                binder.widgetCommand("stop")
+            }
             assertEquals(1, starts)
             withTimeout(10000) { while (data.playbackBusy.value) delay(20) }
         } finally {
