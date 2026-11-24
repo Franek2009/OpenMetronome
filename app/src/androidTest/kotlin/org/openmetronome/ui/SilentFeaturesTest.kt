@@ -138,9 +138,10 @@ class SilentFeaturesTest {
     }
 
     @Test fun widgetRequestIsNotReplayedAfterRecreationOrNavigation() {
+        val scenarioIntent = android.content.Intent(compose.activity.intent)
         compose.runOnIdle {
-            compose.activity.startActivity(android.content.Intent(compose.activity, MainActivity::class.java)
-                .addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            compose.activity.startActivity(android.content.Intent(scenarioIntent)
+                .setFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 .putExtra("widget_statistics", true))
         }
         compose.onNodeWithText("Podsumowanie").assertExists()
@@ -151,8 +152,8 @@ class SilentFeaturesTest {
         compose.onNodeWithText("Wróć").performClick()
         compose.onNodeWithText("Pełny ekran").assertExists()
         compose.runOnIdle {
-            compose.activity.startActivity(android.content.Intent(compose.activity, MainActivity::class.java)
-                .addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            compose.activity.startActivity(android.content.Intent(scenarioIntent)
+                .setFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 .putExtra("widget_statistics", true))
         }
         compose.onNodeWithText("Podsumowanie").assertExists()
