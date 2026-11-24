@@ -101,6 +101,10 @@ printf 'Signer #1 certificate SHA-256 digest: %s\n' "$cert"
                 result, installed = self.run_gate("--official-1.2", **(valid | change))
                 self.assertNotEqual(0, result.returncode)
                 self.assertFalse(installed)
+        self.metadata(21, "1.2.1")
+        result, installed = self.run_gate("--official-1.2", **(valid | {"NEW_CODE": "21"}))
+        self.assertNotEqual(0, result.returncode)
+        self.assertFalse(installed)
 
     def test_same_version_code_is_not_an_upgrade(self):
         self.metadata(19)
