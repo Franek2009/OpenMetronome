@@ -101,9 +101,11 @@ class FullscreenPracticeTest {
         val request = mutableIntStateOf(0)
         val statistics = mutableStateOf(false)
         val visible = mutableStateOf(true)
+        val handled = mutableListOf<Int>()
         try {
             compose.setContent { if (visible.value) OpenMetronomeTheme {
-                OpenMetronomeApp(model, data, widgetStatistics = statistics.value, widgetRequest = request.intValue)
+                OpenMetronomeApp(model, data, widgetStatistics = statistics.value, widgetRequest = request.intValue,
+                    onWidgetRequestHandled = { handled.add(it) })
             } }
             compose.onNodeWithText("Pełny ekran").performScrollTo().performClick()
             compose.runOnIdle { statistics.value = true; request.intValue++ }
@@ -115,7 +117,7 @@ class FullscreenPracticeTest {
             compose.onNodeWithText("Pełny ekran").performScrollTo().performClick()
             compose.runOnIdle { statistics.value = false; request.intValue++ }
             compose.onNodeWithText("Pełny ekran").assertExists()
-            compose.runOnIdle { assertEquals(0, commands); assertEquals(snapshot, model.state.value) }
+            compose.runOnIdle { assertEquals(0, commands); assertEquals(snapshot, model.state.value); assertEquals(listOf(1, 2), handled) }
         } finally {
             compose.runOnIdle { visible.value = false }
             compose.waitForIdle()
