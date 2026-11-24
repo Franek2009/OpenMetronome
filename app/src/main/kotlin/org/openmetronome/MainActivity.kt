@@ -31,19 +31,15 @@ import org.openmetronome.ui.MetronomeViewModel
 import org.openmetronome.ui.theme.OpenMetronomeTheme
 
 class MainActivity : ComponentActivity() {
-    private data class WidgetRequest(val id: Int, val statistics: Boolean)
-    private var widgetRequest = 0
-    private val pendingWidgetRequests = androidx.compose.runtime.mutableStateListOf<WidgetRequest>()
+    private var widgetRequest by androidx.compose.runtime.mutableIntStateOf(0)
+    private var widgetStatistics by androidx.compose.runtime.mutableStateOf(false)
     private lateinit var model: MetronomeViewModel
     private val notifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) { recreate() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        widgetRequest = savedInstanceState?.getInt("widget_request") ?: 0
-        val ids = savedInstanceState?.getIntArray("widget_pending_ids") ?: intArrayOf()
-        val targets = savedInstanceState?.getBooleanArray("widget_pending_targets") ?: booleanArrayOf()
-        ids.zip(targets.toList()).forEach { (id, statistics) -> pendingWidgetRequests.add(WidgetRequest(id, statistics)) }
-        if (savedInstanceState == null && intent.hasExtra("widget_statistics")) enqueueWidgetRequest(intent)
+        widgetStatistics = intent.getBooleanExtra("widget_statistics", false)
+        widgetRequest = if (savedInstanceState == null && intent.hasExtra("widget_statistics")) 1 else 0
         volumeControlStream = AudioManager.STREAM_MUSIC
         model = ViewModelProvider(this, object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -56,12 +52,8 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT))
         setContent {
             OpenMetronomeTheme {
-                val request = pendingWidgetRequests.firstOrNull()
                 OpenMetronomeApp(model, (application as OpenMetronomeApplication).data,
-                    widgetStatistics = request?.statistics ?: false, widgetRequest = request?.id ?: 0,
-                    onWidgetRequestHandled = { id ->
-                        if (pendingWidgetRequests.firstOrNull()?.id == id) pendingWidgetRequests.removeAt(0)
-                    },
+                    widgetStatistics = widgetStatistics, widgetRequest = widgetRequest,
                     notificationPermission = if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
                         { { notifications.launch(Manifest.permission.POST_NOTIFICATIONS) } } else null,
                 )
@@ -73,20 +65,9 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         if (intent.hasExtra("widget_statistics")) {
-            enqueueWidgetRequest(intent)
+            widgetStatistics = intent.getBooleanExtra("widget_statistics", false)
+            widgetRequest++
         }
-    }
-
-    private fun enqueueWidgetRequest(intent: android.content.Intent) {
-        widgetRequest++
-        pendingWidgetRequests.add(WidgetRequest(widgetRequest, intent.getBooleanExtra("widget_statistics", false)))
-    }
-
-    override fun onSaveInstanceState(outState: Bundle) {
-        outState.putInt("widget_request", widgetRequest)
-        outState.putIntArray("widget_pending_ids", pendingWidgetRequests.map { it.id }.toIntArray())
-        outState.putBooleanArray("widget_pending_targets", pendingWidgetRequests.map { it.statistics }.toBooleanArray())
-        super.onSaveInstanceState(outState)
     }
 
     override fun onStart() { super.onStart(); model.visibility(true) }
