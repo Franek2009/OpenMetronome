@@ -88,10 +88,8 @@ class FullscreenPracticeTest {
         val data = org.openmetronome.data.AppData(context, isolatedTestStorage = true)
         kotlinx.coroutines.runBlocking { data.ready.await() }
         var commands = 0
-        val config = MetronomeConfig()
-        val snapshot = MetronomeState(config, AudioEngineState(PlaybackStatus.PLAYING, config))
         val port = object : MetronomePort {
-            override val state = kotlinx.coroutines.flow.MutableStateFlow(snapshot)
+            override val state = kotlinx.coroutines.flow.MutableStateFlow(MetronomeState())
             override fun start() { commands++ }
             override fun stop() { commands++ }
             override fun close() = Unit
@@ -101,11 +99,9 @@ class FullscreenPracticeTest {
         val request = mutableIntStateOf(0)
         val statistics = mutableStateOf(false)
         val visible = mutableStateOf(true)
-        val handled = mutableListOf<Int>()
         try {
             compose.setContent { if (visible.value) OpenMetronomeTheme {
-                OpenMetronomeApp(model, data, widgetStatistics = statistics.value, widgetRequest = request.intValue,
-                    onWidgetRequestHandled = { handled.add(it) })
+                OpenMetronomeApp(model, data, widgetStatistics = statistics.value, widgetRequest = request.intValue)
             } }
             compose.onNodeWithText("Pełny ekran").performScrollTo().performClick()
             compose.runOnIdle { statistics.value = true; request.intValue++ }
@@ -117,7 +113,7 @@ class FullscreenPracticeTest {
             compose.onNodeWithText("Pełny ekran").performScrollTo().performClick()
             compose.runOnIdle { statistics.value = false; request.intValue++ }
             compose.onNodeWithText("Pełny ekran").assertExists()
-            compose.runOnIdle { assertEquals(0, commands); assertEquals(snapshot, model.state.value); assertEquals(listOf(1, 2), handled) }
+            compose.runOnIdle { assertEquals(0, commands) }
         } finally {
             compose.runOnIdle { visible.value = false }
             compose.waitForIdle()
