@@ -1,5 +1,13 @@
 # Zmiany
 
+## 1.2.1 — w przygotowaniu
+
+- Poprawiono otwieranie metronomu i statystyk z widgetów podczas pracy w pełnym ekranie oraz obsługę kolejnych żądań po odtworzeniu aktywności.
+- Zachowano wybór edytowanego presetu przy obrocie; usunięty preset nie jest dostępny do edycji.
+- Zatrzymanie anuluje wcześniejszy Start widgetu oczekujący na wczytanie danych.
+- Rozszerzono ciche testy widgetów i uaktualniono roadmapę.
+- versionCode 22; bez zmian silnika PCM, schematu danych i formatu kopii. Wydanie i oficjalnie podpisany APK pozostają w przygotowaniu.
+
 ## 1.2.0 — wydanie stabilne
 
 - Trzy widgety pulpitu: Mini Metronom, Sterowanie i Statystyki.

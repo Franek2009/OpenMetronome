@@ -76,6 +76,8 @@ class WidgetResourcesTest {
                         (view as android.view.ViewGroup).offsetDescendantRectToMyCoords(button, bounds)
                         assertTrue("Clipped control $id font=$scale: $bounds", bounds.top >= 0 && bounds.bottom <= h)
                         assertTrue("Small touch target $id", button.height >= (48 * density).toInt())
+                        assertTrue("Narrow touch target $id", button.width >= (48 * density).toInt())
+                        assertTrue("Clipped horizontally $id font=$scale: $bounds", bounds.left >= 0 && bounds.right <= w)
                     }
                 }
             }

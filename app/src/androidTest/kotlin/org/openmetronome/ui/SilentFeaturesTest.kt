@@ -137,6 +137,55 @@ class SilentFeaturesTest {
         assertEquals(PlaybackStatus.STOPPED, model.state.value.audio.status)
     }
 
+    @Test fun widgetRequestIsNotReplayedAfterRecreationOrNavigation() {
+        val scenarioIntent = android.content.Intent(compose.activity.intent)
+        compose.runOnIdle {
+            compose.activity.startActivity(android.content.Intent(scenarioIntent)
+                .setFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .putExtra("widget_statistics", true))
+        }
+        compose.onNodeWithText("Podsumowanie").assertExists()
+        page("Metronom")
+        compose.activityRule.scenario.recreate()
+        compose.onNodeWithText("Pełny ekran").assertExists()
+        compose.onNodeWithText("Pełny ekran").performScrollTo().performClick()
+        compose.onNodeWithText("Wróć").performClick()
+        compose.onNodeWithText("Pełny ekran").assertExists()
+        compose.runOnIdle {
+            compose.activity.startActivity(android.content.Intent(scenarioIntent)
+                .setFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .putExtra("widget_statistics", true))
+        }
+        compose.onNodeWithText("Podsumowanie").assertExists()
+        page("Ustawienia")
+        compose.onNodeWithText("Informacje").performScrollTo().performClick()
+        compose.onNodeWithText("Informacje i diagnostyka").assertExists()
+        compose.runOnIdle {
+            compose.activity.startActivity(android.content.Intent(scenarioIntent)
+                .setFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .putExtra("widget_statistics", true))
+        }
+        compose.onNodeWithText("Informacje i diagnostyka").assertDoesNotExist()
+        compose.onNodeWithText("Podsumowanie").assertExists()
+    }
+
+    @Test fun presetEditingSurvivesRecreationAndClosesWhenPresetIsDeleted() {
+        page("Presety")
+        field("Nazwa presetu", "Test obrotu")
+        click("Zapisz jako nowy")
+        awaitPresets { it.size == 1 }
+        click("Edytuj")
+        field("Nazwa presetu", "Nowa nazwa")
+        compose.activityRule.scenario.recreate()
+        compose.onNodeWithText("Edytujesz: Test obrotu").assertExists()
+        compose.onNodeWithText("Zmień nazwę").assertExists()
+        val preset = runBlocking { data.dao.presets().first().single() }
+        runBlocking(Dispatchers.IO) { data.dao.deletePreset(preset.id) }
+        awaitPresets { it.isEmpty() }
+        compose.onNodeWithText("Zmień nazwę").assertDoesNotExist()
+        assertTrue(runBlocking { data.dao.presets().first().isEmpty() })
+    }
+
     @Test fun presetsSupportCreateLoadRenameReplaceAndConfirmedDeletion() {
         val config = MetronomeConfig(tempo = Tempo(87), silence = SilenceConfig(50, true, 3, 2),
             rhythm = RhythmConfig(Subdivision.TRIPLETS), sound = SoundConfig(37, ClickSound.WOOD))
