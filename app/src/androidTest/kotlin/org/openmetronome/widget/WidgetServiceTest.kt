@@ -92,4 +92,55 @@ class WidgetServiceTest {
             data.saveSettings(original); data.awaitWrites()
         }
     }
+    @Test fun stopDuringColdStartCancelsPendingWidgetStart() = runBlocking {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val context = instrumentation.targetContext
+        val app = context.applicationContext as TestApplication
+        val data = app.data
+        data.ready.await()
+        data.awaitWrites()
+        val entered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        data.operation { entered.complete(Unit); release.await() }
+        withTimeout(10000) { entered.await() }
+        var starts = 0
+        val fake = object : AudioEngine {
+            override val state = MutableStateFlow(AudioEngineState())
+            override fun start(config: MetronomeConfig) { starts++; state.value = AudioEngineState(PlaybackStatus.PLAYING, config) }
+            override fun updateConfig(config: MetronomeConfig) = Unit
+            override fun stop() { state.value = AudioEngineState() }
+            override fun close() { stop() }
+        }
+        app.simulatedEngine = fake
+        val connected = CompletableDeferred<MetronomeService.LocalBinder>()
+        val connection = object : ServiceConnection {
+            override fun onServiceConnected(name: ComponentName, binder: IBinder) { connected.complete(binder as MetronomeService.LocalBinder) }
+            override fun onServiceDisconnected(name: ComponentName) = Unit
+        }
+        var bound = false
+        try {
+            instrumentation.runOnMainSync { bound = context.bindService(Intent(context, MetronomeService::class.java), connection, Context.BIND_AUTO_CREATE) }
+            assertTrue(bound)
+            val binder = withTimeout(10000) { connected.await() }
+            coroutineScope {
+                val start = async(Dispatchers.Main, start = CoroutineStart.UNDISPATCHED) { binder.widgetCommand("start") }
+                assertFalse("Start must wait for the blocked write queue", start.isCompleted)
+                withContext(Dispatchers.Main) { binder.widgetCommand("stop") }
+                release.complete(Unit)
+                withTimeout(10000) { start.await() }
+            }
+            withContext(Dispatchers.Main) { yield() }
+            assertEquals("Stop must cancel an earlier pending start", 0, starts)
+            assertFalse(data.playbackBusy.value)
+        } finally {
+            release.complete(Unit)
+            instrumentation.runOnMainSync {
+                if (bound) context.unbindService(connection)
+                context.stopService(Intent(context, MetronomeService::class.java))
+            }
+            withTimeout(10000) { while (data.playbackBusy.value) delay(20) }
+            app.simulatedEngine = null
+        }
+    }
+
 }
