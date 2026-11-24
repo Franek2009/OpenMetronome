@@ -8,13 +8,15 @@ upgrade_serial="${ANDROID_SERIAL:?Set disposable emulator serial}"
 upgrade_official=false
 upgrade_dev=false
 upgrade_beta=false
+upgrade_120=false
 case "${1:-}" in
     --official) upgrade_official=true; shift ;;
     --official-beta) upgrade_official=true; upgrade_beta=true; shift ;;
+    --official-1.2) upgrade_official=true; upgrade_120=true; shift ;;
     --official-dev) upgrade_official=true; upgrade_dev=true; shift
         release_package="$release_dev_package"; release_version="$release_dev_version" ;;
 esac
-[[ $# == 2 ]] || { echo 'Usage: verify-upgrade.sh [--official|--official-beta|--official-dev] old.apk new.apk' >&2; exit 2; }
+[[ $# == 2 ]] || { echo 'Usage: verify-upgrade.sh [--official|--official-beta|--official-1.2|--official-dev] old.apk new.apk' >&2; exit 2; }
 : "${ANDROID_HOME:?Set ANDROID_HOME}"
 upgrade_old="$1"
 upgrade_new="$2"
@@ -32,6 +34,9 @@ if [[ "$upgrade_official" == true ]]; then
     upgrade_baseline_code=18; upgrade_baseline_version=1.0.0
     if [[ "$upgrade_beta" == true ]]; then
         upgrade_baseline_code=19; upgrade_baseline_version=1.1.0-beta.1
+    fi
+    if [[ "$upgrade_120" == true ]]; then
+        upgrade_baseline_code=21; upgrade_baseline_version=1.2.0
     fi
     if [[ "$upgrade_dev" == true ]]; then
         upgrade_baseline_code="$release_code"; upgrade_baseline_version="$release_version"
@@ -51,11 +56,15 @@ if grep -q 'application-debuggable' <<< "$upgrade_old_badging" ||
 fi
 upgrade_old_cert="$($upgrade_tools/apksigner verify --print-certs "$upgrade_old")"
 [[ "$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' <<< "$upgrade_old_cert")" == "$upgrade_expected_cert" ]]
-! grep -q '^Signer #2 certificate' <<< "$upgrade_old_cert"
+if grep -q '^Signer #2 certificate' <<< "$upgrade_old_cert"; then
+    echo 'Baseline APK has multiple signers.' >&2; exit 1
+fi
 if [[ "$upgrade_official" == true ]]; then
     upgrade_new_cert="$($upgrade_tools/apksigner verify --verbose --print-certs "$upgrade_new")"
     [[ "$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' <<< "$upgrade_new_cert")" == "$upgrade_expected_cert" ]]
-    ! grep -q '^Signer #2 certificate' <<< "$upgrade_new_cert"
+    if grep -q '^Signer #2 certificate' <<< "$upgrade_new_cert"; then
+        echo 'Candidate APK has multiple signers.' >&2; exit 1
+    fi
     [[ "$(sha256sum "$upgrade_old" | cut -d ' ' -f 1)" == "${OFFICIAL_BASELINE_SHA256:?Set verified baseline APK hash}" ]]
     [[ "$(sha256sum "$upgrade_new" | cut -d ' ' -f 1)" == "${OFFICIAL_CANDIDATE_SHA256:?Set verified candidate APK hash}" ]]
 fi

@@ -30,19 +30,22 @@ if [[ "$*" == *'install old.apk' ]]; then touch "$INSTALL_MARKER"; exit 73; fi
 echo 'Unexpected adb command' >&2; exit 99
 ''')
         self.stub("sdk/build-tools/36.0.0/aapt", '''#!/usr/bin/env bash
-if [[ "$3" == old.apk ]]; then code="$OLD_CODE"; version="$OLD_VERSION"; else code="$NEW_CODE"; version=1.1.0; fi
+if [[ "$3" == old.apk ]]; then code="$OLD_CODE"; version="$OLD_VERSION"; else code="$NEW_CODE"; version="$NEW_VERSION"; fi
 printf "package: name='%s' versionCode='%s' versionName='%s'\n" "$PACKAGE" "$code" "$version"
 [[ "${DEBUG_APK:-}" != "$3" ]] || echo application-debuggable
 exit 0
 ''')
         self.stub("sdk/build-tools/36.0.0/apksigner", '''#!/usr/bin/env bash
 [[ "$1" == verify ]] || { echo 'Signing forbidden' >&2; exit 99; }
-printf 'Signer #1 certificate SHA-256 digest: %s\n' "$CERTIFICATE"
+cert="$CERTIFICATE"
+[[ "${@: -1}" != new.apk ]] || cert="${NEW_CERTIFICATE:-$CERTIFICATE}"
+printf 'Signer #1 certificate SHA-256 digest: %s\n' "$cert"
+[[ "${SECOND_SIGNER:-}" != "${@: -1}" ]] || echo 'Signer #2 certificate SHA-256 digest: other'
 ''')
         self.env = os.environ | {
             "PATH": str(self.root / "bin") + ":" + os.environ["PATH"],
             "ANDROID_HOME": str(self.root / "sdk"), "ANDROID_SERIAL": "emulator-5554",
-            "OLD_CODE": "19", "OLD_VERSION": "1.1.0-beta.1", "NEW_CODE": "20",
+            "OLD_CODE": "19", "OLD_VERSION": "1.1.0-beta.1", "NEW_CODE": "20", "NEW_VERSION": "1.1.0",
             "PACKAGE": "org.openmetronome", "CERTIFICATE": CERT,
             "INSTALL_MARKER": str(self.root / "installed"),
             "OFFICIAL_BASELINE_SHA256": hashlib.sha256(b"old.apk").hexdigest(),
@@ -54,8 +57,8 @@ printf 'Signer #1 certificate SHA-256 digest: %s\n' "$CERTIFICATE"
         path.write_text(content)
         path.chmod(0o755)
 
-    def metadata(self, code):
-        (self.root / "app/build.gradle.kts").write_text(f'versionName = "1.1.0"\nversionCode = {code}\n')
+    def metadata(self, code, version="1.1.0"):
+        (self.root / "app/build.gradle.kts").write_text(f'versionName = "{version}"\nversionCode = {code}\n')
 
     def run_gate(self, mode="--official-beta", **env):
         (self.root / "installed").unlink(missing_ok=True)
@@ -78,6 +81,24 @@ printf 'Signer #1 certificate SHA-256 digest: %s\n' "$CERTIFICATE"
                        {"DEBUG_APK": "old.apk"}, {"DEBUG_APK": "new.apk"}):
             with self.subTest(change=change):
                 result, installed = self.run_gate(**change)
+                self.assertNotEqual(0, result.returncode)
+                self.assertFalse(installed)
+
+    def test_official_120_baseline_enforces_all_guards(self):
+        self.metadata(22, "1.2.1")
+        valid = {"OLD_CODE": "21", "OLD_VERSION": "1.2.0", "NEW_CODE": "22", "NEW_VERSION": "1.2.1"}
+        result, installed = self.run_gate("--official-1.2", **valid)
+        self.assertEqual(73, result.returncode, result.stderr)
+        self.assertTrue(installed)
+        for change in ({"OLD_CODE": "20"}, {"OLD_VERSION": "1.1.0"}, {"NEW_CODE": "21"},
+                       {"CERTIFICATE": "wrong"}, {"NEW_CERTIFICATE": "wrong"},
+                       {"SECOND_SIGNER": "old.apk"}, {"SECOND_SIGNER": "new.apk"},
+                       {"OFFICIAL_BASELINE_SHA256": "wrong"},
+                       {"OFFICIAL_CANDIDATE_SHA256": "wrong"}, {"DEBUG_APK": "old.apk"},
+                       {"DEBUG_APK": "new.apk"}, {"PACKAGE": "org.openmetronome.dev"},
+                       {"ANDROID_SERIAL": "phone"}):
+            with self.subTest(change=change):
+                result, installed = self.run_gate("--official-1.2", **(valid | change))
                 self.assertNotEqual(0, result.returncode)
                 self.assertFalse(installed)
 
