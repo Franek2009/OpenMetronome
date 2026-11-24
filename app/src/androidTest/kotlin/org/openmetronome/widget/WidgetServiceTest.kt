@@ -68,6 +68,19 @@ class WidgetServiceTest {
             }
             assertEquals(1, starts)
             withTimeout(10000) { while (data.playbackBusy.value) delay(20) }
+            // Release both widget commands together while the same service is bound.
+            val gate = CompletableDeferred<Unit>()
+            coroutineScope {
+                val start = async(Dispatchers.Main) { gate.await(); binder.widgetCommand("start") }
+                val stop = async(Dispatchers.Main) { gate.await(); binder.widgetCommand("stop") }
+                gate.complete(Unit)
+                awaitAll(start, stop)
+            }
+            withContext(Dispatchers.Main) { binder.widgetCommand("stop") }
+            withTimeout(10000) { while (data.playbackBusy.value) delay(20) }
+            assertEquals(PlaybackStatus.STOPPED, fake.state.value.status)
+            assertFalse(data.playbackBusy.value)
+            assertTrue("Concurrent commands must not create multiple extra starts", starts <= 2)
         } finally {
             instrumentation.runOnMainSync {
                 if (bound) context.unbindService(connection)
