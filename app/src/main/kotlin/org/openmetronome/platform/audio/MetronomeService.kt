@@ -20,6 +20,7 @@ open class MetronomeService : Service() {
         val controller get() = this@MetronomeService.controller
         fun stopPlayback() = this@MetronomeService.stopPlayback()
         suspend fun widgetCommand(command: String) {
+            val stopEpoch = widgetStopEpoch.get()
             if (command == "stop") {
                 stopPlayback()
                 org.openmetronome.widget.WidgetHost.publish(this@MetronomeService, controller.state.value)
@@ -29,6 +30,7 @@ open class MetronomeService : Service() {
             check(settingsLoaded) { "Settings unavailable" }
             val data = (application as OpenMetronomeApplication).data
             data.ready.await()
+            if (command == "start" && stopEpoch != widgetStopEpoch.get()) return
             when (command) {
                 "start" -> if (!controller.state.value.keepsScreenOn && !waitingForStart) check(startPlayback()) { "Playback unavailable" }
                 "stop" -> stopPlayback()
@@ -79,6 +81,7 @@ open class MetronomeService : Service() {
     private var destroyed = false
     private var waitingForStart = false
     private var lastPulseFrame = -1L
+    private val widgetStopEpoch = java.util.concurrent.atomic.AtomicLong()
     private val settingsReady = CompletableDeferred<Unit>()
     private var settingsLoaded = false
     private lateinit var recorder: SessionRecorder
@@ -260,6 +263,7 @@ open class MetronomeService : Service() {
     }
     private fun stopPlayback() {
         Log.i("OpenMetronomeAudio", "explicit stop requested")
+        widgetStopEpoch.incrementAndGet()
         requests.cancel()
         playRequest?.cancel()
         waitingForStart = false

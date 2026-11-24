@@ -157,6 +157,16 @@ class SilentFeaturesTest {
                 .putExtra("widget_statistics", true))
         }
         compose.onNodeWithText("Podsumowanie").assertExists()
+        page("Ustawienia")
+        compose.onNodeWithText("Informacje").performScrollTo().performClick()
+        compose.onNodeWithText("Informacje i diagnostyka").assertExists()
+        compose.runOnIdle {
+            compose.activity.startActivity(android.content.Intent(scenarioIntent)
+                .setFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .putExtra("widget_statistics", true))
+        }
+        compose.onNodeWithText("Informacje i diagnostyka").assertDoesNotExist()
+        compose.onNodeWithText("Podsumowanie").assertExists()
     }
 
     @Test fun presetEditingSurvivesRecreationAndClosesWhenPresetIsDeleted() {

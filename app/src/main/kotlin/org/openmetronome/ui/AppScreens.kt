@@ -60,11 +60,13 @@ fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, widgetStatistics:
     val customSamples by data.samples.items.collectAsStateWithLifecycle()
     var fullscreen by rememberSaveable { mutableStateOf(false) }
     var page by rememberSaveable { mutableStateOf("Metronom") }
+    var report by rememberSaveable { mutableStateOf<String?>(null) }
     var handledWidgetRequest by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(widgetRequest) {
         if (widgetRequest > 0 && widgetRequest != handledWidgetRequest) {
             handledWidgetRequest = widgetRequest
             fullscreen = false
+            report = null
             page = if (widgetStatistics) "Statystyki" else "Metronom"
             onWidgetRequestHandled(widgetRequest)
         }
@@ -89,7 +91,6 @@ fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, widgetStatistics:
         FullscreenPractice(state, model::start, model::stop, { fullscreen = false }, canStart, display.reduceMotion)
         return
     }
-    var report by rememberSaveable { mutableStateOf<String?>(null) }
     BackHandler(enabled = page != "Metronom" && report == null) { page = "Metronom" }
     val context = LocalContext.current
     val diagnosticsTitle = stringResource(R.string.diagnostics_title)

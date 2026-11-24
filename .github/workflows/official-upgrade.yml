@@ -3,6 +3,10 @@ name: Verify official 1.2.0 to 1.2.1 upgrade
 on:
   workflow_dispatch:
     inputs:
+      signed_run_id:
+        description: Run ID of the successful official signing workflow
+        required: true
+        type: string
       candidate_sha256:
         description: SHA-256 of the verified signed 1.2.1 APK in the draft
         required: true
@@ -10,6 +14,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   upgrade:
@@ -48,14 +53,20 @@ jobs:
       - uses: android-actions/setup-android@v4
         with:
           packages: 'platform-tools build-tools;36.0.0'
-      - name: Download original release and signed draft APKs
+      - name: Download original 1.2.0 APK
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          mkdir -p baseline candidate
+          mkdir -p baseline
           gh release download v1.2.0 --repo "$GITHUB_REPOSITORY" --pattern OpenMetronome-1.2.0.apk --dir baseline
-          gh release download v1.2.1 --repo "$GITHUB_REPOSITORY" --pattern OpenMetronome-1.2.1.apk --dir candidate
+      - name: Download signed workflow artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: official-signed-apk
+          path: candidate
+          run-id: ${{ inputs.signed_run_id }}
+          github-token: ${{ github.token }}
       - name: Enable emulator acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
