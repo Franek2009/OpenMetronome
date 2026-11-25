@@ -84,3 +84,5 @@ do oceny przed scaleniem; dotychczasowe nazwy zadań Androida pozostają.
 Procedura i ograniczenia: [wydawanie](RELEASING.md),
 [ciche testy](QUIET-STABILIZATION.md), [mapa kodu](CODEBASE_MAP.md).
 Automatyczne wznawianie podpisywania/draftu pozostaje poza tym wdrożeniem.
+
+<!-- Próba polityki CI: zmiana dokumentacyjna. -->
