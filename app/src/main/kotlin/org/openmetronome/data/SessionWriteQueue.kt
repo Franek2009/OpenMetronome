@@ -45,7 +45,7 @@ internal class SessionWriteQueue(
             val temporary = File(root, ".${session.id}.tmp")
             val days = PracticeTimeline.days(session.id, session.startedAt, session.durationMs, java.time.ZoneId.of(session.zoneId))
             val snapshot = BackupSnapshot(ConfigCodec.encode(MetronomeConfig()), emptyList(), listOf(session), days, emptyList(), emptyMap())
-            FileOutputStream(temporary).use { BackupArchive.writeStored(snapshot, it); it.fd.sync() }
+            FileOutputStream(temporary).use { BackupArchive.writeStored(snapshot, it, version = 2); it.fd.sync() }
             Files.move(temporary.toPath(), target.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
             syncDirectory(root)
             checkpoint(session, days)

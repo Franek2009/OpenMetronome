@@ -16,6 +16,8 @@ import java.io.File
 import java.io.OutputStream
 import java.io.InputStream
 import org.openmetronome.domain.model.MetronomeConfig
+import org.openmetronome.domain.model.MusicActivity
+import org.openmetronome.domain.model.MusicActivityDetails
 
 private val Context.settingsStore by preferencesDataStore("metronome-settings")
 private const val BACKUP_RECOVERY_NOTICE = "Nie udało się cofnąć wszystkich zmian. Dane mogą być niepełne. Zachowano pliki odzyskiwania; nie wykonuj kolejnych zmian."
@@ -115,10 +117,12 @@ class AppData private constructor(
     val settings = if (isolatedTestStorage) SettingsRepository(PreferenceDataStoreFactory.create(scope = scope) { settingsFile })
         else SettingsRepository(context.applicationContext)
     val database = if (testDirectory != null) Room.databaseBuilder(context, PracticeDatabase::class.java,
-        File(testDirectory, "practice.db").absolutePath).addMigrations(PracticeDatabase.MIGRATION_1_2, PracticeDatabase.MIGRATION_2_3).build()
+        File(testDirectory, "practice.db").absolutePath).addMigrations(PracticeDatabase.MIGRATION_1_2, PracticeDatabase.MIGRATION_2_3,
+            PracticeDatabase.MIGRATION_3_4).build()
         else if (isolatedTestStorage) Room.inMemoryDatabaseBuilder(context.applicationContext, PracticeDatabase::class.java).build()
         else Room.databaseBuilder(context.applicationContext, PracticeDatabase::class.java, "openmetronome.db")
-            .addMigrations(PracticeDatabase.MIGRATION_1_2, PracticeDatabase.MIGRATION_2_3).build()
+            .addMigrations(PracticeDatabase.MIGRATION_1_2, PracticeDatabase.MIGRATION_2_3,
+            PracticeDatabase.MIGRATION_3_4).build()
     private val sampleDirectory = if (isolatedTestStorage)
         if (testDirectory != null) File(testDirectory, "samples") else File(context.cacheDir, "sample-library-${UUID.randomUUID()}")
         else File(context.filesDir, "custom-samples")
@@ -128,6 +132,27 @@ class AppData private constructor(
         "restore-journal-${UUID.randomUUID()}" else "restore-journal")
     private val restoreJournal = RestoreJournal(journalRoot, ::syncDirectory)
     val dao = database.practice()
+    private val musicDao = database.musicActivities()
+
+    val musicActivities: Flow<List<MusicActivity>> = flow {
+        ready.await()
+        emitAll(musicDao.active().map { rows -> rows.map(StoredMusicActivity::toDomain) })
+    }
+
+    fun addMusicActivity(details: MusicActivityDetails) {
+        val snapshot = details.copy(intervals = details.intervals.toList())
+        operation {
+            val now = System.currentTimeMillis()
+            musicDao.insert(MusicActivity(UUID.randomUUID().toString(), snapshot, now, now))
+        }
+    }
+
+    fun editMusicActivity(id: String, details: MusicActivityDetails) {
+        val snapshot = details.copy(intervals = details.intervals.toList())
+        operation { musicDao.edit(id, snapshot, System.currentTimeMillis()) }
+    }
+
+    fun deleteMusicActivity(id: String) = operation { musicDao.delete(id, System.currentTimeMillis()) }
     internal var sessionCheckpoint: suspend (PracticeSession, List<PracticeDay>) -> Unit = { session, days ->
         dao.checkpoint(session, days)
         syncDatabase()
@@ -332,18 +357,24 @@ class AppData private constructor(
         require(dao.backupSessionBytes() <= BackupArchive.MAX_ARCHIVE_BYTES) { "Backup history exceeds archive limit" }
         val records = dao.allSamples()
         return BackupSnapshot(ConfigCodec.encode(settings.load()), dao.allPresets(), dao.sessionsForExport(),
-            dao.allPracticeDays(), records, access.files(records), settings.preferencesSnapshot())
+            dao.allPracticeDays(), records, access.files(records), settings.preferencesSnapshot(),
+            musicDao.all().map(StoredMusicActivity::toDomain))
     }
 
-    fun exportBackup(openOutput: () -> OutputStream) = exportBackupVersion(false, openOutput)
-    fun exportLegacyBackup(openOutput: () -> OutputStream) = exportBackupVersion(true, openOutput)
-    private fun exportBackupVersion(legacy: Boolean, openOutput: () -> OutputStream) = backup("Nie udało się zapisać kopii zapasowej. Plik może być niepełny; dane aplikacji nie zostały zmienione.") {
+    fun exportBackup(openOutput: () -> OutputStream) = exportBackupVersion(3, openOutput)
+    fun exportLegacyBackup(openOutput: () -> OutputStream) = exportBackupVersion(1, openOutput)
+    fun exportV2Backup(openOutput: () -> OutputStream) = exportBackupVersion(2, openOutput)
+    private fun exportBackupVersion(version: Int, openOutput: () -> OutputStream) = backup("Nie udało się zapisać kopii zapasowej. Plik może być niepełny; dane aplikacji nie zostały zmienione.") {
         try {
             samples.backup {
                 val snapshot = database.withTransaction { snapshot(this) }
                 // Prepare and validate before touching the user's destination document.
                 val bytes = java.io.ByteArrayOutputStream().also {
-                    if (legacy) BackupArchive.writeLegacy(snapshot, it) else BackupArchive.write(snapshot, it)
+                    when (version) {
+                        1 -> BackupArchive.writeLegacy(snapshot, it)
+                        2 -> BackupArchive.writeV2(snapshot, it)
+                        else -> BackupArchive.write(snapshot, it)
+                    }
                 }.toByteArray()
                 openOutput().use { it.write(bytes) }
             }
@@ -425,6 +456,7 @@ class AppData private constructor(
         dao.deleteAllPracticeDays(); dao.deleteAllSessions(); dao.deleteAllPresets(); dao.deleteAllSamples()
         dao.insertSamples(snapshot.samples); dao.insertPresets(snapshot.presets)
         dao.insertSessions(snapshot.sessions); dao.insertPracticeDays(snapshot.days)
+        musicDao.replaceAll(snapshot.musicActivities)
     }
 
     private suspend fun recoverRestore() {

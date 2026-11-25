@@ -49,7 +49,7 @@ def snapshot(path):
             return sorted((item() for _ in range(count)), key=lambda row: json.dumps(row, sort_keys=True))
 
         version = read(">i")
-        if version not in (1, 2):
+        if version not in (1, 2, 3):
             raise ValueError("Unsupported archive version")
         settings = config(string())
         presets = rows(lambda: [string(), string(), config(string()), read(">q"), read(">q")])
@@ -61,17 +61,27 @@ def snapshot(path):
         days = rows(lambda: [string(), string(), read(">q")])
         samples = rows(lambda: [string(), string(), read(">q")])
         app_preferences = preferences(string()) if version >= 2 and read(">?") else preferences("")
+        def activity():
+            fields = [string(), string(), string(), read(">q"), read(">q"), string(),
+                      read(">q"), read(">q"), string() if read(">?") else None,
+                      read(">q"), read(">q"), read(">q") if read(">?") else None]
+            count = read(">i")
+            if not 0 <= count <= 4096:
+                raise ValueError("Invalid activity interval count")
+            return fields + [[(read(">q"), read(">q")) for _ in range(count)]]
+
+        activities = rows(activity) if version >= 3 else []
         if data.read() != b"":
             raise ValueError("Trailing metadata")
         files = {name: archive.read(name) for name in archive.namelist() if name != "openmetronome.dat"}
-        return settings, presets, sessions, days, samples, files, app_preferences
+        return settings, presets, sessions, days, samples, files, app_preferences, activities
 
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         raise SystemExit("Usage: compare-backup-fixtures.py expected.ombak actual.ombak")
     expected, actual = map(snapshot, sys.argv[1:])
-    for label, before, after in zip(["settings", "presets", "sessions", "days", "samples", "sample bytes", "app preferences"], expected, actual):
+    for label, before, after in zip(["settings", "presets", "sessions", "days", "samples", "sample bytes", "app preferences", "music activities"], expected, actual):
         if before != after:
             raise ValueError(f"Upgrade changed {label}")
     print("PASS: settings, presets, complete history, day totals and exact sample bytes survived upgrade.")

@@ -8,6 +8,11 @@ import org.junit.Test
 import org.openmetronome.domain.audio.SamplePcm
 import org.openmetronome.domain.model.MetronomeConfig
 import org.openmetronome.domain.model.Tempo
+import org.openmetronome.domain.model.MusicActivity
+import org.openmetronome.domain.model.MusicActivityDetails
+import org.openmetronome.domain.model.MusicActivityInterval
+import org.openmetronome.domain.model.MusicActivityKind
+import org.openmetronome.domain.model.MusicActivitySource
 
 class BackupArchiveTest {
     @Test fun `v2 preserves timelines and app preferences while compatibility export omits them`() {
@@ -15,7 +20,7 @@ class BackupArchiveTest {
         val timeline = SessionTimelineCodec.encode(SessionTimeline(true, listOf(SessionConfiguration(0, config))))
         val value = original.copy(sessions = original.sessions.map { it.copy(timeline = timeline) },
             preferences = AppPreferencesCodec.encode(AppPreferences(statistics = StatisticsPreferences(30, 10))))
-        val restored = BackupArchive.read(ByteArrayInputStream(encoded(value)))
+        val restored = BackupArchive.read(ByteArrayInputStream(v2(value)))
         assertEquals(timeline, restored.sessions.single().timeline)
         assertEquals(value.preferences, restored.preferences)
         val legacy = ByteArrayOutputStream().also { BackupArchive.writeLegacy(value, it) }.toByteArray()
@@ -34,7 +39,7 @@ class BackupArchiveTest {
             for (value in listOf(original.copy(settings = payload),
                 original.copy(presets = original.presets.map { it.copy(config = payload) }),
                 original.copy(sessions = original.sessions.map { it.copy(config = payload) }))) {
-                val restored = BackupArchive.read(ByteArrayInputStream(encoded(value)))
+                val restored = BackupArchive.read(ByteArrayInputStream(v2(value)))
                 assertEquals(value.settings, restored.settings)
                 assertEquals(value.presets, restored.presets)
                 assertEquals(value.sessions.map { it.config }, restored.sessions.map { it.config })
@@ -44,6 +49,27 @@ class BackupArchiveTest {
             }
         }
     }
+    @Test fun `v3 preserves intervals timer precision summary and deletion while old exports omit activities`() {
+        val details = MusicActivityDetails(MusicActivityKind.INDIVIDUAL_PRACTICE, MusicActivitySource.FIT,
+            0, 197_000, "Europe/Warsaw", 133_360, 1_000,
+            listOf(MusicActivityInterval(0, 61_000), MusicActivityInterval(125_000, 197_000)), "Kontrabas")
+        val activities = listOf(
+            MusicActivity(UUID.randomUUID().toString(), details, 1, 1),
+            MusicActivity(UUID.randomUUID().toString(), details.copy(intervals = emptyList(), intervalResolutionMs = null), 1, 3, 3),
+        )
+        val value = snapshot().copy(musicActivities = activities)
+        assertEquals(activities, BackupArchive.read(encoded(value).inputStream()).musicActivities)
+        assertTrue(BackupArchive.read(v2(value).inputStream()).musicActivities.isEmpty())
+        val v1 = ByteArrayOutputStream().also { BackupArchive.writeLegacy(value, it) }
+        assertTrue(BackupArchive.read(v1.toByteArray().inputStream()).musicActivities.isEmpty())
+        val invalid = value.copy(musicActivities = listOf(activities.first(), activities.first()))
+        val output = ByteArrayOutputStream()
+        assertThrows(IllegalArgumentException::class.java) { BackupArchive.write(invalid, output) }
+        assertEquals(0, output.size())
+    }
+
+    private fun v2(value: BackupSnapshot) = ByteArrayOutputStream().also { BackupArchive.writeV2(value, it) }.toByteArray()
+
     private val sampleId = UUID.randomUUID().toString()
     private val wav = SamplePcm.encodeCanonical(ShortArray(96).also { it[20] = 1000; it[21] = -1000 })
     private val config = ConfigCodec.encode(MetronomeConfig(tempo = Tempo(91)))
@@ -95,7 +121,7 @@ class BackupArchiveTest {
 
     @Test fun `historical inconsistent derivatives are rebuilt without losing session data`() {
         val legacy = snapshot().copy(days = listOf(PracticeDay("session", "2026-10-30", 999)))
-        val bytes = ByteArrayOutputStream().also { BackupArchive.writeStored(legacy, it) }.toByteArray()
+        val bytes = ByteArrayOutputStream().also { BackupArchive.writeStored(legacy, it, version = 2) }.toByteArray()
         val restored = BackupArchive.read(ByteArrayInputStream(bytes))
         assertEquals(legacy.sessions.single().copy(checkpointAt = 8), restored.sessions.single())
         assertEquals(listOf(PracticeDay("session", "1970-01-01", 5)), restored.days)

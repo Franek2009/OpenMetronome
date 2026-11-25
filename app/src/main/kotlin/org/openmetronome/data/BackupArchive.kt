@@ -8,6 +8,11 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 import org.openmetronome.domain.audio.SamplePcm
+import org.openmetronome.domain.model.MusicActivity
+import org.openmetronome.domain.model.MusicActivityDetails
+import org.openmetronome.domain.model.MusicActivityInterval
+import org.openmetronome.domain.model.MusicActivityKind
+import org.openmetronome.domain.model.MusicActivitySource
 
 data class BackupSnapshot(
     val settings: String,
@@ -17,17 +22,23 @@ data class BackupSnapshot(
     val samples: List<CustomSampleRecord>,
     val sampleFiles: Map<String, ByteArray>,
     val preferences: String? = null,
+    val musicActivities: List<MusicActivity> = emptyList(),
 )
 
 /** Versioned, private backup format. Parsing is bounded and validates all data before import. */
 object BackupArchive {
-    private const val VERSION = 2
+    private const val VERSION = 3
     private const val METADATA = "openmetronome.dat"
     internal const val MAX_ARCHIVE_BYTES = 16 * 1024 * 1024
     private const val MAX_ITEMS = 100_000
 
     fun write(snapshot: BackupSnapshot, output: OutputStream) {
         writeStored(normalize(snapshot), output)
+    }
+
+    /** Compatibility export for 1.1/1.2: keep metronome data and omit music activities. */
+    fun writeV2(snapshot: BackupSnapshot, output: OutputStream) {
+        writeStored(normalize(snapshot.copy(musicActivities = emptyList())), output, 2)
     }
 
     /** Compatibility export deliberately omits configuration timelines and newer optional settings. */
@@ -41,10 +52,12 @@ object BackupArchive {
         require(configurations.none { it.sound.clickSound in org.openmetronome.domain.model.ClickSound.sampled }) {
             "Sampled sounds require backup v2"
         }
-        writeStored(normalize(snapshot.copy(sessions = snapshot.sessions.map { it.copy(timeline = null) }, preferences = null)), output, 1)
+        writeStored(normalize(snapshot.copy(sessions = snapshot.sessions.map { it.copy(timeline = null) }, preferences = null, musicActivities = emptyList())), output, 1)
     }
 
     internal fun writeStored(snapshot: BackupSnapshot, output: OutputStream, version: Int = VERSION) {
+        require(version in 1..VERSION)
+        require(version >= 3 || snapshot.musicActivities.isEmpty())
         val encoded = ByteArrayOutputStream()
         encode(snapshot, encoded, version)
         val bytes = encoded.toByteArray()
@@ -85,6 +98,7 @@ object BackupArchive {
                     writeString(item.id); writeString(item.name); writeLong(item.createdAt)
                 }
                 if (version >= 2) { writeBoolean(snapshot.preferences != null); snapshot.preferences?.let { writeString(it) } }
+                if (version >= 3) writeList(snapshot.musicActivities) { writeMusicActivity(it) }
                 flush()
             }
             zip.closeEntry()
@@ -170,6 +184,8 @@ object BackupArchive {
         val days = metadata.readList { PracticeDay(readString(), readString(), readLong()) }
         val samples = metadata.readList { CustomSampleRecord(readString(), readString(), readLong()) }
         val preferences = if (version >= 2 && metadata.readBoolean()) metadata.readString().also(AppPreferencesCodec::decode) else null
+        val musicActivities = if (version >= 3) metadata.readList { readMusicActivity() } else emptyList()
+        require(musicActivities.map { it.id }.distinct().size == musicActivities.size)
         require(metadata.read() == -1)
         require(presets.map { it.id }.distinct().size == presets.size)
         require(sessions.map { it.id }.distinct().size == sessions.size)
@@ -196,7 +212,46 @@ object BackupArchive {
         }
         require(configs.all { it.sound.customSampleId == null || it.sound.customSampleId in sampleIds })
         require(entries.isEmpty())
-        return BackupSnapshot(settings, presets, sessions, days, samples, files, preferences)
+        return BackupSnapshot(settings, presets, sessions, days, samples, files, preferences, musicActivities)
+    }
+
+    private fun DataOutputStream.writeMusicActivity(activity: MusicActivity) {
+        val details = activity.details
+        writeString(activity.id)
+        writeString(details.kind.name)
+        writeString(details.source.name)
+        writeLong(details.startAt)
+        writeLong(details.endAt)
+        writeString(details.zoneId)
+        writeLong(details.timerDurationMs)
+        writeLong(details.intervalResolutionMs ?: 0)
+        writeBoolean(details.instrument != null)
+        details.instrument?.let { writeString(it) }
+        writeLong(activity.createdAt)
+        writeLong(activity.updatedAt)
+        writeBoolean(activity.deletedAt != null)
+        activity.deletedAt?.let { writeLong(it) }
+        writeList(details.intervals) { writeLong(it.startAt); writeLong(it.endAt) }
+    }
+
+    private fun DataInputStream.readMusicActivity(): MusicActivity {
+        val id = readString()
+        val kind = MusicActivityKind.valueOf(readString())
+        val source = MusicActivitySource.valueOf(readString())
+        val startAt = readLong()
+        val endAt = readLong()
+        val zoneId = readString()
+        val duration = readLong()
+        val resolution = readLong().takeUnless { it == 0L }
+        val instrument = if (readBoolean()) readString() else null
+        val createdAt = readLong()
+        val updatedAt = readLong()
+        val deletedAt = if (readBoolean()) readLong() else null
+        val intervals = readList(limit = MusicActivityDetails.MAX_INTERVALS) {
+            MusicActivityInterval(readLong(), readLong())
+        }
+        return MusicActivity(id, MusicActivityDetails(kind, source, startAt, endAt, zoneId, duration,
+            resolution, intervals, instrument), createdAt, updatedAt, deletedAt)
     }
 
     private fun normalize(snapshot: BackupSnapshot): BackupSnapshot {
@@ -229,8 +284,8 @@ object BackupArchive {
     private fun <T> DataOutputStream.writeList(items: List<T>, writeItem: DataOutputStream.(T) -> Unit) {
         require(items.size <= MAX_ITEMS); writeInt(items.size); items.forEach { writeItem(it) }
     }
-    private fun <T> DataInputStream.readList(readItem: DataInputStream.() -> T): List<T> {
-        val count = readInt(); require(count in 0..MAX_ITEMS)
+    private fun <T> DataInputStream.readList(limit: Int = MAX_ITEMS, readItem: DataInputStream.() -> T): List<T> {
+        val count = readInt(); require(count in 0..limit)
         return List(count) { readItem() }
     }
 }

@@ -32,6 +32,18 @@ class RestoreJournalTest {
         assertEquals(137, ConfigCodec.decode(reopened.pending()!!.snapshot.settings).tempo.bpm)
         reopened.finish(); assertNull(RestoreJournal(File(dir, "journal")).pending())
     }
+    @Test fun `a prepared v2 journal from the previous release can still be recovered`() = fixture { dir, journal ->
+        val original = snapshot(91)
+        val replacement = snapshot(137)
+        journal.prepare(original, replacement)
+        File(journal.active, "before.ombak").outputStream().use { BackupArchive.writeStored(original, it, version = 2) }
+        File(journal.active, "after.ombak").outputStream().use { BackupArchive.writeStored(replacement, it, version = 2) }
+        val reopened = RestoreJournal(File(dir, "journal"))
+        assertEquals(original, reopened.pending()!!.snapshot)
+        journal.markCommitted()
+        assertEquals(replacement, reopened.pending()!!.snapshot)
+    }
+
     @Test fun `incomplete preparation is discarded without a recovery decision`() = fixture { dir, _ ->
         val active = File(dir, "journal/active").also { it.mkdirs() }
         File(active, ".before.ombak.tmp").writeText("partial")
