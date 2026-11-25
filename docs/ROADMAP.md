@@ -3,13 +3,11 @@
 Każdy etap kończy się weryfikacją i wspólnym przeglądem. Samo przygotowanie
 plików nie oznacza przejścia testów ani ukończenia etapu.
 
-## Bieżący etap — stabilizacja 1.2.1
+## Aktualne wydanie — 1.2.1
 
-[OpenMetronome 1.2.0](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.2.0)
-pozostaje wydaniem stabilnym. Zawiera trzy widgety; szczegóły i ograniczenia
-odbioru opisują [widgety](WIDGETS.md) oraz [walidacja wydania](V1.2-RELEASE-VALIDATION.md).
-Etap 1.2.1 obejmuje weryfikację i poprawki stabilności widgetów oraz drobnych
-problemów cyklu życia. Sam plan nie oznacza zakończenia testów ani wydania.
+[OpenMetronome 1.2.1](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.2.1)
+jest wydaniem stabilnym. Obejmuje poprawki widgetów i edycji presetów;
+[raport walidacji](V1.2.1-VALIDATION.md) opisuje wyniki i otwarty odbiór launchera.
 
 ## Kierunki po 1.2.1 — planowane
 

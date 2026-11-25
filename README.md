@@ -6,13 +6,13 @@ kont i Google Play Services.
 
 ## Pobierz i zacznij ćwiczyć
 
-**OpenMetronome 1.2.0 — wydanie stabilne, versionCode 21.**
+**OpenMetronome 1.2.1 — wydanie stabilne, versionCode 22.**
 
-### [Pobierz APK 1.2.0](https://github.com/Franek2009/OpenMetronome/releases/download/v1.2.0/OpenMetronome-1.2.0.apk)
+### [Pobierz APK 1.2.1](https://github.com/Franek2009/OpenMetronome/releases/download/v1.2.1/OpenMetronome-1.2.1.apk)
 
-[Opis wydania i wyniki testów](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.2.0)
-· [Sumy SHA-256](https://github.com/Franek2009/OpenMetronome/releases/download/v1.2.0/SHA256SUMS)
-· [Fingerprint certyfikatu](https://github.com/Franek2009/OpenMetronome/releases/download/v1.2.0/SIGNING-CERT-SHA256.txt)
+[Opis wydania i wyniki testów](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.2.1)
+· [Sumy SHA-256](https://github.com/Franek2009/OpenMetronome/releases/download/v1.2.1/SHA256SUMS)
+· [Fingerprint certyfikatu](https://github.com/Franek2009/OpenMetronome/releases/download/v1.2.1/SIGNING-CERT-SHA256.txt)
 
 Wymagany Android **8.0 lub nowszy**. Interfejs jest po polsku; obsługuje
 telefony i tablety w pionie oraz poziomie.
@@ -116,14 +116,10 @@ Rozmiary i marginesy na pulpicie zależą od launchera.
 
 Regresja obejmuje JVM, PCM offline, Lint, buildy, ciche testy API26/35,
 migracje, backup/restore i aktualizacje z porównaniem danych.
-Oficjalny APK 1.2.0 przeszedł kontrolę podpisu i dwie rzeczywiste aktualizacje
-z oryginalnego oficjalnego 1.1.0 na świeżych API26/35, z porównaniem danych
-i dokładnych bajtów własnego sampla. [Raport 1.2](docs/V1.2-RELEASE-VALIDATION.md).
+Oficjalny APK 1.2.1 przeszedł kontrolę podpisu i aktualizacje z oficjalnego
+1.2.0 na świeżych API 26/35, z porównaniem ustawień, presetów, historii,
+statystyk i dokładnych bajtów własnego sampla. [Raport 1.2.1](docs/V1.2.1-VALIDATION.md).
 Odbiór widgetów w launcherze Samsunga pozostaje niepotwierdzony.
-
-Dokładne wyniki kontroli APK 1.2.0 i jego sumy znajdują się
-w [opisie wydania](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.2.0)
-i [raporcie 1.2](docs/V1.2-RELEASE-VALIDATION.md).
 
 Użytkownik potwierdził prawidłową aktualizację i import statystyk oraz
 zaakceptował odsłuch prototypów trzech barw. To nie jest automatyczne
@@ -143,7 +139,7 @@ Nie przesyłaj kluczy podpisu ani prywatnych danych.
 
 DEV jest osobnym narzędziem dla deweloperów, z odrębnym pakietem, danymi,
 podpisem i oznaczoną ikoną. Nie zastępuje zwykłej aplikacji.
-Wydanie 1.2.0 obejmuje wyłącznie zwykły APK.
+Wydanie 1.2.1 obejmuje wyłącznie zwykły APK.
 
 **Pełna rejestracja sesji DEV jest wyłączona** po niezaliczonej kwalifikacji
 narzutu API26. Wynik FAIL pozostaje jawny; nie obiecujemy raportu nowej sesji.
