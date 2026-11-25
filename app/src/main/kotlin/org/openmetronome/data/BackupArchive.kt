@@ -40,7 +40,8 @@ object BackupArchive {
 
     /** Compatibility export for 1.1/1.2: keep metronome data and omit music activities. */
     fun writeV2(snapshot: BackupSnapshot, output: OutputStream) {
-        writeStored(normalize(snapshot.copy(musicActivities = emptyList())), output, 2)
+        writeStored(normalize(snapshot.copy(musicActivities = emptyList(),
+            preferences = AppPreferencesCodec.withoutMusic(snapshot.preferences))), output, 2)
     }
 
     /** Compatibility export deliberately omits configuration timelines and newer optional settings. */

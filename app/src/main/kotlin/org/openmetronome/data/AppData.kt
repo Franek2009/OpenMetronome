@@ -15,6 +15,8 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import java.io.File
 import java.io.OutputStream
 import java.io.InputStream
+import java.time.Instant
+import java.time.ZoneId
 import org.openmetronome.domain.model.MetronomeConfig
 import org.openmetronome.domain.model.MusicActivity
 import org.openmetronome.domain.model.MusicActivityDetails
@@ -31,18 +33,38 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
     private val motionKey = booleanPreferencesKey("reduce_motion")
     private val sessionThresholdKey = intPreferencesKey("minimum_session_seconds")
     private val dayThresholdKey = intPreferencesKey("active_day_minutes")
+    private val musicZoneKey = stringPreferencesKey("music_statistics_zone")
+    private val musicDayKey = intPreferencesKey("music_active_day_minutes")
+    private val musicGoalKey = intPreferencesKey("music_weekly_goal_days")
     val display = store.data.map { PracticeDisplayPreferences(it[awakeKey] ?: false, it[motionKey] ?: false) }
     val statistics = store.data.map { StatisticsPreferences(it[sessionThresholdKey] ?: 20, it[dayThresholdKey] ?: 5) }
+    val musicStatistics = store.data.map { it.musicStatistics() }.distinctUntilChanged()
     suspend fun saveDisplay(value: PracticeDisplayPreferences) {
         store.edit { it[awakeKey] = value.keepFullscreenAwake; it[motionKey] = value.reduceMotion }
     }
     suspend fun saveStatistics(value: StatisticsPreferences) {
         store.edit { it[sessionThresholdKey] = value.minimumSessionSeconds; it[dayThresholdKey] = value.activeDayMinutes }
     }
+    suspend fun saveMusicStatistics(value: MusicStatisticsPreferences) { store.edit { it.putMusicStatistics(value) } }
+
+    private fun Preferences.musicStatistics() = this[musicZoneKey]?.let { zone ->
+        MusicStatisticsPreferences(ZoneId.of(zone), this[musicDayKey] ?: 5, (this[musicGoalKey] ?: 5).takeUnless { it == 0 })
+    }
+
+    private fun MutablePreferences.putMusicStatistics(value: MusicStatisticsPreferences?) {
+        if (value == null) {
+            remove(musicZoneKey); remove(musicDayKey); remove(musicGoalKey)
+        } else {
+            this[musicZoneKey] = value.zone.id
+            this[musicDayKey] = value.activeDayMinutes
+            this[musicGoalKey] = value.weeklyGoalDays ?: 0
+        }
+    }
+
     suspend fun preferencesSnapshot(): String {
         val prefs = store.data.first()
         return AppPreferencesCodec.encode(AppPreferences(PracticeDisplayPreferences(prefs[awakeKey] ?: false, prefs[motionKey] ?: false),
-            StatisticsPreferences(prefs[sessionThresholdKey] ?: 20, prefs[dayThresholdKey] ?: 5)))
+            StatisticsPreferences(prefs[sessionThresholdKey] ?: 20, prefs[dayThresholdKey] ?: 5), prefs.musicStatistics()))
     }
     suspend fun restorePreferences(payload: String?) {
         if (payload == null) return // Old archives have no new display/statistics choices.
@@ -50,6 +72,7 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
         store.edit {
             it[awakeKey] = value.display.keepFullscreenAwake; it[motionKey] = value.display.reduceMotion
             it[sessionThresholdKey] = value.statistics.minimumSessionSeconds; it[dayThresholdKey] = value.statistics.activeDayMinutes
+            it.putMusicStatistics(value.musicStatistics)
         }
     }
 }
@@ -193,6 +216,28 @@ class AppData private constructor(
         ready.await()
         emitAll(dao.statisticsSessions().map<List<PracticeSession>, StatisticsHistory> { StatisticsHistory.Ready(it) })
     }.catch { error -> if (error is CancellationException) throw error else emit(StatisticsHistory.Unavailable) }
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun observeMusicStatistics(now: Flow<Instant>): Flow<MusicStatisticsState> = flow {
+        emit(MusicStatisticsState.Loading)
+        ready.await()
+        val defaults = MusicStatisticsPreferences()
+        emitAll(combine(backupWorking, recoveryRequired) { busy, recovery ->
+            when {
+                recovery -> MusicStatisticsState.Unavailable
+                busy -> MusicStatisticsState.Loading
+                else -> null
+            }
+        }.distinctUntilChanged().flatMapLatest { blocked ->
+            if (blocked != null) flowOf(blocked)
+            else combine(musicDao.statisticsRanges().distinctUntilChanged(), settings.musicStatistics, now) { ranges, prefs, instant ->
+                val owner = currentCoroutineContext()
+                MusicStatisticsState.Ready(MusicStatisticsCalculator.calculate(ranges, prefs ?: defaults, instant) { owner.ensureActive() })
+            }
+        })
+    }.flowOn(Dispatchers.Default).catch { error ->
+        if (error is CancellationException) throw error
+        emit(MusicStatisticsState.Unavailable)
+    }
     suspend fun calculateAnalytics(sessions: List<PracticeSession>, preferences: StatisticsPreferences, today: java.time.LocalDate): PracticeAnalytics = withContext(Dispatchers.IO) {
         val owner = currentCoroutineContext()
         PracticeAnalyticsCalculator.calculate(sessions, preferences, today) { session ->
@@ -212,6 +257,7 @@ class AppData private constructor(
         .catch { error -> if (error is CancellationException) throw error else emit(Result.failure(error)) }
     fun saveDisplayPreferences(value: PracticeDisplayPreferences) = operation { settings.saveDisplay(value) }
     fun saveStatisticsPreferences(value: StatisticsPreferences) = operation { settings.saveStatistics(value) }
+    fun saveMusicStatisticsPreferences(value: MusicStatisticsPreferences) = operation { settings.saveMusicStatistics(value) }
     init {
         scope.launch {
             for (action in actions) {
@@ -396,10 +442,11 @@ class AppData private constructor(
     }
 
     fun importBackup(openInput: () -> InputStream, applied: (MetronomeConfig) -> Unit) = backup {
-        val incoming = openInput().use(BackupArchive::read)
-        val config = ConfigCodec.decode(incoming.settings)
+        val archive = openInput().use(BackupArchive::read)
+        val config = ConfigCodec.decode(archive.settings)
         samples.backup {
             val previous = database.withTransaction { snapshot(this) }
+            val incoming = archive.copy(preferences = AppPreferencesCodec.forRestore(archive.preferences, previous.preferences))
             val oldConfig = ConfigCodec.decode(previous.settings)
             var journalPrepared = false
             var newDataApplied = false
@@ -459,7 +506,7 @@ class AppData private constructor(
                 throw error
             }
         }
-        backupNotice.value = "Kopia została przywrócona: ${incoming.sessions.size} sesji, ${incoming.presets.size} presetów."
+        backupNotice.value = "Kopia została przywrócona: ${archive.sessions.size} sesji, ${archive.presets.size} presetów."
     }
 
     private suspend fun replaceRows(snapshot: BackupSnapshot) {

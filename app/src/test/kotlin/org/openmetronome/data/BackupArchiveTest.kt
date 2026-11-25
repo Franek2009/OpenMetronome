@@ -3,6 +3,7 @@ package org.openmetronome.data
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
+import java.time.ZoneId
 import java.util.UUID
 import org.junit.Assert.*
 import org.junit.Test
@@ -19,6 +20,28 @@ class BackupArchiveTest {
     private val fitDetails = MusicActivityDetails(MusicActivityKind.INDIVIDUAL_PRACTICE, MusicActivitySource.FIT,
         0, 197_000, "Europe/Warsaw", 133_360, 1_000,
         listOf(MusicActivityInterval(0, 61_000), MusicActivityInterval(125_000, 197_000)), "Kontrabas")
+
+    @Test fun `full backup preserves independent music settings and legacy export omits them`() {
+        for (goal in listOf(3, null)) {
+            val music = MusicStatisticsPreferences(ZoneId.of("America/Toronto"), 11, goal)
+            val preferences = AppPreferences(statistics = StatisticsPreferences(30, 8), musicStatistics = music)
+            val data = snapshot().copy(preferences = AppPreferencesCodec.encode(preferences))
+            assertEquals(preferences, AppPreferencesCodec.decode(BackupArchive.read(encoded(data).inputStream()).preferences!!))
+            val legacy = BackupArchive.read(v2(data).inputStream()).preferences!!
+            assertEquals(preferences.copy(musicStatistics = null), AppPreferencesCodec.decode(legacy))
+            assertEquals(preferences, AppPreferencesCodec.decode(AppPreferencesCodec.forRestore(legacy, data.preferences)!!))
+        }
+    }
+
+    @Test fun `backup rejects invalid music preferences before writing output`() {
+        for (settings in listOf("musicZone=NoSuchZone", "musicActiveDayMinutes=60",
+            "musicZone=UTC\nmusicActiveDayMinutes=-1", "musicZone=UTC\nmusicWeeklyGoalDays=8")) {
+            val output = ByteArrayOutputStream()
+            val data = snapshot().copy(preferences = "version=1\n$settings")
+            assertThrows(RuntimeException::class.java) { BackupArchive.write(data, output) }
+            assertEquals(0, output.size())
+        }
+    }
 
     @Test fun `v2 preserves timelines and app preferences while compatibility export omits them`() {
         val original = snapshot()

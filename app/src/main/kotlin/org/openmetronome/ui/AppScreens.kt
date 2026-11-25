@@ -356,7 +356,7 @@ private fun StatisticsScreen(data: AppData, model: MetronomeViewModel) {
             text = {
                 Text(if (version == 1)
                     "Format v1 pomija aktywności muzyczne, przebieg konfiguracji, progi i ustawienia ekranu. Aplikacja 1.0 ignoruje procenty i odliczanie. Nowe metra i nowe brzmienia mogą zablokować eksport v1. Pełne dane zachowuje zwykła kopia v3."
-                else "Format v2 zachowuje dane metronomu i pomija aktywności muzyczne. Pełne dane zachowuje zwykła kopia v3.")
+                else "Format v2 zachowuje dane metronomu, pomijając aktywności muzyczne i ustawienia ich statystyk. Pełne dane zachowuje kopia v3.")
             },
             confirmButton = { TextButton({
                 legacyWarning = 0
