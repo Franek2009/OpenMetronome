@@ -23,13 +23,16 @@ class RestoreCrashTest {
         val id = UUID.randomUUID().toString()
         val config = ConfigCodec.encode(MetronomeConfig(tempo = Tempo(bpm), sound = SoundConfig(customSampleId = id)))
         val wav = SamplePcm.encodeCanonical(ShortArray(96).also { it[20] = 1000; it[21] = -1000 })
+        val activity = MusicActivity(UUID.randomUUID().toString(),
+            MusicActivityDetails.manual(MusicActivityKind.LESSON, bpm.toLong(), 35_000, "UTC", "Kontrabas", "Ćwiczenie $bpm"), 1, 2)
+        val deleted = activity.copy(id = UUID.randomUUID().toString(), deletedAt = 2)
         return ByteArrayOutputStream().also { BackupArchive.write(BackupSnapshot(config,
             listOf(Preset("preset-$bpm", "Preset $bpm", config, 1, 2)),
             listOf(PracticeSession("session-$bpm", 0, 125000, 125000, true, false, "UTC", config,
                 SessionTimelineCodec.encode(SessionTimeline(true, listOf(SessionConfiguration(0, config)))))),
             listOf(PracticeDay("session-$bpm", "1970-01-01", 125000)),
             listOf(CustomSampleRecord(id, "Klik $bpm", 1)), mapOf(id to wav), AppPreferencesCodec.encode(AppPreferences(PracticeDisplayPreferences(bpm == 137, false),
-                if (bpm == 137) StatisticsPreferences(30, 10) else StatisticsPreferences()))), it) }.toByteArray()
+                if (bpm == 137) StatisticsPreferences(30, 10) else StatisticsPreferences())), listOf(activity, deleted).sortedBy { it.id }), it) }.toByteArray()
     }
     private inner class Probe(private val fixture: String) : AutoCloseable {
         val connected = Channel<Messenger>(Channel.UNLIMITED)

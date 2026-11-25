@@ -1,6 +1,6 @@
 # Mapa kodu OpenMetronome
 
-Mapa wejść do kodu linii 1.1; przed zmianą sprawdź wskazaną implementację.
+Mapa wejść do kodu; przed zmianą sprawdź wskazaną implementację.
 Nie zastępuje wyników testów ani aktualnego stanu wydania.
 
 | Obszar | Najważniejsze miejsca i granice |
@@ -11,8 +11,9 @@ Nie zastępuje wyników testów ani aktualnego stanu wydania.
 | UI | `ui/AppScreens.kt`, `MetronomeScreen.kt`, `FullscreenPractice.kt`, `StatisticsPanels.kt`; `CurrentPracticeDate.kt` obserwuje datę tylko dla widocznych Statystyk; anulowanie nie zamyka równolegle kanału tickera. Stan i polecenia przez `MetronomeViewModel.kt` i `audio/MetronomeController.kt`. Pełny ekran nie tworzy nowego silnika. |
 | Widgety | `widget/WidgetModel.kt` projektuje stan bez pulsu, `WidgetHost.kt` odświeża RemoteViews i statystyki, `WidgetReceivers.kt` odbiera akcje. Polecenia przez binder istniejącego `MetronomeService`, bez drugiego silnika. [Zakres i ograniczenia](WIDGETS.md). |
 | Zapis i odzyskiwanie | `data/AppData.kt` koordynuje operacje, DataStore, import/eksport i blokady. `SessionRecorder.kt` tworzy checkpointy; `SessionWriteQueue.kt` utrwala kolejkę ponowień. Nie zwalniać bezpieczeństwa eksportu przy zaległym zapisie. |
-| Historia/statystyki | `data/PracticeDatabase.kt` (Room 3), `PracticeTimeline.kt`, `SessionTimelineCodec.kt`, `StatisticsPreferences.kt`; schematy w `app/schemas/`. Przebieg starych sesji pozostaje nieznany. [Semantyka](STATISTICS-2.md). |
-| Dane przenośne | `data/BackupArchive.kt`: v2, import v1 i eksport zgodny v1. `SessionCsv.kt`: eksport analityczny. Zmiana Room nie oznacza automatycznie zmiany archiwum. [Format i zgodność](STATISTICS-2.md). |
+| Historia/statystyki | `data/PracticeDatabase.kt` (Room 4), `PracticeTimeline.kt`, `SessionTimelineCodec.kt`, `StatisticsPreferences.kt`; schematy w `app/schemas/`. Przebieg starych sesji pozostaje nieznany. [Semantyka](STATISTICS-2.md). |
+| Aktywności muzyczne | `domain/model/MusicActivity.kt`, `data/MusicActivityStorage.kt` i operacje w `AppData.kt`. [Schemat i odzyskiwanie](ACTIVITY-FOUNDATIONS-1.3.md). |
+| Dane przenośne | `data/BackupArchive.kt`: v3, import i eksport kompatybilny v1/v2. `SessionCsv.kt`: eksport analityczny. Zmiana Room nie oznacza automatycznie zmiany archiwum. [Format i zgodność](STATISTICS-2.md). |
 | DEV | `app/src/dev/kotlin/org/openmetronome/diagnostics/`: ograniczony bufor, TraceSessionStore, TraceJournal, TraceReports i fabryka. Implementacja magazynu nie należy do PROD. Pełna rejestracja wyłączona w beta. [Zakres i wyniki](V1.1-DEV-INTEGRATION-VALIDATION.md). |
 | Warianty/podpis | `app/build.gradle.kts`: prod/dev × debug/release, pakiety i oddzielne klucze. `scripts/package-release.sh` rozpoznaje DEV wyłącznie przez jawne `--dev`, metadane i certyfikat. [Konfiguracja](BUILD-VARIANTS.md). |
 | CI/wydanie | `.github/workflows/android.yml` i `scripts/ci-policy.py`: docs/full, lokalne linki i stała bramka CI result; full obejmuje JVM/Lint/PCM/buildy, ciche API26/35, izolację i aktualizacje. [Polityka](CI.md). `release.yml`: podpisanie PROD, opcjonalnie DEV (`include_dev`), zawsze draft; `scripts/create-release-draft.sh` sprawdza sumy i dobiera pliki/status. `dev-qualification.yml`: oddzielna ścisła kwalifikacja nieaktywnego rejestratora. |

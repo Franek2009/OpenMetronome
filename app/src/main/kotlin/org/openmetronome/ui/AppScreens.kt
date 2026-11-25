@@ -232,12 +232,16 @@ private fun StatisticsScreen(data: AppData, model: MetronomeViewModel) {
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         if (uri != null) data.exportCsv { checkNotNull(resolver.openOutputStream(uri, "wt")) { "Cannot open document" } }
     }
-    var legacyBackup by rememberSaveable { mutableStateOf(false) }
-    var legacyWarning by rememberSaveable { mutableStateOf(false) }
+    var backupVersion by rememberSaveable { mutableIntStateOf(3) }
+    var legacyWarning by rememberSaveable { mutableIntStateOf(0) }
     val backupExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         if (uri != null) {
             val output = { checkNotNull(resolver.openOutputStream(uri, "wt")) }
-            if (legacyBackup) data.exportLegacyBackup(output) else data.exportBackup(output)
+            when (backupVersion) {
+                1 -> data.exportLegacyBackup(output)
+                2 -> data.exportV2Backup(output)
+                else -> data.exportBackup(output)
+            }
         }
     }
     var pendingImportPath by rememberSaveable { mutableStateOf<String?>(null) }
@@ -333,26 +337,38 @@ private fun StatisticsScreen(data: AppData, model: MetronomeViewModel) {
             OutlinedButton({ export.launch("OpenMetronome-sesje-${LocalDate.now()}.csv") }, enabled = !exporting && !backupWorking) {
                 Text(if (exporting) "Zapisywanie…" else "Eksportuj CSV")
             }
-            OutlinedButton({ legacyBackup = false; backupExport.launch("OpenMetronome-${LocalDate.now()}.ombak") }, enabled = backupEnabled) {
+            OutlinedButton({ backupVersion = 3; backupExport.launch("OpenMetronome-${LocalDate.now()}.ombak") }, enabled = backupEnabled) {
                 Text(if (backupWorking) "Przetwarzanie…" else "Kopia zapasowa")
             }
             OutlinedButton({ backupImport.launch(arrayOf("application/octet-stream", "application/zip", "*/*")) }, enabled = backupEnabled) {
                 Text("Przywróć kopię")
             }
         }
-        TextButton({ legacyWarning = true }, enabled = backupEnabled) { Text("Kopia zgodna z 1.0 (v1)") }
+        TextButton({ legacyWarning = 2 }, enabled = backupEnabled) { Text("Kopia zgodna z 1.1–1.2 (v2)") }
+        TextButton({ legacyWarning = 1 }, enabled = backupEnabled) { Text("Kopia zgodna z 1.0 (v1)") }
         if (!backupEnabled && !backupWorking && !recoveryRequired) Text("Zatrzymaj metronom i poczekaj na zakończenie zapisu oraz innych operacji, aby użyć kopii zapasowej.")
         notice?.let { Text(it) }; backupNotice?.let { Text(it) }
     }
     if (thresholdsOpen && preferences != null) StatisticsThresholdDialog(preferences, { thresholdsOpen = false }, data::saveStatisticsPreferences)
-    if (legacyWarning) AlertDialog(onDismissRequest = { legacyWarning = false }, title = { Text("Kopia zgodna z 1.0") },
-        text = { Text("Format v1 pomija przebieg konfiguracji, progi i ustawienia ekranu. Aplikacja 1.0 ignoruje procenty i odliczanie. Nowe metra wymagają v2: eksport v1 ich nie zamieni ani nie usunie i zostanie odrzucony. Pełne dane zachowuje zwykła Kopia zapasowa v2.") },
-        confirmButton = { TextButton({ legacyWarning = false; legacyBackup = true; backupExport.launch("OpenMetronome-legacy-${LocalDate.now()}.ombak") }) { Text("Eksportuj v1 z pominięciami") } },
-        dismissButton = { TextButton({ legacyWarning = false }) { Text("Anuluj") } })
+    if (legacyWarning != 0) {
+        val version = legacyWarning
+        AlertDialog(onDismissRequest = { legacyWarning = 0 }, title = { Text("Kopia kompatybilna v$version") },
+            text = {
+                Text(if (version == 1)
+                    "Format v1 pomija aktywności muzyczne, przebieg konfiguracji, progi i ustawienia ekranu. Aplikacja 1.0 ignoruje procenty i odliczanie. Nowe metra i nowe brzmienia mogą zablokować eksport v1. Pełne dane zachowuje zwykła kopia v3."
+                else "Format v2 zachowuje dane metronomu i pomija aktywności muzyczne. Pełne dane zachowuje zwykła kopia v3.")
+            },
+            confirmButton = { TextButton({
+                legacyWarning = 0
+                backupVersion = version
+                backupExport.launch("OpenMetronome-v$version-${LocalDate.now()}.ombak")
+            }) { Text("Eksportuj v$version z pominięciami") } },
+            dismissButton = { TextButton({ legacyWarning = 0 }) { Text("Anuluj") } })
+    }
     pendingImportPath?.let { path ->
         val uri = path.toUri()
         AlertDialog(onDismissRequest = { pendingImportPath = null }, title = { Text("Przywrócić kopię?") },
-            text = { Text("Bieżące ustawienia, presety, historia i własne sample zostaną zastąpione zawartością kopii. Najpierw warto zapisać obecną kopię.") },
+            text = { Text("Kopia zastąpi bieżące ustawienia, presety, historię, własne sample i aktywności muzyczne. Kopie v1/v2 nie zawierają aktywności muzycznych. Najpierw warto zapisać obecną kopię v3.") },
             confirmButton = { TextButton({
                 pendingImportPath = null
                 data.importBackup({ checkNotNull(resolver.openInputStream(uri)) }, model::setConfig)

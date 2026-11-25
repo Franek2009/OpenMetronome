@@ -67,10 +67,32 @@ abstract class PracticeDao {
     }
 }
 
-@Database(entities = [Preset::class, PracticeSession::class, PracticeDay::class, CustomSampleRecord::class], version = 3, exportSchema = true)
+@Database(entities = [Preset::class, PracticeSession::class, PracticeDay::class, CustomSampleRecord::class,
+    MusicActivityRow::class, MusicActivityIntervalRow::class], version = 4, exportSchema = true)
 abstract class PracticeDatabase : RoomDatabase() {
     abstract fun practice(): PracticeDao
+    internal abstract fun musicActivities(): MusicActivityDao
     companion object {
+        val MIGRATION_3_4 = object : androidx.room.migration.Migration(3, 4) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE music_activities (
+                        id TEXT NOT NULL PRIMARY KEY, kind TEXT NOT NULL, source TEXT NOT NULL,
+                        startAt INTEGER NOT NULL, endAt INTEGER NOT NULL, zoneId TEXT NOT NULL,
+                        timerDurationMs INTEGER NOT NULL, intervalResolutionMs INTEGER, instrument TEXT, note TEXT,
+                        createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL, deletedAt INTEGER
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX index_music_activities_deletedAt_startAt ON music_activities (deletedAt, startAt)")
+                db.execSQL("""
+                    CREATE TABLE music_activity_intervals (
+                        activityId TEXT NOT NULL, startAt INTEGER NOT NULL, endAt INTEGER NOT NULL,
+                        PRIMARY KEY (activityId, startAt),
+                        FOREIGN KEY (activityId) REFERENCES music_activities(id) ON DELETE CASCADE
+                    )
+                """.trimIndent())
+            }
+        }
         val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
             override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE practice_sessions ADD COLUMN timeline TEXT DEFAULT NULL")
