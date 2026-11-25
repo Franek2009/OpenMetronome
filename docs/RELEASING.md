@@ -2,7 +2,7 @@
 
 Kanał początkowy: publiczny GitHub Releases. Format instalacyjny Androida:
 APK, nie AppImage. Aktualne oficjalne wydanie to
-[stabilne 1.2.0](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.2.0).
+[stabilne 1.2.1](https://github.com/Franek2009/OpenMetronome/releases/tag/v1.2.1).
 Opublikowane pliki i tagi pozostają niezmienne.
 Nie uruchamiać tagowania, podpisywania ani publikacji bez osobnej zgody.
 
@@ -40,13 +40,14 @@ Klucz jest używany tylko w zadaniu podpisującym, nie w CI pull requestów.
 
 ## Stan wydań i najbliższe metadane
 
-1.2.0 ma versionCode 21; poprzednie 1.1.0 ma code 20.
+1.2.1 ma versionCode 22; poprzednie 1.2.0 ma code 21.
+Tag `v1.2.1` wskazuje `f63088045057e8bfa74d65e61f7f34935c8b6490`.
 Tag `v1.2.0` pozostaje na `22c19cfb8a6917f1b4cdd675b21429a1097907be`.
 Oficjalny certyfikat PROD SHA-256 pozostaje:
 `563cd960efc3fc5b483ceae4b96e66728af9e2bb0c52d6162fe37cded72ac4a2`.
-Nie tworzyć nowego klucza. Weryfikacja oryginalnego oficjalnego 1.1.0 → 1.2.0
+Nie tworzyć nowego klucza. Weryfikacja oryginalnego oficjalnego 1.2.0 → 1.2.1
 na świeżych API26/35 PASS, bez przepodpisywania i kasowania danych.
-[Raport kontroli artefaktu](V1.2-RELEASE-VALIDATION.md).
+[Raport kontroli artefaktu](V1.2.1-VALIDATION.md).
 Kolejne wydanie wymaga wyższego, ponownie sprawdzonego versionCode oraz osobnych
 zgód na tagowanie, oficjalne podpisanie i publikację.
 
@@ -66,7 +67,7 @@ wyłącznie dokumentacyjna go nie zastępuje. Szczegóły: [polityka CI](CI.md).
    oraz kompilację debug/test/release. Release w zwykłym CI jest niepodpisany.
 3. Utwórz i wyślij tag `v` + versionName wskazujący aktualny commit main.
 4. Po osobnej zgodzie ręcznie uruchom **Prepare signed prerelease** z gałęzi main
-   i tym tagiem. Dla 1.2.0 ustaw `include_dev=false` (wyłącznie PROD).
+   i tym tagiem. Dla wydania wyłącznie PROD ustaw `include_dev=false` (wyłącznie PROD).
    Domyślne `true` zachowuje wcześniejszy proces obu wariantów.
    Kod jest przypięty do zweryfikowanego SHA. Proces nie przyjmuje obcego refa
    do zadania z sekretami; sprawdza zgodność tagu z wersją i HEAD main.
