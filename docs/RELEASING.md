@@ -56,6 +56,9 @@ osobno oryginalne oficjalne APK→oficjalny kandydat na świeżych API 26/35,
 bez przepodpisywania, z porównaniem wszystkich danych i bajtów sampli.
 Sama ponowna instalacja tej samej wersji w smoke nie zastępuje aktualizacji.
 
+Przed tagiem wymagane jest pełne CI dokładnego SHA `main`; zielona ścieżka
+wyłącznie dokumentacyjna go nie zastępuje. Szczegóły: [polityka CI](CI.md).
+
 ## Proces — wyłącznie po odpowiednim zatwierdzeniu
 
 1. Uaktualnij versionName/versionCode w Gradle, changelog i opis w `docs/releases/`.
