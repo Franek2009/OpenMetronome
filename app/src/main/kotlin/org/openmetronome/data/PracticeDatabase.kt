@@ -79,7 +79,7 @@ abstract class PracticeDatabase : RoomDatabase() {
                     CREATE TABLE music_activities (
                         id TEXT NOT NULL PRIMARY KEY, kind TEXT NOT NULL, source TEXT NOT NULL,
                         startAt INTEGER NOT NULL, endAt INTEGER NOT NULL, zoneId TEXT NOT NULL,
-                        timerDurationMs INTEGER NOT NULL, intervalResolutionMs INTEGER, instrument TEXT,
+                        timerDurationMs INTEGER NOT NULL, intervalResolutionMs INTEGER, instrument TEXT, note TEXT,
                         createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL, deletedAt INTEGER
                     )
                 """.trimIndent())

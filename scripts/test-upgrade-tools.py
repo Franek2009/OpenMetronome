@@ -17,7 +17,7 @@ COMPARE = ROOT / "scripts/compare-backup-fixtures.py"
 
 
 class UpgradeOracleTest(unittest.TestCase):
-    def fixture(self, path, timeline=None, preference_changes=None, activities=None):
+    def fixture(self, path, timeline=None, preference_changes=None, activities=None, note=None):
         module = runpy.run_path(str(COMPARE))
         settings, presets, sessions, days, samples, files, prefs, _ = module["snapshot"](FIXTURE)
         prefs.update(preference_changes or {})
@@ -43,13 +43,16 @@ class UpgradeOracleTest(unittest.TestCase):
         for identifier, name, created in samples: string(identifier); string(name); number(">q", created)
         number(">?", True); config(prefs)
         if activities is not None:
+            activity_id = "b6d58bfd-dc26-4e32-9bdb-bdf321c28197"
             number(">i", len(activities))
             for instrument in activities:
-                for value in ("b6d58bfd-dc26-4e32-9bdb-bdf321c28197", "LESSON", "MANUAL"): string(value)
+                for value in (activity_id, "LESSON", "MANUAL"): string(value)
                 number(">q", 0); number(">q", 2000); string("UTC")
                 number(">q", 2000); number(">q", 1); number(">?", True); string(instrument)
                 number(">q", 1); number(">q", 1); number(">?", False)
                 number(">i", 1); number(">q", 0); number(">q", 2000)
+            if note is not None:
+                number(">i", 1); string(activity_id); string(note)
         with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
             archive.writestr("openmetronome.dat", data.getvalue())
             for name, raw in files.items(): archive.writestr(name, raw)
@@ -71,6 +74,10 @@ class UpgradeOracleTest(unittest.TestCase):
             self.assertEqual(0, self.run_compare(plain).returncode)
             self.fixture(original, activities=["Altówka"])
             self.fixture(changed, activities=["Kontrabas"])
+            result = subprocess.run([sys.executable, str(COMPARE), str(original), str(changed)], capture_output=True)
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn(b"Upgrade changed music activities", result.stderr)
+            self.fixture(changed, activities=["Altówka"], note="Żółta część")
             result = subprocess.run([sys.executable, str(COMPARE), str(original), str(changed)], capture_output=True)
             self.assertNotEqual(0, result.returncode)
             self.assertIn(b"Upgrade changed music activities", result.stderr)

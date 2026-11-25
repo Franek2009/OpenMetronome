@@ -19,6 +19,7 @@ internal data class MusicActivityRow(
     val timerDurationMs: Long,
     val intervalResolutionMs: Long?,
     val instrument: String?,
+    val note: String?,
     val createdAt: Long,
     val updatedAt: Long,
     val deletedAt: Long?,
@@ -26,7 +27,7 @@ internal data class MusicActivityRow(
     constructor(activity: MusicActivity) : this(
         activity.id, activity.details.kind.name, activity.details.source.name, activity.details.startAt,
         activity.details.endAt, activity.details.zoneId, activity.details.timerDurationMs,
-        activity.details.intervalResolutionMs, activity.details.instrument, activity.createdAt,
+        activity.details.intervalResolutionMs, activity.details.instrument, activity.details.note, activity.createdAt,
         activity.updatedAt, activity.deletedAt,
     )
 }
@@ -43,10 +44,12 @@ internal data class StoredMusicActivity(
     fun toDomain() = with(row) {
         MusicActivity(id, MusicActivityDetails(MusicActivityKind.valueOf(kind), MusicActivitySource.valueOf(source),
             startAt, endAt, zoneId, timerDurationMs, intervalResolutionMs,
-            intervals.sortedBy { it.startAt }.map { MusicActivityInterval(it.startAt, it.endAt) }, instrument),
+            intervals.sortedBy { it.startAt }.map { MusicActivityInterval(it.startAt, it.endAt) }, instrument, note),
             createdAt, updatedAt, deletedAt)
     }
 }
+
+internal data class MusicActivityBackupSize(val activities: Long, val intervals: Long, val activityBytes: Long)
 
 @Dao
 internal abstract class MusicActivityDao {
@@ -57,6 +60,17 @@ internal abstract class MusicActivityDao {
     @Transaction
     @Query("SELECT * FROM music_activities ORDER BY startAt, id")
     abstract suspend fun all(): List<StoredMusicActivity>
+
+    // Serialized record size: 70 fixed bytes, then optional instrument, deletion and note fields.
+    @Query("""
+        SELECT COUNT(*) AS activities, (SELECT COUNT(*) FROM music_activity_intervals) AS intervals,
+            4 + CASE WHEN COUNT(note) > 0 THEN 4 ELSE 0 END +
+            COALESCE(SUM(70 + length(CAST(id AS BLOB)) + length(CAST(kind AS BLOB)) + length(CAST(source AS BLOB)) +
+                length(CAST(zoneId AS BLOB)) + COALESCE(4 + length(CAST(instrument AS BLOB)), 0) +
+                CASE WHEN deletedAt IS NULL THEN 0 ELSE 8 END + COALESCE(44 + length(CAST(note AS BLOB)), 0)), 0) AS activityBytes
+        FROM music_activities
+    """)
+    abstract suspend fun backupSize(): MusicActivityBackupSize
 
     @Query("SELECT * FROM music_activities WHERE id = :id")
     protected abstract suspend fun find(id: String): MusicActivityRow?

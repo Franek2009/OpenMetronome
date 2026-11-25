@@ -31,10 +31,25 @@ class MusicActivityTest {
         assertThrows(ArithmeticException::class.java) { MusicActivityInterval(Long.MIN_VALUE, Long.MAX_VALUE) }
     }
 
+    @Test fun fitDurationAllowsOneResolutionStepPerIntervalInEitherDirection() {
+        for (duration in listOf(131_000L, 135_000L)) {
+            assertEquals(duration, details.copy(timerDurationMs = duration).timerDurationMs)
+        }
+        for (duration in listOf(130_999L, 135_001L, 190_000L)) {
+            assertThrows(IllegalArgumentException::class.java) { details.copy(timerDurationMs = duration) }
+        }
+        assertThrows(IllegalArgumentException::class.java) { details.copy(intervalResolutionMs = 100) }
+        val summary = details.copy(timerDurationMs = 190_000, intervals = emptyList(), intervalResolutionMs = null)
+        assertTrue(summary.intervals.isEmpty())
+    }
+
     @Test fun manualTimeIsDerivedFromItsInterval() {
-        val entry = MusicActivityDetails.manual(MusicActivityKind.CONCERT, 100, 2_100, "UTC", "  Kontrabas  ")
+        val entry = MusicActivityDetails.manual(MusicActivityKind.CONCERT, 100, 2_100, "UTC", "  Kontrabas  ", "  Próba\nII część  ")
         assertEquals(2_000L, entry.timerDurationMs)
         assertEquals("Kontrabas", entry.instrument)
+        assertEquals("Próba\nII część", entry.note)
+        assertNull(MusicActivityDetails.manual(MusicActivityKind.CONCERT, 100, 2_100, "UTC", note = "  ").note)
+        assertThrows(IllegalArgumentException::class.java) { entry.copy(note = "x".repeat(2_001)) }
         assertThrows(IllegalArgumentException::class.java) { entry.copy(timerDurationMs = 1_900) }
     }
 }

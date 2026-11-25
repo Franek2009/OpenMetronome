@@ -2,8 +2,10 @@ package org.openmetronome.data
 
 import androidx.room.testing.MigrationTestHelper
 import androidx.test.platform.app.InstrumentationRegistry
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.UUID
+import java.util.zip.ZipInputStream
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
@@ -71,11 +73,11 @@ class MusicActivityStorageTest {
         }
         try {
             withStorage { data ->
-                val details = MusicActivityDetails.manual(MusicActivityKind.LESSON, 0, 2_000, "UTC", "Altówka")
+                val details = MusicActivityDetails.manual(MusicActivityKind.LESSON, 0, 2_000, "UTC", "Altówka", "Próba")
                 data.addMusicActivity(details)
                 data.awaitWrites()
                 previous = data.musicActivities.first().single()
-                val replacement = MusicActivityDetails.manual(MusicActivityKind.CONCERT, 4_000, 9_000, "UTC")
+                val replacement = MusicActivityDetails.manual(MusicActivityKind.CONCERT, 4_000, 9_000, "UTC", note = "II część")
                 data.database.openHelper.writableDatabase.execSQL("""
                     CREATE TRIGGER deny_test_interval BEFORE INSERT ON music_activity_intervals
                     BEGIN SELECT RAISE(ABORT, 'fixture interval write error'); END
@@ -100,10 +102,25 @@ class MusicActivityStorageTest {
                 val tombstone = data.database.musicActivities().all().single().toDomain()
                 assertEquals(previous.id, tombstone.id)
                 assertNotNull(tombstone.deletedAt)
+                assertEquals("II część", tombstone.details.note)
                 data.editMusicActivity(previous.id, previous.details)
                 data.awaitWrites()
                 assertTrue(data.musicActivities.first().isEmpty())
                 assertEquals(tombstone, data.database.musicActivities().all().single().toDomain())
+                fun metadataSize(bytes: ByteArrayOutputStream) = ZipInputStream(bytes.toByteArray().inputStream()).use { zip ->
+                    assertEquals("openmetronome.dat", zip.nextEntry.name)
+                    zip.readBytes().size
+                }
+                val v2 = ByteArrayOutputStream()
+                val v3 = ByteArrayOutputStream()
+                data.exportV2Backup { v2 }
+                data.awaitWrites()
+                data.exportBackup { v3 }
+                data.awaitWrites()
+                val size = data.database.musicActivities().backupSize()
+                assertEquals(1L, size.activities)
+                assertEquals(1L, size.intervals)
+                assertEquals((metadataSize(v3) - metadataSize(v2)).toLong(), size.activityBytes + 16 * size.intervals)
             }
         } finally { fixture.deleteRecursively() }
     }
@@ -114,7 +131,7 @@ class MusicActivityStorageTest {
             data.addMusicActivity(MusicActivityDetails.manual(MusicActivityKind.LESSON, 0, 1_000, "UTC"))
             data.awaitWrites()
             val before = data.musicActivities.first().single()
-            val legacy = java.io.ByteArrayOutputStream().also { out ->
+            val legacy = ByteArrayOutputStream().also { out ->
                 BackupArchive.writeV2(BackupSnapshot(ConfigCodec.encode(MetronomeConfig(tempo = Tempo(100))),
                     emptyList(), emptyList(), emptyList(), emptyList(), emptyMap()), out)
             }.toByteArray()

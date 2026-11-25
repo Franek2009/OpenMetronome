@@ -42,9 +42,9 @@ def snapshot(path):
                 raise ValueError("Truncated string")
             return value.decode("utf-8")
 
-        def rows(item):
+        def rows(item, limit=100_000):
             count = read(">i")
-            if not 0 <= count <= 100_000:
+            if not 0 <= count <= limit:
                 raise ValueError("Invalid record count")
             return sorted((item() for _ in range(count)), key=lambda row: json.dumps(row, sort_keys=True))
 
@@ -61,16 +61,32 @@ def snapshot(path):
         days = rows(lambda: [string(), string(), read(">q")])
         samples = rows(lambda: [string(), string(), read(">q")])
         app_preferences = preferences(string()) if version >= 2 and read(">?") else preferences("")
+        interval_budget = 65_536
+
         def activity():
+            nonlocal interval_budget
             fields = [string(), string(), string(), read(">q"), read(">q"), string(),
                       read(">q"), read(">q"), string() if read(">?") else None,
                       read(">q"), read(">q"), read(">q") if read(">?") else None]
             count = read(">i")
-            if not 0 <= count <= 4096:
+            if not 0 <= count <= min(4096, interval_budget):
                 raise ValueError("Invalid activity interval count")
+            interval_budget -= count
             return fields + [[(read(">q"), read(">q")) for _ in range(count)]]
 
-        activities = rows(activity) if version >= 3 else []
+        activities = rows(activity, limit=10_000) if version >= 3 else []
+        notes = {}
+        if version >= 3 and data.tell() < data.getbuffer().nbytes:
+            count = read(">i")
+            if not 1 <= count <= len(activities):
+                raise ValueError("Invalid activity note count")
+            activity_ids = {item[0] for item in activities}
+            for _ in range(count):
+                activity_id = string()
+                if activity_id not in activity_ids or activity_id in notes:
+                    raise ValueError("Invalid activity note reference")
+                notes[activity_id] = string()
+        activities = [item + [notes.get(item[0])] for item in activities]
         if data.read() != b"":
             raise ValueError("Trailing metadata")
         files = {name: archive.read(name) for name in archive.namelist() if name != "openmetronome.dat"}

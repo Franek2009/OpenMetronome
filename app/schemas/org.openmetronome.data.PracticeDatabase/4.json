@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 4,
-    "identityHash": "4934b7c824624ff2155bae4570c4c175",
+    "identityHash": "54e735876319e2b85341de31bda570b0",
     "entities": [
       {
         "tableName": "presets",
@@ -188,7 +188,7 @@
       },
       {
         "tableName": "music_activities",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `kind` TEXT NOT NULL, `source` TEXT NOT NULL, `startAt` INTEGER NOT NULL, `endAt` INTEGER NOT NULL, `zoneId` TEXT NOT NULL, `timerDurationMs` INTEGER NOT NULL, `intervalResolutionMs` INTEGER, `instrument` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `deletedAt` INTEGER, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `kind` TEXT NOT NULL, `source` TEXT NOT NULL, `startAt` INTEGER NOT NULL, `endAt` INTEGER NOT NULL, `zoneId` TEXT NOT NULL, `timerDurationMs` INTEGER NOT NULL, `intervalResolutionMs` INTEGER, `instrument` TEXT, `note` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `deletedAt` INTEGER, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -240,6 +240,11 @@
           {
             "fieldPath": "instrument",
             "columnName": "instrument",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "note",
+            "columnName": "note",
             "affinity": "TEXT"
           },
           {
@@ -326,7 +331,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '4934b7c824624ff2155bae4570c4c175')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '54e735876319e2b85341de31bda570b0')"
     ]
   }
 }

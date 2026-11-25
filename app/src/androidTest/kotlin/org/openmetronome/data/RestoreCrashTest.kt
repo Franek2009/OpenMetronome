@@ -24,7 +24,7 @@ class RestoreCrashTest {
         val config = ConfigCodec.encode(MetronomeConfig(tempo = Tempo(bpm), sound = SoundConfig(customSampleId = id)))
         val wav = SamplePcm.encodeCanonical(ShortArray(96).also { it[20] = 1000; it[21] = -1000 })
         val activity = MusicActivity(UUID.randomUUID().toString(),
-            MusicActivityDetails.manual(MusicActivityKind.LESSON, bpm.toLong(), 35_000, "UTC", "Kontrabas"), 1, 2)
+            MusicActivityDetails.manual(MusicActivityKind.LESSON, bpm.toLong(), 35_000, "UTC", "Kontrabas", "Ćwiczenie $bpm"), 1, 2)
         val deleted = activity.copy(id = UUID.randomUUID().toString(), deletedAt = 2)
         return ByteArrayOutputStream().also { BackupArchive.write(BackupSnapshot(config,
             listOf(Preset("preset-$bpm", "Preset $bpm", config, 1, 2)),

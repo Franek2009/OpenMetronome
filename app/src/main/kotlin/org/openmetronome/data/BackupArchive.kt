@@ -30,6 +30,8 @@ object BackupArchive {
     private const val VERSION = 3
     private const val METADATA = "openmetronome.dat"
     internal const val MAX_ARCHIVE_BYTES = 16 * 1024 * 1024
+    internal const val MAX_MUSIC_ACTIVITIES = 10_000
+    internal const val MAX_MUSIC_INTERVALS = 65_536
     private const val MAX_ITEMS = 100_000
 
     fun write(snapshot: BackupSnapshot, output: OutputStream) {
@@ -58,6 +60,8 @@ object BackupArchive {
     internal fun writeStored(snapshot: BackupSnapshot, output: OutputStream, version: Int = VERSION) {
         require(version in 1..VERSION)
         require(version >= 3 || snapshot.musicActivities.isEmpty())
+        require(snapshot.musicActivities.size <= MAX_MUSIC_ACTIVITIES)
+        require(snapshot.musicActivities.sumOf { it.details.intervals.size.toLong() } <= MAX_MUSIC_INTERVALS)
         val encoded = ByteArrayOutputStream()
         encode(snapshot, encoded, version)
         val bytes = encoded.toByteArray()
@@ -98,7 +102,13 @@ object BackupArchive {
                     writeString(item.id); writeString(item.name); writeLong(item.createdAt)
                 }
                 if (version >= 2) { writeBoolean(snapshot.preferences != null); snapshot.preferences?.let { writeString(it) } }
-                if (version >= 3) writeList(snapshot.musicActivities) { writeMusicActivity(it) }
+                if (version >= 3) {
+                    writeList(snapshot.musicActivities) { writeMusicActivity(it) }
+                    val notes = snapshot.musicActivities.filter { it.details.note != null }
+                    if (notes.isNotEmpty()) writeList(notes) { activity ->
+                        writeString(activity.id); writeString(requireNotNull(activity.details.note))
+                    }
+                }
                 flush()
             }
             zip.closeEntry()
@@ -184,8 +194,7 @@ object BackupArchive {
         val days = metadata.readList { PracticeDay(readString(), readString(), readLong()) }
         val samples = metadata.readList { CustomSampleRecord(readString(), readString(), readLong()) }
         val preferences = if (version >= 2 && metadata.readBoolean()) metadata.readString().also(AppPreferencesCodec::decode) else null
-        val musicActivities = if (version >= 3) metadata.readList { readMusicActivity() } else emptyList()
-        require(musicActivities.map { it.id }.distinct().size == musicActivities.size)
+        val musicActivities = if (version >= 3) metadata.readMusicActivities() else emptyList()
         require(metadata.read() == -1)
         require(presets.map { it.id }.distinct().size == presets.size)
         require(sessions.map { it.id }.distinct().size == sessions.size)
@@ -234,7 +243,28 @@ object BackupArchive {
         writeList(details.intervals) { writeLong(it.startAt); writeLong(it.endAt) }
     }
 
-    private fun DataInputStream.readMusicActivity(): MusicActivity {
+    private fun DataInputStream.readMusicActivities(): List<MusicActivity> {
+        var remaining = MAX_MUSIC_INTERVALS
+        val activities = readList(limit = MAX_MUSIC_ACTIVITIES) {
+            readMusicActivity(remaining).also { remaining -= it.details.intervals.size }
+        }
+        val ids = activities.mapTo(hashSetOf()) { it.id }
+        require(ids.size == activities.size)
+        if (available() == 0) return activities // The first test v3 archives had no note section.
+        val notes = mutableMapOf<String, String>()
+        val noteCount = readInt()
+        require(noteCount in 1..activities.size)
+        repeat(noteCount) {
+            val id = readString(36)
+            require(id in ids && id !in notes)
+            notes[id] = readString(MusicActivityDetails.MAX_NOTE_LENGTH * 3)
+        }
+        return activities.map { activity ->
+            notes[activity.id]?.let { activity.copy(details = activity.details.copy(note = it)) } ?: activity
+        }
+    }
+
+    private fun DataInputStream.readMusicActivity(remainingIntervals: Int): MusicActivity {
         val id = readString()
         val kind = MusicActivityKind.valueOf(readString())
         val source = MusicActivitySource.valueOf(readString())
@@ -247,7 +277,7 @@ object BackupArchive {
         val createdAt = readLong()
         val updatedAt = readLong()
         val deletedAt = if (readBoolean()) readLong() else null
-        val intervals = readList(limit = MusicActivityDetails.MAX_INTERVALS) {
+        val intervals = readList(limit = minOf(remainingIntervals, MusicActivityDetails.MAX_INTERVALS)) {
             MusicActivityInterval(readLong(), readLong())
         }
         return MusicActivity(id, MusicActivityDetails(kind, source, startAt, endAt, zoneId, duration,
@@ -277,8 +307,8 @@ object BackupArchive {
         val bytes = value.toByteArray(Charsets.UTF_8); require(bytes.size <= 1_000_000)
         writeInt(bytes.size); write(bytes)
     }
-    private fun DataInputStream.readString(): String {
-        val size = readInt(); require(size in 0..1_000_000)
+    private fun DataInputStream.readString(limit: Int = 1_000_000): String {
+        val size = readInt(); require(size in 0..limit)
         return String(ByteArray(size).also(::readFully), Charsets.UTF_8)
     }
     private fun <T> DataOutputStream.writeList(items: List<T>, writeItem: DataOutputStream.(T) -> Unit) {

@@ -353,12 +353,22 @@ class AppData private constructor(
         }
     }
 
-    private suspend fun snapshot(access: CustomSampleRepository.BackupAccess): BackupSnapshot {
-        require(dao.backupSessionBytes() <= BackupArchive.MAX_ARCHIVE_BYTES) { "Backup history exceeds archive limit" }
+    private suspend fun snapshot(access: CustomSampleRepository.BackupAccess, includeMusic: Boolean = true): BackupSnapshot {
+        val historyBytes = dao.backupSessionBytes()
+        require(historyBytes <= BackupArchive.MAX_ARCHIVE_BYTES) { "Backup history exceeds archive limit" }
+        val activities = if (includeMusic) {
+            val size = musicDao.backupSize()
+            require(size.activities <= BackupArchive.MAX_MUSIC_ACTIVITIES && size.intervals <= BackupArchive.MAX_MUSIC_INTERVALS) {
+                "Too many music records for backup"
+            }
+            val activityBytes = size.activityBytes + 16 * size.intervals
+            require(activityBytes <= BackupArchive.MAX_ARCHIVE_BYTES - historyBytes) { "Backup activities exceed archive limit" }
+            musicDao.all().map(StoredMusicActivity::toDomain)
+        } else emptyList()
         val records = dao.allSamples()
         return BackupSnapshot(ConfigCodec.encode(settings.load()), dao.allPresets(), dao.sessionsForExport(),
             dao.allPracticeDays(), records, access.files(records), settings.preferencesSnapshot(),
-            musicDao.all().map(StoredMusicActivity::toDomain))
+            activities)
     }
 
     fun exportBackup(openOutput: () -> OutputStream) = exportBackupVersion(3, openOutput)
@@ -367,7 +377,7 @@ class AppData private constructor(
     private fun exportBackupVersion(version: Int, openOutput: () -> OutputStream) = backup("Nie udało się zapisać kopii zapasowej. Plik może być niepełny; dane aplikacji nie zostały zmienione.") {
         try {
             samples.backup {
-                val snapshot = database.withTransaction { snapshot(this) }
+                val snapshot = database.withTransaction { snapshot(this, includeMusic = version >= 3) }
                 // Prepare and validate before touching the user's destination document.
                 val bytes = java.io.ByteArrayOutputStream().also {
                     when (version) {
@@ -375,8 +385,8 @@ class AppData private constructor(
                         2 -> BackupArchive.writeV2(snapshot, it)
                         else -> BackupArchive.write(snapshot, it)
                     }
-                }.toByteArray()
-                openOutput().use { it.write(bytes) }
+                }
+                openOutput().use(bytes::writeTo)
             }
             backupNotice.value = "Kopia zapasowa została zapisana."
         } catch (cancelled: CancellationException) { throw cancelled }
