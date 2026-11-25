@@ -51,6 +51,8 @@ ponowienie zaległych zapisów.
   zgodności v1/v2, odtworzenie dziennika v2, testy kolejki zaległych zapisów.
 - Instrumentacja: migracje z Room 1/2/3, zachowanie danych metronomu, wymuszony
   błąd zapisu przedziału podczas edycji oraz trwałość oznaczenia usunięcia.
+  Po błędzie zapisu i ponownym otwarciu bazy eksport v3 zawiera zarówno
+  odzyskane odtworzenie, jak i wcześniej zapisaną aktywność.
 - Instrumentacja w oddzielnym procesie: przerwanie przywracania i ponowne
   przerwanie samego odzyskiwania. Porównanie starych i nowych migawek obejmuje
   również aktywności, przedziały, usunięcia oraz bajty sampli.
