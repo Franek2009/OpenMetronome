@@ -86,3 +86,5 @@ Procedura i ograniczenia: [wydawanie](RELEASING.md),
 Automatyczne wznawianie podpisywania/draftu pozostaje poza tym wdrożeniem.
 
 <!-- Próba polityki CI: zmiana dokumentacyjna. -->
+
+[Kontrolowany błędny link](brak-celowy-456618.md)
