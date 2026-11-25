@@ -1,12 +1,12 @@
 # Zmiany
 
-## 1.2.1 — w przygotowaniu
+## 1.2.1 — wydanie stabilne
 
 - Poprawiono otwieranie metronomu i statystyk z widgetów podczas pracy w pełnym ekranie oraz obsługę kolejnych żądań po odtworzeniu aktywności.
 - Zachowano wybór edytowanego presetu przy obrocie; usunięty preset nie jest dostępny do edycji.
 - Zatrzymanie anuluje wcześniejszy Start widgetu oczekujący na wczytanie danych.
 - Rozszerzono ciche testy widgetów i uaktualniono roadmapę.
-- versionCode 22; bez zmian silnika PCM, schematu danych i formatu kopii. Wydanie i oficjalnie podpisany APK pozostają w przygotowaniu.
+- versionCode 22; bez zmian silnika PCM, schematu danych i formatu kopii. Oficjalne aktualizacje 1.2.0 → 1.2.1 na API 26/35 PASS.
 
 ## 1.2.0 — wydanie stabilne
 
