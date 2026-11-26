@@ -31,6 +31,7 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
     suspend fun save(config: MetronomeConfig) { store.edit { it[key] = ConfigCodec.encode(config) } }
     private val awakeKey = booleanPreferencesKey("fullscreen_awake")
     private val motionKey = booleanPreferencesKey("reduce_motion")
+    private val musicScopeKey = booleanPreferencesKey("music_statistics_scope")
     private val sessionThresholdKey = intPreferencesKey("minimum_session_seconds")
     private val dayThresholdKey = intPreferencesKey("active_day_minutes")
     private val musicZoneKey = stringPreferencesKey("music_statistics_zone")
@@ -39,6 +40,8 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
     private val groupingGapKey = stringPreferencesKey("practice_grouping_gap")
     val display = store.data.map { PracticeDisplayPreferences(it[awakeKey] ?: false, it[motionKey] ?: false) }
     val statistics = store.data.map { StatisticsPreferences(it[sessionThresholdKey] ?: 20, it[dayThresholdKey] ?: 5) }
+    val musicScope = store.data.map { it[musicScopeKey] ?: false }
+    suspend fun saveMusicScope(value: Boolean) { store.edit { it[musicScopeKey] = value } }
     val musicStatistics = store.data.map { it.musicStatistics() }.distinctUntilChanged()
     val groupingGap = store.data.map { it[groupingGapKey]?.let(PracticeGroupingGap::valueOf) ?: PracticeGroupingGap.DEFAULT }
     suspend fun saveDisplay(value: PracticeDisplayPreferences) {
@@ -269,6 +272,7 @@ class AppData private constructor(
     fun saveDisplayPreferences(value: PracticeDisplayPreferences) = operation { settings.saveDisplay(value) }
     fun saveStatisticsPreferences(value: StatisticsPreferences) = operation { settings.saveStatistics(value) }
     fun saveMusicStatisticsPreferences(value: MusicStatisticsPreferences) = operation { settings.saveMusicStatistics(value) }
+    fun saveMusicScope(value: Boolean) = operation { settings.saveMusicScope(value) }
     fun savePracticeGroupingGap(value: PracticeGroupingGap) = operation { settings.saveGroupingGap(value) }
 
     suspend fun practiceGrouping(at: Instant): PracticeGroupingSummary = readGrouping(at) { summarize() }

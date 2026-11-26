@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.time.*
+import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
 import org.openmetronome.data.*
 import org.openmetronome.R
@@ -56,6 +57,10 @@ fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, widgetStatistics:
     val recoveryRequired by data.recoveryRequired.collectAsStateWithLifecycle()
     val storageReady by data.storageReady.collectAsStateWithLifecycle()
     val historyExporting by data.exporting.collectAsStateWithLifecycle()
+    val playbackBusy by data.playbackBusy.collectAsStateWithLifecycle()
+    val sessionWriteFailed by data.sessionWriteFailed.collectAsStateWithLifecycle()
+    val latestSessions by data.sessions.collectAsStateWithLifecycle(initialValue = emptyList())
+    val scope = rememberCoroutineScope()
     val display by data.displayPreferences.collectAsStateWithLifecycle(initialValue = PracticeDisplayPreferences())
     val customSamples by data.samples.items.collectAsStateWithLifecycle()
     var fullscreen by rememberSaveable { mutableStateOf(false) }
@@ -125,6 +130,10 @@ fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, widgetStatistics:
                         onBeatAccent = model::cycleBeatAccent,
                         onFullscreen = { fullscreen = true },
                         onPresets = { page = "Presety" }, customSamples = customSamples,
+                        onFinishSession = latestSessions.firstOrNull { it.finished && it.durationMs > 0 }?.takeIf { !playbackBusy && !sessionWriteFailed && !state.keepsScreenOn }?.let { session ->
+                            { scope.launch { runCatching { data.previewPracticeGrouping(PracticeGroupingChange.FinishAfter(session.id), Instant.now()) }
+                                .onSuccess { data.applyPracticeGrouping(it) }.onFailure { data.error.value = "Nie udało się zakończyć sesji." } } }
+                        },
                     )
                 }
             }
@@ -253,6 +262,10 @@ private fun StatisticsScreen(data: AppData, model: MetronomeViewModel) {
     val preferenceState by preferencesSource.collectAsStateWithLifecycle(initialValue = null)
     val preferences = preferenceState?.getOrNull()
     val today by rememberPracticeDate()
+    val musicScope by data.settings.musicScope.collectAsStateWithLifecycle(initialValue = false)
+    val musicNow = remember(today) { kotlinx.coroutines.flow.flow { while (true) { emit(Instant.now()); kotlinx.coroutines.delay(60_000) } } }
+    val musicSource = remember(data, musicNow, historyRetry) { data.observeMusicStatistics(musicNow) }
+    val musicState by musicSource.collectAsStateWithLifecycle(initialValue = MusicStatisticsState.Loading)
     val calculation by produceState<Result<PracticeAnalytics>?>(null, history, preferences, today) {
         value = null
         val ready = history as? StatisticsHistory.Ready
@@ -279,20 +292,44 @@ private fun StatisticsScreen(data: AppData, model: MetronomeViewModel) {
     val chart = remember(days, period, today) { PracticeStats.chart(days, period, today) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Statystyki", style = MaterialTheme.typography.headlineMedium)
-        DailyPracticeCard(data, today)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(!musicScope, { data.saveMusicScope(false) }, label = { Text("Metronom") })
+            FilterChip(musicScope, { data.saveMusicScope(true) }, label = { Text("Cała aktywność") })
+        }
+        if (!musicScope) DailyPracticeCard(data, today)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("Podsumowanie", "Historia", "Analiza").forEachIndexed { index, label ->
                 FilterChip(statisticsPage == index, { statisticsPage = index }, label = { Text(label) })
             }
         }
-        TextButton({ thresholdsOpen = true }, enabled = preferences != null) {
+        if (!musicScope) TextButton({ thresholdsOpen = true }, enabled = preferences != null) {
             Text(preferences?.let { "Progi: sesja ${it.minimumSessionSeconds} s · dzień ${it.activeDayMinutes} min" } ?: "Odczytywanie progów…")
         }
-        if (history == StatisticsHistory.Unavailable || calculation?.isFailure == true || preferenceState?.isFailure == true) {
+        if (musicScope) {
+            when (val current = musicState) {
+                MusicStatisticsState.Loading -> Text("Wczytywanie statystyk…")
+                MusicStatisticsState.Unavailable -> {
+                    Text("Nie udało się odczytać statystyk.", color = MaterialTheme.colorScheme.error)
+                    TextButton({ historyRetry++ }) { Text("Ponów odczyt statystyk") }
+                }
+                is MusicStatisticsState.Ready -> if (statisticsPage == 0) {
+                    val summary = current.summary
+                    if (summary.days.isEmpty()) Text("Brak aktywności.")
+                    Text("Dzisiaj: ${duration(summary.todayMs)}")
+                    Text("Ten tydzień: ${duration(summary.weekMs)} · miesiąc: ${duration(summary.monthMs)}")
+                    Text("Łącznie: ${duration(summary.totalMs)} · aktywne dni: ${summary.activeDays}")
+                    Text("Średnia na dzień: ${summary.averageCalendarDayMs?.let(::duration) ?: "—"}")
+                    Text("Średnia na aktywny dzień: ${summary.averageActiveDayMs?.let(::duration) ?: "—"}")
+                    Text("Seria dni: ${summary.dayStreak.current} · tygodni: ${summary.weekStreak.current}")
+                    summary.currentWeek.goalDays?.let { Text("Cel tygodniowy: ${summary.currentWeek.activeDays}/$it dni") }
+                }
+            }
+        }
+        if (!musicScope && (history == StatisticsHistory.Unavailable || calculation?.isFailure == true || preferenceState?.isFailure == true)) {
             Text("Nie udało się odczytać lub przeliczyć statystyk. To nie oznacza zerowego czasu.", color = MaterialTheme.colorScheme.error)
             TextButton({ historyRetry++ }) { Text("Ponów odczyt statystyk") }
-        } else if (analytics == null) Text("Wczytywanie statystyk…")
-        if (analytics != null && statisticsPage == 0) {
+        } else if (!musicScope && analytics == null) Text("Wczytywanie statystyk…")
+        if (!musicScope && analytics != null && statisticsPage == 0) {
         val summary = analytics.summary
         val qualifiedTotal = analytics.qualifying.sumOf { it.durationMs }
         Text("Zaliczony czas dzisiaj: ${duration(analytics.todayMs)} · ${if (today in analytics.activeDates) "dzień aktywny" else "próg dnia jeszcze nieosiągnięty"}")
@@ -328,9 +365,9 @@ private fun StatisticsScreen(data: AppData, model: MetronomeViewModel) {
             } }
         }
         }
-        if (analytics != null && statisticsPage == 1) StatisticsHistoryPanel(sessions, analytics.activeDates, today, data::sessionTimeline)
+        if (history is StatisticsHistory.Ready && statisticsPage == 1) GroupedHistory(data, sessions, musicScope)
         if (analytics != null && statisticsPage == 2) PracticeAnalysisPanel(analytics)
-        if (history is StatisticsHistory.Ready && sessions.isEmpty()) Text("Rozpocznij ćwiczenie, aby zapisać pierwszą sesję.")
+        if (!musicScope && history is StatisticsHistory.Ready && sessions.isEmpty()) Text("Rozpocznij ćwiczenie, aby zapisać pierwszą sesję.")
         HorizontalDivider(Modifier.padding(vertical = 4.dp))
         Text("Dane", style = MaterialTheme.typography.titleLarge)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -437,6 +474,7 @@ private fun SettingsScreen(model: MetronomeViewModel, data: AppData,
                     label = { Text(if (mode == TempoChange.NEXT_BAR) "Od następnego taktu" else "Od następnego pulsu") })
             }
         }
+        GroupingSettings(data)
         SoundControls(config, onChange, customSamples = samples)
         SampleLibraryControls(model, data)
         Row(verticalAlignment = Alignment.CenterVertically) {

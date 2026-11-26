@@ -488,6 +488,22 @@ class SilentFeaturesTest {
         assertEquals(PlaybackStatus.STOPPED, model.state.value.audio.status)
     }
 
+    @Test fun musicActivityCanBeAddedAndScopeSurvivesRecreation() {
+        page("Statystyki")
+        compose.onNodeWithText("Cała aktywność").performClick()
+        compose.onNodeWithText("Historia").performClick()
+        compose.onNodeWithText("+ Dodaj aktywność").performScrollTo().performClick()
+        compose.onNodeWithText("Lekcja").performClick()
+        compose.onNodeWithText("Czas w sekundach").performTextReplacement("600")
+        compose.onNodeWithText("Instrument (opcjonalnie)").performTextReplacement("Kontrabas")
+        compose.onNodeWithText("Zapisz").performClick()
+        compose.waitUntil(10000) { runBlocking { data.musicActivities.first().any { it.details.instrument == "Kontrabas" } } }
+        compose.activityRule.scenario.recreate()
+        compose.onNodeWithText("Cała aktywność").assertIsSelected()
+        compose.onNodeWithText("Kontrabas").performScrollTo().assertExists()
+        captureUi("music-history")
+    }
+
     @Test fun widgetLinksCanNavigateRepeatedlyWithoutChangingConfiguration() {
         val scenarioIntent = Intent(compose.activity.intent)
         openFromWidget(scenarioIntent, statistics = true)

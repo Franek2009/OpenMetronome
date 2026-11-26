@@ -1,0 +1,193 @@
+package org.openmetronome.ui
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import java.time.*
+import kotlinx.coroutines.launch
+import org.openmetronome.data.*
+import org.openmetronome.domain.model.*
+
+private fun MusicActivityKind.label() = when (this) {
+    MusicActivityKind.LESSON -> "Lekcja"
+    MusicActivityKind.INDIVIDUAL_PRACTICE -> "Ćwiczenie indywidualne"
+    MusicActivityKind.ENSEMBLE_REHEARSAL -> "Próba zespołowa"
+    MusicActivityKind.CONCERT -> "Koncert"
+    MusicActivityKind.OTHER -> "Inne"
+}
+
+@Composable
+internal fun MusicActivityHistory(data: AppData) {
+    val activities by data.musicActivities.collectAsStateWithLifecycle(initialValue = emptyList())
+    var editingId by rememberSaveable { mutableStateOf<String?>(null) }
+    var adding by rememberSaveable { mutableStateOf(false) }
+    var deletingId by rememberSaveable { mutableStateOf<String?>(null) }
+    val editing = activities.firstOrNull { it.id == editingId }
+    OutlinedButton({ adding = true }) { Text("+ Dodaj aktywność") }
+    if (activities.isEmpty()) Text("Brak aktywności muzycznych.")
+    activities.forEach { activity ->
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(12.dp)) {
+                Text(activity.details.kind.label(), style = MaterialTheme.typography.titleMedium)
+                Text(Instant.ofEpochMilli(activity.details.startAt).atZone(ZoneId.of(activity.details.zoneId)).toLocalDateTime().toString())
+                Text(dailyPracticeDuration(activity.details.timerDurationMs))
+                activity.details.instrument?.let { Text(it) }
+                activity.details.note?.let { Text(it) }
+                Row {
+                    if (activity.details.source == MusicActivitySource.MANUAL && activity.details.intervals.size == 1 && activity.details.timerDurationMs % 1000L == 0L && activity.details.startAt % 1000L == 0L) TextButton({ editingId = activity.id }) { Text("Edytuj") }
+                    TextButton({ deletingId = activity.id }) { Text("Usuń") }
+                }
+            }
+        }
+    }
+    if (adding || editing != null) ActivityDialog(editing, { adding = false; editingId = null }) { details ->
+        if (editing == null) data.addMusicActivity(details) else data.editMusicActivity(editing.id, details)
+        adding = false; editingId = null
+    }
+    deletingId?.let { id -> AlertDialog(onDismissRequest = { deletingId = null }, title = { Text("Usunąć aktywność?") },
+        confirmButton = { TextButton({ data.deleteMusicActivity(id); deletingId = null }) { Text("Usuń") } },
+        dismissButton = { TextButton({ deletingId = null }) { Text("Anuluj") } }) }
+}
+
+@Composable
+private fun ActivityDialog(activity: MusicActivity?, close: () -> Unit, save: (MusicActivityDetails) -> Unit) {
+    val initial = activity?.details
+    val zone = initial?.zoneId?.let(ZoneId::of) ?: ZoneId.systemDefault()
+    val start = initial?.startAt?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalDateTime() } ?: LocalDateTime.now().withSecond(0).withNano(0)
+    var kind by rememberSaveable(activity?.id) { mutableStateOf((initial?.kind ?: MusicActivityKind.INDIVIDUAL_PRACTICE).name) }
+    var date by rememberSaveable(activity?.id) { mutableStateOf(start.toLocalDate().toString()) }
+    var time by rememberSaveable(activity?.id) { mutableStateOf(start.toLocalTime().withNano(0).toString()) }
+    var seconds by rememberSaveable(activity?.id) { mutableStateOf(((initial?.timerDurationMs ?: 1_800_000) / 1000).toString()) }
+    var instrument by rememberSaveable(activity?.id) { mutableStateOf(initial?.instrument.orEmpty()) }
+    var note by rememberSaveable(activity?.id) { mutableStateOf(initial?.note.orEmpty()) }
+    val details = runCatching {
+        val local = LocalDateTime.of(LocalDate.parse(date), LocalTime.parse(time))
+        val offsets = zone.rules.getValidOffsets(local)
+        require(offsets.size == 1)
+        val from = local.toInstant(offsets.single()).toEpochMilli()
+        val duration = seconds.toLong().also { require(it in 1..604800) } * 1000
+        MusicActivityDetails.manual(MusicActivityKind.valueOf(kind), from, Math.addExact(from, duration), zone.id, instrument, note)
+    }.getOrNull()
+    AlertDialog(onDismissRequest = close, title = { Text(if (activity == null) "Dodaj aktywność" else "Edytuj aktywność") }, text = {
+        Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                MusicActivityKind.entries.forEach { item -> FilterChip(kind == item.name, { kind = item.name }, label = { Text(item.label()) }) }
+            }
+            OutlinedTextField(date, { date = it }, label = { Text("Data RRRR-MM-DD") }, singleLine = true)
+            OutlinedTextField(time, { time = it }, label = { Text("Godzina GG:MM") }, singleLine = true)
+            OutlinedTextField(seconds, { seconds = it }, label = { Text("Czas w sekundach") }, singleLine = true)
+            OutlinedTextField(instrument, { instrument = it }, label = { Text("Instrument (opcjonalnie)") })
+            OutlinedTextField(note, { note = it }, label = { Text("Notatka (opcjonalnie)") })
+            if (details == null) Text("Sprawdź datę, godzinę i czas. Godzina musi istnieć jednoznacznie w strefie $zone.", color = MaterialTheme.colorScheme.error)
+        }
+    }, confirmButton = { TextButton({ details?.let(save) }, enabled = details != null) { Text("Zapisz") } },
+        dismissButton = { TextButton(close) { Text("Anuluj") } })
+}
+
+@Composable
+internal fun GroupingSettings(data: AppData) {
+    val gap by data.settings.groupingGap.collectAsStateWithLifecycle(initialValue = PracticeGroupingGap.DEFAULT)
+    val music by data.settings.musicStatistics.collectAsStateWithLifecycle(initialValue = null)
+    var open by rememberSaveable { mutableStateOf(false) }
+    var reset by rememberSaveable { mutableStateOf(false) }
+    var preview by remember { mutableStateOf<PracticeGroupingPreview?>(null) }
+    val scope = rememberCoroutineScope()
+    Text("Grupowanie sesji", style = MaterialTheme.typography.titleMedium)
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        PracticeGroupingGap.entries.forEach { value -> FilterChip(value == gap, { data.savePracticeGroupingGap(value) },
+            label = { Text(value.minutes?.let { "$it min" } ?: "Wyłączone") }) }
+    }
+    TextButton({ open = true }) { Text("Ustawienia aktywności muzycznej") }
+    TextButton({ scope.launch { runCatching { data.previewPracticeGrouping(PracticeGroupingChange.ResetAll, Instant.now()) }
+        .onSuccess { preview = it; reset = true }.onFailure { data.error.value = "Nie udało się przygotować podglądu." } } }) { Text("Resetuj korekty grupowania") }
+    if (open) MusicSettingsDialog(music ?: MusicStatisticsPreferences(), { open = false }) { data.saveMusicStatisticsPreferences(it); open = false }
+    if (reset && preview != null) GroupingPreviewDialog(preview!!, { reset = false }, { data.applyPracticeGrouping(preview!!); reset = false })
+}
+
+@Composable
+private fun MusicSettingsDialog(value: MusicStatisticsPreferences, close: () -> Unit, save: (MusicStatisticsPreferences) -> Unit) {
+    var zone by rememberSaveable { mutableStateOf(value.zone.id) }
+    var day by rememberSaveable { mutableStateOf(value.activeDayMinutes.toString()) }
+    var goal by rememberSaveable { mutableStateOf((value.weeklyGoalDays ?: 5).toString()) }
+    var enabled by rememberSaveable { mutableStateOf(value.weeklyGoalDays != null) }
+    val result = runCatching { MusicStatisticsPreferences(ZoneId.of(zone), day.toInt(), if (enabled) goal.toInt() else null) }.getOrNull()
+    AlertDialog(onDismissRequest = close, title = { Text("Statystyki muzyczne") }, text = {
+        Column(Modifier.verticalScroll(rememberScrollState())) {
+            OutlinedTextField(day, { day = it }, label = { Text("Aktywny dzień, minuty") })
+            OutlinedTextField(zone, { zone = it }, label = { Text("Strefa czasowa, np. Europe/Warsaw") })
+            Row { Text("Cel tygodniowy"); Switch(enabled, { enabled = it }) }
+            if (enabled) OutlinedTextField(goal, { goal = it }, label = { Text("Aktywne dni (1–7)") })
+            if (result == null) Text("Sprawdź ustawienia.", color = MaterialTheme.colorScheme.error)
+        }
+    }, confirmButton = { TextButton({ result?.let(save) }, enabled = result != null) { Text("Zapisz") } },
+        dismissButton = { TextButton(close) { Text("Anuluj") } })
+}
+
+@Composable
+internal fun GroupingPreviewDialog(preview: PracticeGroupingPreview, close: () -> Unit, confirm: () -> Unit) {
+    AlertDialog(onDismissRequest = close, title = { Text("Potwierdź zmianę grupowania") }, text = {
+        Column(Modifier.verticalScroll(rememberScrollState())) {
+            Text("Przed")
+            preview.before.forEach { Text("${it.playbackIds.size} odtw. · ${dailyPracticeDuration(it.playbackMs)} · ${Instant.ofEpochMilli(it.startedAt)}") }
+            Text("Po")
+            preview.after.forEach { Text("${it.playbackIds.size} odtw. · ${dailyPracticeDuration(it.playbackMs)} · ${Instant.ofEpochMilli(it.startedAt)}") }
+            if (preview.resetCount > 0) Text("Resetowane korekty: ${preview.resetCount}")
+        }
+    }, confirmButton = { TextButton(confirm) { Text("Zastosuj") } }, dismissButton = { TextButton(close) { Text("Anuluj") } })
+}
+
+@Composable
+internal fun GroupedHistory(data: AppData, sessions: List<PracticeSession>, includeMusic: Boolean) {
+    var revision by remember { mutableIntStateOf(0) }
+    var expanded by rememberSaveable { mutableStateOf<String?>(null) }
+    var preview by remember { mutableStateOf<PracticeGroupingPreview?>(null) }
+    val gap by data.settings.groupingGap.collectAsStateWithLifecycle(initialValue = PracticeGroupingGap.DEFAULT)
+    val scope = rememberCoroutineScope()
+    val grouping by produceState<Result<PracticeGroupingSummary>?>(null, sessions, gap, revision) {
+        value = runCatching { data.practiceGrouping(Instant.now()) }
+    }
+    fun change(action: PracticeGroupingChange) {
+        scope.launch {
+            runCatching { data.previewPracticeGrouping(action, Instant.now()) }
+                .onSuccess { preview = it }.onFailure { data.error.value = "Nie udało się przygotować zmiany grupowania." }
+        }
+    }
+    if (grouping == null) Text("Wczytywanie sesji…")
+    if (grouping?.isFailure == true) TextButton({ revision++ }) { Text("Ponów odczyt sesji") }
+    val groups = grouping?.getOrNull()?.groups.orEmpty()
+    groups.forEachIndexed { index, group ->
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(12.dp)) {
+                TextButton({ expanded = if (expanded == group.playbackIds.first()) null else group.playbackIds.first() }) {
+                    Text("${Instant.ofEpochMilli(group.startedAt).atZone(ZoneId.systemDefault()).toLocalDateTime()} · ${group.playbackIds.size} odtw.")
+                }
+                Text("Odtwarzanie: ${dailyPracticeDuration(group.playbackMs)} · rozpiętość: ${dailyPracticeDuration(group.spanMs)}")
+                if (expanded == group.playbackIds.first()) {
+                    group.playbackIds.forEachIndexed { i, id ->
+                        sessions.firstOrNull { it.id == id }?.let { session ->
+                            Text("${Instant.ofEpochMilli(session.startedAt).atZone(ZoneId.of(session.zoneId)).toLocalDateTime()} · ${dailyPracticeDuration(session.durationMs)}")
+                            if (i > 0) TextButton({ change(PracticeGroupingChange.SplitBefore(id)) }) { Text("Rozdziel przed odtworzeniem") }
+                        }
+                    }
+                    Row {
+                        if (index > 0) TextButton({ change(PracticeGroupingChange.Join(groups[index - 1].playbackIds.last(), group.playbackIds.first())) }) { Text("Połącz z poprzednią") }
+                        TextButton({ change(PracticeGroupingChange.ResetGroup(group.playbackIds.first())) }) { Text("Resetuj") }
+                    }
+                }
+            }
+        }
+    }
+    if (groups.isEmpty() && grouping?.isSuccess == true) Text("Brak odtworzeń.")
+    if (includeMusic) MusicActivityHistory(data)
+    preview?.let { value -> GroupingPreviewDialog(value, { preview = null }, {
+        data.applyPracticeGrouping(value)
+        scope.launch { data.awaitWrites(); revision++ }
+        preview = null
+    }) }
+}
