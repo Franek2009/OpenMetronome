@@ -489,6 +489,10 @@ class SilentFeaturesTest {
     }
 
     @Test fun musicActivityCanBeAddedAndScopeSurvivesRecreation() {
+        if (InstrumentationRegistry.getArguments().getString("layoutLandscape") == "true") {
+            compose.activityRule.scenario.onActivity { it.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
+            compose.waitUntil(10000) { compose.activity.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE }
+        }
         val start = System.currentTimeMillis() - 3_600_000
         val date = java.time.Instant.ofEpochMilli(start).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString()
         runBlocking(Dispatchers.IO) {
@@ -510,19 +514,31 @@ class SilentFeaturesTest {
         compose.onNodeWithText("Minuty").performTextReplacement("10")
         compose.onNodeWithText("Instrument (opcjonalnie)").performTextReplacement("Kontrabas")
         compose.onNodeWithText("Zapisz").performClick()
-        compose.waitUntil(10000) { runBlocking { data.musicActivities.first().any { it.details.instrument == "Kontrabas" } } }
         compose.activityRule.scenario.recreate()
+        compose.waitUntil(10000) { runBlocking { data.musicActivities.first().any { it.details.instrument == "Kontrabas" } } }
+        compose.waitUntil(10000) { compose.onAllNodesWithText("Dodaj aktywność").fetchSemanticsNodes().isEmpty() }
+        assertEquals(1, runBlocking { data.musicActivities.first().count { it.details.instrument == "Kontrabas" } })
         compose.onNodeWithText("Cała aktywność").assertIsSelected()
         compose.onNodeWithText("Kontrabas").performScrollTo().assertExists()
         captureUi("music-history")
-        compose.onNodeWithText("Edytuj").performScrollTo().performClick()
-        compose.onNodeWithText("Notatka (opcjonalnie)").performTextReplacement("Próba")
+        compose.onNodeWithText("Dane").performScrollTo()
+        compose.onNodeWithText("Edytuj").performScrollTo()
+        repeat(8) {
+            if (runCatching { compose.onNodeWithText("Edytuj").assertIsDisplayed() }.isFailure) {
+                compose.onNodeWithTag("statistics-content").performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, -80f) }
+            }
+        }
+        compose.onNodeWithText("Edytuj").assertIsDisplayed().performClick()
+        compose.onNodeWithText("Edytuj aktywność").assertExists()
+        compose.onNodeWithText("Notatka (opcjonalnie)").performScrollTo().performTextReplacement("Próba")
         compose.activityRule.scenario.recreate()
         compose.onNodeWithText("Próba").assertExists()
         compose.onNodeWithText("Zapisz").performClick()
         compose.waitUntil(10000) { runBlocking { data.musicActivities.first().any { it.details.note == "Próba" } } }
         compose.waitUntil(10000) { compose.onAllNodesWithText("1 odtw.", substring = true).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("1 odtw.", substring = true).performScrollTo().performClick()
+        compose.onNodeWithText("Dane").performScrollTo()
+        compose.onNodeWithText("Resetuj").performScrollTo().assertIsDisplayed()
         captureUi("music-group")
         page("Ustawienia")
         compose.onNodeWithText("Grupowanie sesji").performScrollTo()

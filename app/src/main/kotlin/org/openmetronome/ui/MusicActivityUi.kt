@@ -14,10 +14,15 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
 import java.time.*
+import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.openmetronome.data.*
 import org.openmetronome.domain.model.*
 
@@ -28,6 +33,10 @@ private fun MusicActivityKind.label() = when (this) {
     MusicActivityKind.CONCERT -> "Koncert"
     MusicActivityKind.OTHER -> "Inne"
 }
+
+private val historyDateFormat = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
+private fun historyDate(timestamp: Long, zone: ZoneId): String =
+    historyDateFormat.format(Instant.ofEpochMilli(timestamp).atZone(zone))
 
 @Composable
 internal fun MusicActivityHistory(data: AppData) {
@@ -53,7 +62,7 @@ internal fun MusicActivityHistory(data: AppData) {
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp)) {
                 Text(activity.details.kind.label(), style = MaterialTheme.typography.titleMedium)
-                Text(Instant.ofEpochMilli(activity.details.startAt).atZone(ZoneId.of(activity.details.zoneId)).toLocalDateTime().toString())
+                Text(historyDate(activity.details.startAt, ZoneId.of(activity.details.zoneId)))
                 Text(dailyPracticeDuration(activity.details.timerDurationMs))
                 activity.details.instrument?.let { Text(it) }
                 activity.details.note?.let { Text(it) }
@@ -65,17 +74,37 @@ internal fun MusicActivityHistory(data: AppData) {
         }
       }
     }
-    if (adding || editing != null) ActivityDialog(editing, { adding = false; editingId = null }) { details ->
-        data.saveMusicActivity(details, editing?.id)
-        adding = false; editingId = null
-    }
+    if (adding || editing != null) ActivityDialog(editing, data) { adding = false; editingId = null }
     deletingId?.let { id -> AlertDialog(onDismissRequest = { deletingId = null }, title = { Text("Usunąć aktywność?") },
         confirmButton = { TextButton({ data.deleteMusicActivity(id); deletingId = null }) { Text("Usuń") } },
         dismissButton = { TextButton({ deletingId = null }) { Text("Anuluj") } }) }
 }
 
+internal enum class ActivitySaveState { IDLE, SAVING, SAVED, FAILED }
+
+internal class MusicActivitySaveViewModel : ViewModel() {
+    val state = MutableStateFlow(ActivitySaveState.IDLE)
+
+    fun save(data: AppData, details: MusicActivityDetails, id: String?) {
+        if (state.value == ActivitySaveState.SAVING) return
+        state.value = ActivitySaveState.SAVING
+        viewModelScope.launch {
+            try {
+                data.saveMusicActivity(details, id)
+                state.value = ActivitySaveState.SAVED
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                state.value = ActivitySaveState.FAILED
+            }
+        }
+    }
+
+    fun reset() { state.value = ActivitySaveState.IDLE }
+}
+
 @Composable
-private fun ActivityDialog(activity: MusicActivity?, close: () -> Unit, save: suspend (MusicActivityDetails) -> Unit) {
+private fun ActivityDialog(activity: MusicActivity?, data: AppData, close: () -> Unit) {
     val initial = activity?.details
     val zone = initial?.zoneId?.let(ZoneId::of) ?: ZoneId.systemDefault()
     val start = initial?.startAt?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalDateTime() } ?: LocalDateTime.now().minusMinutes(30).withSecond(0).withNano(0)
@@ -99,10 +128,14 @@ private fun ActivityDialog(activity: MusicActivity?, close: () -> Unit, save: su
         MusicActivityDetails.manual(MusicActivityKind.valueOf(kind), from, Math.addExact(from, duration), zone.id, instrument, note)
     }.getOrNull()
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var saving by remember { mutableStateOf(false) }
-    var saveError by rememberSaveable { mutableStateOf<String?>(null) }
-    AlertDialog(onDismissRequest = { if (!saving) close() }, title = { Text(if (activity == null) "Dodaj aktywność" else "Edytuj aktywność") }, text = {
+    val editor: MusicActivitySaveViewModel = viewModel()
+    val saveState by editor.state.collectAsStateWithLifecycle()
+    val saving = saveState == ActivitySaveState.SAVING
+    LaunchedEffect(saveState) {
+        if (saveState == ActivitySaveState.SAVED) { editor.reset(); close() }
+    }
+    fun dismiss() { if (!saving) { editor.reset(); close() } }
+    AlertDialog(onDismissRequest = ::dismiss, title = { Text(if (activity == null) "Dodaj aktywność" else "Edytuj aktywność") }, text = {
         Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 MusicActivityKind.entries.forEach { item -> FilterChip(kind == item.name, { kind = item.name }, label = { Text(item.label()) }) }
@@ -126,15 +159,11 @@ private fun ActivityDialog(activity: MusicActivity?, close: () -> Unit, save: su
             OutlinedTextField(instrument, { instrument = it }, label = { Text("Instrument (opcjonalnie)") })
             OutlinedTextField(note, { note = it }, label = { Text("Notatka (opcjonalnie)") })
             if (details == null) Text("Sprawdź datę, godzinę i czas. Godzina musi istnieć jednoznacznie w strefie $zone.", color = MaterialTheme.colorScheme.error)
-            saveError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            if (saveState == ActivitySaveState.FAILED) Text("Nie udało się zapisać aktywności. Spróbuj ponownie.", color = MaterialTheme.colorScheme.error)
         }
-    }, confirmButton = { TextButton({ details?.let { value -> scope.launch {
-        saving = true
-        try { save(value) } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
-        catch (_: Exception) { saveError = "Nie udało się zapisać aktywności. Spróbuj ponownie." }
-        finally { saving = false }
-    } } }, enabled = details != null && !saving) { Text(if (saving) "Zapisywanie…" else "Zapisz") } },
-        dismissButton = { TextButton(close, enabled = !saving) { Text("Anuluj") } })
+    }, confirmButton = { TextButton({ details?.let { editor.save(data, it, activity?.id) } },
+        enabled = details != null && !saving && saveState != ActivitySaveState.SAVED) { Text(if (saving) "Zapisywanie…" else "Zapisz") } },
+        dismissButton = { TextButton(::dismiss, enabled = !saving) { Text("Anuluj") } })
 }
 
 @Composable
@@ -217,14 +246,14 @@ internal fun GroupedHistory(data: AppData, sessions: List<PracticeSession>, incl
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp)) {
                 TextButton({ expanded = if (expanded == group.playbackIds.first()) null else group.playbackIds.first() }) {
-                    Text("${Instant.ofEpochMilli(group.startedAt).atZone(ZoneId.systemDefault()).toLocalDateTime()} · ${group.playbackIds.size} odtw.")
+                    Text("${historyDate(group.startedAt, ZoneId.systemDefault())} · ${group.playbackIds.size} odtw.")
                 }
                 Text("Odtwarzanie: ${dailyPracticeDuration(group.playbackMs)} · rozpiętość: ${dailyPracticeDuration(group.spanMs)}")
                 if (expanded == group.playbackIds.first()) {
                     group.playbackIds.forEachIndexed { i, id ->
                         sessions.firstOrNull { it.id == id }?.let { session ->
                             TextButton({ selectedId = session.id }) {
-                                Text("${Instant.ofEpochMilli(session.startedAt).atZone(ZoneId.of(session.zoneId)).toLocalDateTime()} · ${dailyPracticeDuration(session.durationMs)}")
+                                Text("${historyDate(session.startedAt, ZoneId.of(session.zoneId))} · ${dailyPracticeDuration(session.durationMs)}")
                             }
                             if (i > 0) TextButton({ change(PracticeGroupingChange.SplitBefore(id)) }) { Text("Rozdziel przed odtworzeniem") }
                         }

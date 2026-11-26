@@ -301,7 +301,7 @@ private fun StatisticsScreen(data: AppData, model: MetronomeViewModel) {
     var periodName by rememberSaveable { mutableStateOf(StatisticsPeriod.DAYS_7.name) }
     val period = StatisticsPeriod.valueOf(periodName)
     val chart = remember(days, period, today) { PracticeStats.chart(days, period, today) }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(Modifier.fillMaxSize().testTag("statistics-content").verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Statystyki", style = MaterialTheme.typography.headlineMedium)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(!musicScope, { data.saveMusicScope(false) }, label = { Text("Metronom") })
@@ -334,6 +334,10 @@ private fun StatisticsScreen(data: AppData, model: MetronomeViewModel) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         SummaryCard("Łącznie", duration(summary.totalMs), Modifier.weight(1f))
                         SummaryCard("Aktywne dni", summary.activeDays.toString(), Modifier.weight(1f))
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        SummaryCard("Seria dni", summary.dayStreak.current.toString(), Modifier.weight(1f))
+                        SummaryCard("Seria tygodni", summary.currentWeek.goalDays?.let { summary.weekStreak.current.toString() } ?: "—", Modifier.weight(1f))
                     }
                     Text("Ten tydzień", style = MaterialTheme.typography.titleMedium)
                     val weekly = summary.days.filter { it.date in summary.currentWeek.monday..summary.today }
