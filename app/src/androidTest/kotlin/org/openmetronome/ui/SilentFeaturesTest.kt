@@ -491,6 +491,8 @@ class SilentFeaturesTest {
     @Test fun musicActivityCanBeAddedAndScopeSurvivesRecreation() {
         page("Statystyki")
         compose.onNodeWithText("Cała aktywność").performClick()
+        compose.waitUntil(10000) { compose.onAllNodesWithText("Brak aktywności.").fetchSemanticsNodes().isNotEmpty() }
+        captureUi("music-summary")
         compose.onNodeWithText("Historia").performClick()
         compose.onNodeWithText("+ Dodaj aktywność").performScrollTo().performClick()
         compose.onNodeWithText("Lekcja").performClick()
@@ -502,6 +504,12 @@ class SilentFeaturesTest {
         compose.onNodeWithText("Cała aktywność").assertIsSelected()
         compose.onNodeWithText("Kontrabas").performScrollTo().assertExists()
         captureUi("music-history")
+        compose.onNodeWithText("Edytuj").performScrollTo().performClick()
+        compose.onNodeWithText("Notatka (opcjonalnie)").performTextReplacement("Próba")
+        compose.activityRule.scenario.recreate()
+        compose.onNodeWithText("Próba").assertExists()
+        compose.onNodeWithText("Zapisz").performClick()
+        compose.waitUntil(10000) { runBlocking { data.musicActivities.first().any { it.details.note == "Próba" } } }
     }
 
     @Test fun widgetLinksCanNavigateRepeatedlyWithoutChangingConfiguration() {

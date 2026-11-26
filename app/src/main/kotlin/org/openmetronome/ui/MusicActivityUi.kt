@@ -11,6 +11,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.time.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.map
 import org.openmetronome.data.*
 import org.openmetronome.domain.model.*
 
@@ -24,13 +26,23 @@ private fun MusicActivityKind.label() = when (this) {
 
 @Composable
 internal fun MusicActivityHistory(data: AppData) {
-    val activities by data.musicActivities.collectAsStateWithLifecycle(initialValue = emptyList())
+    var retry by remember { mutableIntStateOf(0) }
+    val source = remember(data, retry) {
+        data.musicActivities.map<List<MusicActivity>, Result<List<MusicActivity>>> { Result.success(it) }
+            .catch { error -> if (error is kotlinx.coroutines.CancellationException) throw error else emit(Result.failure(error)) }
+    }
+    val result by source.collectAsStateWithLifecycle(initialValue = null)
+    val activities = result?.getOrNull().orEmpty()
     var editingId by rememberSaveable { mutableStateOf<String?>(null) }
     var adding by rememberSaveable { mutableStateOf(false) }
     var deletingId by rememberSaveable { mutableStateOf<String?>(null) }
     val editing = activities.firstOrNull { it.id == editingId }
     OutlinedButton({ adding = true }) { Text("+ Dodaj aktywność") }
-    if (activities.isEmpty()) Text("Brak aktywności muzycznych.")
+    when {
+        result == null -> Text("Wczytywanie aktywności…")
+        result?.isFailure == true -> TextButton({ retry++ }) { Text("Ponów odczyt aktywności") }
+        activities.isEmpty() -> Text("Brak aktywności muzycznych.")
+    }
     activities.forEach { activity ->
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp)) {
@@ -147,6 +159,7 @@ internal fun GroupedHistory(data: AppData, sessions: List<PracticeSession>, incl
     var revision by remember { mutableIntStateOf(0) }
     var expanded by rememberSaveable { mutableStateOf<String?>(null) }
     var preview by remember { mutableStateOf<PracticeGroupingPreview?>(null) }
+    var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     val gap by data.settings.groupingGap.collectAsStateWithLifecycle(initialValue = PracticeGroupingGap.DEFAULT)
     val scope = rememberCoroutineScope()
     val grouping by produceState<Result<PracticeGroupingSummary>?>(null, sessions, gap, revision) {
@@ -171,7 +184,9 @@ internal fun GroupedHistory(data: AppData, sessions: List<PracticeSession>, incl
                 if (expanded == group.playbackIds.first()) {
                     group.playbackIds.forEachIndexed { i, id ->
                         sessions.firstOrNull { it.id == id }?.let { session ->
-                            Text("${Instant.ofEpochMilli(session.startedAt).atZone(ZoneId.of(session.zoneId)).toLocalDateTime()} · ${dailyPracticeDuration(session.durationMs)}")
+                            TextButton({ selectedId = session.id }) {
+                                Text("${Instant.ofEpochMilli(session.startedAt).atZone(ZoneId.of(session.zoneId)).toLocalDateTime()} · ${dailyPracticeDuration(session.durationMs)}")
+                            }
                             if (i > 0) TextButton({ change(PracticeGroupingChange.SplitBefore(id)) }) { Text("Rozdziel przed odtworzeniem") }
                         }
                     }
@@ -185,6 +200,27 @@ internal fun GroupedHistory(data: AppData, sessions: List<PracticeSession>, incl
     }
     if (groups.isEmpty() && grouping?.isSuccess == true) Text("Brak odtworzeń.")
     if (includeMusic) MusicActivityHistory(data)
+    sessions.firstOrNull { it.id == selectedId }?.let { session ->
+        val config = remember(session.config) { runCatching { ConfigCodec.decode(session.config) }.getOrNull() }
+        val timeline by produceState<Result<SessionTimeline?>?>(null, session) {
+            value = try { Result.success(data.sessionTimeline(session)?.let { SessionTimelineCodec.decode(it, session.durationMs) }) }
+            catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (error: Exception) { Result.failure(error) }
+        }
+        AlertDialog(onDismissRequest = { selectedId = null }, title = { Text("Szczegóły odtworzenia") }, text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text(dailyPracticeDuration(session.durationMs))
+                Text("Strefa: ${session.zoneId}")
+                config?.let { Text("${it.effectiveBpmLabel} BPM · ${it.timeSignature.numerator}/${it.timeSignature.denominator}") }
+                Text(when { timeline == null -> "Wczytywanie przebiegu…"; timeline?.isFailure == true -> "Nie udało się odczytać przebiegu."
+                    timeline?.getOrNull()?.complete == true -> "Pełny zapis zmian konfiguracji"; else -> "Brak pełnego przebiegu konfiguracji." })
+                timeline?.getOrNull()?.changes?.take(50)?.forEach { change ->
+                    val item = ConfigCodec.decode(change.config)
+                    Text("${dailyPracticeDuration(change.offsetMs)} · ${item.effectiveBpmLabel} BPM")
+                }
+            }
+        }, confirmButton = { TextButton({ selectedId = null }) { Text("Zamknij") } })
+    }
     preview?.let { value -> GroupingPreviewDialog(value, { preview = null }, {
         data.applyPracticeGrouping(value)
         scope.launch { data.awaitWrites(); revision++ }
