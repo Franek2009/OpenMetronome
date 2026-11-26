@@ -29,10 +29,12 @@ na żądanie. W tle pracuje dotychczasowy zapis odtworzeń.
 ## Jawne decyzje i podgląd
 
 - Koniec zapisuje granicę za wskazanym UUID po Stop, finalizacji rekordu i
-  opróżnieniu zaległego zapisu. Rozdzielenie zachowuje granicę bezpośrednio
-  przed wskazanym UUID. Łączenie sąsiednich grup zachowuje oba skrajne UUID
-  przy granicy. Jeżeli pomiędzy nie trafi późne odtworzenie, jawne łączenie
-  nadal obejmuje całą drogę od lewej do prawej kotwicy.
+  opróżnieniu zaległego zapisu. Powtórzenie obowiązującego zakończenia jest
+  operacją pustą. Jeśli nowsze łączenie przesłoniło zakończenie, można je
+  jawnie zapisać ponownie. Rozdzielenie zachowuje granicę przed wskazanym
+  UUID. Łączenie sąsiednich grup zapisuje pierwszy UUID lewej i ostatni UUID
+  prawej grupy. Obejmuje cały zakres między nimi po zmianie lub wyłączeniu
+  progu, również jeśli w środku pojawi się późno zapisane odtworzenie.
 - Na każdej granicy wygrywa ostatnia jawna decyzja o największym numerze
   porządkowym. Zegar urządzenia służy do daty znacznika usunięcia. Gdy
   brakuje kotwicy, reguła nie wpływa na bieżący podział, ale pozostaje w kopii.
@@ -41,8 +43,9 @@ na żądanie. W tle pracuje dotychczasowy zapis odtworzeń.
   aktywne korekty. Dotychczasowy próg pozostaje ustawieniem automatycznego
   grupowania po resecie.
 - Podgląd zawiera grupy zmieniające się przed i po oraz liczbę resetowanych
-  korekt. Wywołujący przekazuje zaakceptowany podgląd do zapisu. Globalny
-  reset używa tego samego dwuetapowego wywołania i wymaga potwierdzenia w
+  korekt. Usunięcie szerokiej korekty może zmienić inne grupy i podgląd
+  obejmuje także te skutki. Wywołujący przekazuje zaakceptowany podgląd do
+  zapisu. Globalny reset używa tego samego dwuetapowego wywołania i wymaga potwierdzenia w
   przyszłym UI. Aplikacja ponownie oblicza konsekwencje w transakcji. Zmiana
   progu, późny zapis lub inna korekta mogą unieważnić podgląd. Zapis decyzji
   i oznaczanie usunięć nie modyfikują surowych rekordów odtworzeń.
@@ -56,8 +59,9 @@ wcześniejszych szkiców Room 4 sprzed zamrożenia nadal obowiązuje ścieżka
 eksportu z danego buildu i importu pełnej kopii.
 
 W pełnym backupie v3 pole preferencji zapisuje także domyślny próg. Opcjonalna
-sekcja `GRP1` po notatkach zapisuje decyzje i znaczniki usunięcia. Czytnik
-akceptuje poprzednie układy v3, także z notatkami, oraz v1/v2. Starszy czytnik
+sekcja `GRP1` po notatkach zapisuje decyzje i znaczniki usunięcia. Przywrócone
+korekty z wcześniejszego draftu zachowują zakres zapisany w ich dwóch UUID.
+Czytnik akceptuje poprzednie układy v3, także z notatkami, oraz v1/v2. Starszy czytnik
 testowy wymaga aktualizacji do odczytu sekcji `GRP1`. Import zastępuje rekordy
 grupowania. Archiwa bez korekt przywracają pusty zestaw korekt, a kopie bez
 ustawienia progu zachowują bieżący próg. Eksporty kompatybilne v1/v2 pomijają

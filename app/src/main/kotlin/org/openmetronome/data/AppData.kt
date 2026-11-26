@@ -278,10 +278,11 @@ class AppData private constructor(
 
     fun applyPracticeGrouping(preview: PracticeGroupingPreview) = operation {
         database.withTransaction {
+            val plan = groupingProjection(preview.at).plan(preview.change)
             if (preview.change is PracticeGroupingChange.FinishAfter) {
+                if (plan.addition == null) return@withTransaction
                 check(!playbackBusy.value && !sessionWriteFailed.value) { "Wait for durable playback finalization" }
             }
-            val plan = groupingProjection(preview.at).plan(preview.change)
             check(plan.preview == preview) { "Practice grouping preview changed" }
             plan.addition?.let { groupingDao.insert(listOf(GroupingCorrectionRow(it))) }
             val deletedAt = System.currentTimeMillis()

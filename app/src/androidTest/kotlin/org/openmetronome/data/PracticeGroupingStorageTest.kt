@@ -129,8 +129,18 @@ class PracticeGroupingStorageTest {
             data.sessionWriteFailed.value = false
             data.applyPracticeGrouping(finish)
             data.awaitWrites()
-            assertEquals(GroupingCorrectionKind.FINISH_AFTER.name, data.database.grouping().corrections().single().kind)
+            val saved = data.database.grouping().corrections().single()
+            assertEquals(GroupingCorrectionKind.FINISH_AFTER.name, saved.kind)
             assertTrue(data.practiceGrouping(now).groups.single().completed)
+            val repeat = data.previewPracticeGrouping(PracticeGroupingChange.FinishAfter(last.id), now)
+            assertTrue(repeat.before.isEmpty())
+            assertTrue(repeat.after.isEmpty())
+            data.error.value = null
+            data.applyPracticeGrouping(finish)
+            data.applyPracticeGrouping(repeat)
+            data.awaitWrites()
+            assertEquals(listOf(saved), data.database.grouping().corrections())
+            assertNull(data.error.value)
             assertEquals(last, data.dao.sessionsForExport().single())
         } finally { data.closeTestStorage() }
     }

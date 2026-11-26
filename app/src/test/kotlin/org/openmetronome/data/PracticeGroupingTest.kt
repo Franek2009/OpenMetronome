@@ -63,6 +63,58 @@ class PracticeGroupingTest {
         assertEquals(listOf(listOf(a.id), listOf(late.id)), project(listOf(a, late), listOf(join), gap, now).groups.map { it.playbackIds })
     }
 
+    @Test fun manualJoinRetainsBothGroupsWhenThresholdChangesOrIsDisabled() {
+        val a = playback(1, 0)
+        val b = playback(2, 600_000)
+        val c = playback(3, 2_600_000)
+        val d = playback(4, 3_200_000)
+        val late = playback(5, 300_000)
+        val original = listOf(a, b, c, d)
+        val engine = PracticeGrouping(original, emptyList(), PracticeGroupingGap.DEFAULT, Instant.EPOCH)
+        assertEquals(listOf(listOf(a.id, b.id), listOf(c.id, d.id)), engine.summarize().groups.map { it.playbackIds })
+        val join = engine.plan(PracticeGroupingChange.Join(b.id, c.id)).addition!!
+        val expected = listOf(listOf(a.id, late.id, b.id, c.id, d.id))
+        for (gap in listOf(PracticeGroupingGap.MINUTES_5, PracticeGroupingGap.DISABLED)) {
+            assertEquals(expected, project(original + late, listOf(join), gap).groups.map { it.playbackIds })
+        }
+        assertEquals(a.id, join.playbackId)
+        assertEquals(d.id, join.otherPlaybackId)
+    }
+
+    @Test fun finishIsIdempotentUntilANewerJoinOverridesItsBoundary() {
+        val a = playback(1, 0)
+        val b = playback(2, 600_000)
+        val now = Instant.ofEpochMilli(b.endedAt)
+        val change = PracticeGroupingChange.FinishAfter(a.id)
+        val original = PracticeGrouping(listOf(a, b), emptyList(), PracticeGroupingGap.DEFAULT, now)
+        val finish = original.plan(change).addition!!
+        val finished = PracticeGrouping(listOf(a, b), listOf(finish), PracticeGroupingGap.DEFAULT, now)
+        val repeat = finished.plan(change)
+        assertNull(repeat.addition)
+        assertTrue(repeat.preview.before.isEmpty())
+        assertTrue(repeat.preview.after.isEmpty())
+        val join = finished.plan(PracticeGroupingChange.Join(a.id, b.id)).addition!!
+        val joined = PracticeGrouping(listOf(a, b), listOf(finish, join), PracticeGroupingGap.DEFAULT, now)
+        assertEquals(1, joined.summarize().groups.size)
+        val finishingAgain = joined.plan(change)
+        assertEquals(join.sequenceNumber + 1, finishingAgain.addition!!.sequenceNumber)
+        assertEquals(listOf(listOf(a.id), listOf(b.id)), finishingAgain.preview.after.map { it.playbackIds })
+    }
+
+    @Test fun resetPreviewShowsChangesOutsideTheSelectedGroupWhenRemovingAWideJoin() {
+        val (a, b, c, d, e) = List(5) { playback(it + 1, it * 600_000L) }
+        val unrelated = playback(6, 3_000_000)
+        val rules = listOf(correction(1, GroupingCorrectionKind.JOIN, a, e),
+            correction(2, GroupingCorrectionKind.SPLIT_BEFORE, b), correction(3, GroupingCorrectionKind.SPLIT_BEFORE, d))
+        val engine = PracticeGrouping(listOf(a, b, c, d, e, unrelated), rules, PracticeGroupingGap.DISABLED, Instant.EPOCH)
+        val initial = engine.summarize().groups.map { it.playbackIds }
+        assertEquals(listOf(listOf(a.id), listOf(b.id, c.id), listOf(d.id, e.id), listOf(unrelated.id)), initial)
+        val reset = engine.plan(PracticeGroupingChange.ResetGroup(b.id)).preview
+        assertEquals(setOf(listOf(b.id, c.id), listOf(d.id, e.id)), reset.before.map { it.playbackIds }.toSet())
+        assertEquals(listOf(b.id, c.id, d.id, e.id).map(::listOf), reset.after.map { it.playbackIds })
+        assertEquals(rules.map { it.id }.toSet(), reset.correctionsToReset)
+    }
+
     @Test fun resetsRemoveAllDecisionsTouchingTheSelectedGroupAndKeepOtherDecisions() {
         val p = List(4) { playback(it + 1, it * 2_000_000L) }
         val now = Instant.ofEpochMilli(6_005_000)

@@ -86,8 +86,13 @@ internal class PracticeGrouping(
             GroupingCorrection(UUID.randomUUID().toString(), Math.addExact(corrections.maxOfOrNull { it.sequenceNumber } ?: 0L, 1L), kind, id, other)
         val addition = when (change) {
             is PracticeGroupingChange.FinishAfter -> {
-                require(ordered[index(change.playbackId)].finished) { "Playback is not finalized" }
-                correction(GroupingCorrectionKind.FINISH_AFTER, change.playbackId)
+                val playback = index(change.playbackId)
+                require(ordered[playback].finished) { "Playback is not finalized" }
+                val boundary = playback + 1
+                val winner = ranges(active).asSequence().filter { boundary in it.first..it.last }
+                    .maxByOrNull { it.correction.sequenceNumber }
+                if (winner?.correction?.kind == GroupingCorrectionKind.FINISH_AFTER) null
+                else correction(GroupingCorrectionKind.FINISH_AFTER, change.playbackId)
             }
             is PracticeGroupingChange.SplitBefore -> {
                 require(index(change.playbackId) > 0) { "There is no preceding playback" }
@@ -95,8 +100,11 @@ internal class PracticeGrouping(
             }
             is PracticeGroupingChange.Join -> {
                 require(index(change.leftPlaybackId) + 1 == index(change.rightPlaybackId)) { "Playbacks are not adjacent" }
-                require(before.any { it.playbackIds.last() == change.leftPlaybackId }) { "Playbacks are already in one group" }
-                correction(GroupingCorrectionKind.JOIN, change.leftPlaybackId, change.rightPlaybackId)
+                val left = requireNotNull(before.firstOrNull { it.playbackIds.last() == change.leftPlaybackId }) {
+                    "Playbacks are already in one group"
+                }
+                val right = before.first { it.playbackIds.first() == change.rightPlaybackId }
+                correction(GroupingCorrectionKind.JOIN, left.playbackIds.first(), right.playbackIds.last())
             }
             else -> null
         }
