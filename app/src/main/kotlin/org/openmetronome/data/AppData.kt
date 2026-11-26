@@ -36,9 +36,11 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
     private val musicZoneKey = stringPreferencesKey("music_statistics_zone")
     private val musicDayKey = intPreferencesKey("music_active_day_minutes")
     private val musicGoalKey = intPreferencesKey("music_weekly_goal_days")
+    private val groupingGapKey = stringPreferencesKey("practice_grouping_gap")
     val display = store.data.map { PracticeDisplayPreferences(it[awakeKey] ?: false, it[motionKey] ?: false) }
     val statistics = store.data.map { StatisticsPreferences(it[sessionThresholdKey] ?: 20, it[dayThresholdKey] ?: 5) }
     val musicStatistics = store.data.map { it.musicStatistics() }.distinctUntilChanged()
+    val groupingGap = store.data.map { it[groupingGapKey]?.let(PracticeGroupingGap::valueOf) ?: PracticeGroupingGap.DEFAULT }
     suspend fun saveDisplay(value: PracticeDisplayPreferences) {
         store.edit { it[awakeKey] = value.keepFullscreenAwake; it[motionKey] = value.reduceMotion }
     }
@@ -46,6 +48,7 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
         store.edit { it[sessionThresholdKey] = value.minimumSessionSeconds; it[dayThresholdKey] = value.activeDayMinutes }
     }
     suspend fun saveMusicStatistics(value: MusicStatisticsPreferences) { store.edit { it.putMusicStatistics(value) } }
+    suspend fun saveGroupingGap(value: PracticeGroupingGap) { store.edit { it[groupingGapKey] = value.name } }
 
     private fun Preferences.musicStatistics() = this[musicZoneKey]?.let { zone ->
         MusicStatisticsPreferences(ZoneId.of(zone), this[musicDayKey] ?: 5, this[musicGoalKey]?.takeUnless { it == 0 })
@@ -64,7 +67,8 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
     suspend fun preferencesSnapshot(): String {
         val prefs = store.data.first()
         return AppPreferencesCodec.encode(AppPreferences(PracticeDisplayPreferences(prefs[awakeKey] ?: false, prefs[motionKey] ?: false),
-            StatisticsPreferences(prefs[sessionThresholdKey] ?: 20, prefs[dayThresholdKey] ?: 5), prefs.musicStatistics()))
+            StatisticsPreferences(prefs[sessionThresholdKey] ?: 20, prefs[dayThresholdKey] ?: 5), prefs.musicStatistics(),
+            prefs[groupingGapKey]?.let(PracticeGroupingGap::valueOf) ?: PracticeGroupingGap.DEFAULT))
     }
     suspend fun restorePreferences(payload: String?) {
         if (payload == null) return // Old archives have no new display/statistics choices.
@@ -73,6 +77,7 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
             it[awakeKey] = value.display.keepFullscreenAwake; it[motionKey] = value.display.reduceMotion
             it[sessionThresholdKey] = value.statistics.minimumSessionSeconds; it[dayThresholdKey] = value.statistics.activeDayMinutes
             it.putMusicStatistics(value.musicStatistics)
+            if (value.groupingGap != null) it[groupingGapKey] = value.groupingGap.name else it.remove(groupingGapKey)
         }
     }
 }
@@ -141,11 +146,11 @@ class AppData private constructor(
         else SettingsRepository(context.applicationContext)
     val database = if (testDirectory != null) Room.databaseBuilder(context, PracticeDatabase::class.java,
         File(testDirectory, "practice.db").absolutePath).addMigrations(PracticeDatabase.MIGRATION_1_2, PracticeDatabase.MIGRATION_2_3,
-            PracticeDatabase.MIGRATION_3_4).build()
+            PracticeDatabase.MIGRATION_3_4, PracticeDatabase.MIGRATION_4_5).build()
         else if (isolatedTestStorage) Room.inMemoryDatabaseBuilder(context.applicationContext, PracticeDatabase::class.java).build()
         else Room.databaseBuilder(context.applicationContext, PracticeDatabase::class.java, "openmetronome.db")
             .addMigrations(PracticeDatabase.MIGRATION_1_2, PracticeDatabase.MIGRATION_2_3,
-            PracticeDatabase.MIGRATION_3_4).build()
+                PracticeDatabase.MIGRATION_3_4, PracticeDatabase.MIGRATION_4_5).build()
     private val sampleDirectory = if (isolatedTestStorage)
         if (testDirectory != null) File(testDirectory, "samples") else File(context.cacheDir, "sample-library-${UUID.randomUUID()}")
         else File(context.filesDir, "custom-samples")
@@ -156,6 +161,7 @@ class AppData private constructor(
     private val restoreJournal = RestoreJournal(journalRoot, ::syncDirectory)
     val dao = database.practice()
     private val musicDao = database.musicActivities()
+    private val groupingDao = database.grouping()
 
     val musicActivities: Flow<List<MusicActivity>> = flow {
         ready.await()
@@ -263,6 +269,38 @@ class AppData private constructor(
     fun saveDisplayPreferences(value: PracticeDisplayPreferences) = operation { settings.saveDisplay(value) }
     fun saveStatisticsPreferences(value: StatisticsPreferences) = operation { settings.saveStatistics(value) }
     fun saveMusicStatisticsPreferences(value: MusicStatisticsPreferences) = operation { settings.saveMusicStatistics(value) }
+    fun savePracticeGroupingGap(value: PracticeGroupingGap) = operation { settings.saveGroupingGap(value) }
+
+    suspend fun practiceGrouping(at: Instant): PracticeGroupingSummary = readGrouping(at) { summarize() }
+
+    suspend fun previewPracticeGrouping(change: PracticeGroupingChange, at: Instant): PracticeGroupingPreview =
+        readGrouping(at) { plan(change).preview }
+
+    fun applyPracticeGrouping(preview: PracticeGroupingPreview) = operation {
+        database.withTransaction {
+            val plan = groupingProjection(preview.at).plan(preview.change)
+            if (preview.change is PracticeGroupingChange.FinishAfter) {
+                if (plan.addition == null) return@withTransaction
+                check(!playbackBusy.value && !sessionWriteFailed.value) { "Wait for durable playback finalization" }
+            }
+            check(plan.preview == preview) { "Practice grouping preview changed" }
+            plan.addition?.let { groupingDao.insert(listOf(GroupingCorrectionRow(it))) }
+            val deletedAt = System.currentTimeMillis()
+            preview.correctionsToReset.chunked(900).forEach { groupingDao.markDeleted(it, deletedAt) }
+        }
+    }
+
+    private suspend fun <T> readGrouping(at: Instant, read: PracticeGrouping.() -> T): T {
+        awaitWrites()
+        return database.withTransaction {
+            check(!backupWorking.value && !recoveryRequired.value)
+            groupingProjection(at).read()
+        }
+    }
+
+    private suspend fun groupingProjection(at: Instant) = PracticeGrouping(groupingDao.playbacks(),
+        groupingDao.corrections().map(GroupingCorrectionRow::toDomain), settings.groupingGap.first(), at)
+
     init {
         scope.launch {
             for (action in actions) {
@@ -404,22 +442,24 @@ class AppData private constructor(
         }
     }
 
-    private suspend fun snapshot(access: CustomSampleRepository.BackupAccess, includeMusic: Boolean = true): BackupSnapshot {
+    private suspend fun snapshot(access: CustomSampleRepository.BackupAccess, full: Boolean = true): BackupSnapshot {
         val historyBytes = dao.backupSessionBytes()
         require(historyBytes <= BackupArchive.MAX_ARCHIVE_BYTES) { "Backup history exceeds archive limit" }
-        val activities = if (includeMusic) {
+        if (full) {
             val size = musicDao.backupSize()
             require(size.activities <= BackupArchive.MAX_MUSIC_ACTIVITIES && size.intervals <= BackupArchive.MAX_MUSIC_INTERVALS) {
                 "Too many music records for backup"
             }
             val activityBytes = size.activityBytes + 16 * size.intervals
-            require(activityBytes <= BackupArchive.MAX_ARCHIVE_BYTES - historyBytes) { "Backup activities exceed archive limit" }
-            musicDao.all().map(StoredMusicActivity::toDomain)
-        } else emptyList()
+            val grouping = groupingDao.backupSize()
+            require(grouping.records <= BackupArchive.MAX_GROUPING_CORRECTIONS) { "Too many grouping corrections for backup" }
+            require(activityBytes + grouping.bytes <= BackupArchive.MAX_ARCHIVE_BYTES - historyBytes) { "Backup data exceeds archive limit" }
+        }
         val records = dao.allSamples()
         return BackupSnapshot(ConfigCodec.encode(settings.load()), dao.allPresets(), dao.sessionsForExport(),
             dao.allPracticeDays(), records, access.files(records), settings.preferencesSnapshot(),
-            activities)
+            if (full) musicDao.all().map(StoredMusicActivity::toDomain) else emptyList(),
+            if (full) groupingDao.corrections().map(GroupingCorrectionRow::toDomain) else emptyList())
     }
 
     fun exportBackup(openOutput: () -> OutputStream) = exportBackupVersion(3, openOutput)
@@ -428,7 +468,7 @@ class AppData private constructor(
     private fun exportBackupVersion(version: Int, openOutput: () -> OutputStream) = backup("Nie udało się zapisać kopii zapasowej. Plik może być niepełny; dane aplikacji nie zostały zmienione.") {
         try {
             samples.backup {
-                val snapshot = database.withTransaction { snapshot(this, includeMusic = version >= 3) }
+                val snapshot = database.withTransaction { snapshot(this, full = version >= 3) }
                 // Prepare and validate before touching the user's destination document.
                 val bytes = java.io.ByteArrayOutputStream().also {
                     when (version) {
@@ -519,6 +559,8 @@ class AppData private constructor(
         dao.insertSamples(snapshot.samples); dao.insertPresets(snapshot.presets)
         dao.insertSessions(snapshot.sessions); dao.insertPracticeDays(snapshot.days)
         musicDao.replaceAll(snapshot.musicActivities)
+        groupingDao.clear()
+        groupingDao.insert(snapshot.groupingCorrections.map(::GroupingCorrectionRow))
     }
 
     private suspend fun recoverRestore() {

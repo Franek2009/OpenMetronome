@@ -21,6 +21,32 @@ class BackupArchiveTest {
         0, 197_000, "Europe/Warsaw", 133_360, 1_000,
         listOf(MusicActivityInterval(0, 61_000), MusicActivityInterval(125_000, 197_000)), "Kontrabas")
 
+    @Test fun `grouping trailer round trips decisions and tombstones with or without activity notes`() {
+        val previous = snapshot()
+        val anchor = UUID(0, 205).toString()
+        val other = UUID(0, 206).toString()
+        val join = GroupingCorrection(UUID(0, 1).toString(), 1, GroupingCorrectionKind.JOIN, anchor, other)
+        val finish = GroupingCorrection(UUID(0, 2).toString(), 2, GroupingCorrectionKind.FINISH_AFTER, other, deletedAt = 3)
+        val value = previous.copy(groupingCorrections = listOf(join, finish),
+            preferences = AppPreferencesCodec.encode(AppPreferences(groupingGap = PracticeGroupingGap.MINUTES_15)))
+        val note = MusicActivity(UUID(0, 4).toString(), fitDetails.copy(note = "Próba"), 1, 1)
+        for (activities in listOf(emptyList(), listOf(note))) {
+            val restored = BackupArchive.read(encoded(value.copy(musicActivities = activities)).inputStream())
+            assertEquals(activities, restored.musicActivities)
+            assertEquals(listOf(join, finish), restored.groupingCorrections)
+            assertEquals(value.preferences, restored.preferences)
+        }
+        assertTrue(BackupArchive.read(encoded(previous).inputStream()).groupingCorrections.isEmpty())
+        val old = BackupArchive.read(v2(value).inputStream())
+        assertTrue(old.groupingCorrections.isEmpty())
+        assertNull(AppPreferencesCodec.decode(old.preferences!!).groupingGap)
+        val output = ByteArrayOutputStream()
+        assertThrows(IllegalArgumentException::class.java) {
+            BackupArchive.write(value.copy(groupingCorrections = listOf(join, finish.copy(sequenceNumber = 1))), output)
+        }
+        assertEquals(0, output.size())
+    }
+
     @Test fun `full backup preserves independent music settings and legacy export omits them`() {
         for (goal in listOf(3, 5, null)) {
             val music = MusicStatisticsPreferences(ZoneId.of("America/Toronto"), 11, goal)

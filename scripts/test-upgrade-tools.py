@@ -17,9 +17,9 @@ COMPARE = ROOT / "scripts/compare-backup-fixtures.py"
 
 
 class UpgradeOracleTest(unittest.TestCase):
-    def fixture(self, path, timeline=None, preference_changes=None, activities=None, note=None):
+    def fixture(self, path, timeline=None, preference_changes=None, activities=None, note=None, correction=None):
         module = runpy.run_path(str(COMPARE))
-        settings, presets, sessions, days, samples, files, prefs, _ = module["snapshot"](FIXTURE)
+        settings, presets, sessions, days, samples, files, prefs, _, _ = module["snapshot"](FIXTURE)
         prefs.update(preference_changes or {})
         data = io.BytesIO()
         def number(fmt, value): data.write(struct.pack(fmt, value))
@@ -53,6 +53,13 @@ class UpgradeOracleTest(unittest.TestCase):
                 number(">i", 1); number(">q", 0); number(">q", 2000)
             if note is not None:
                 number(">i", 1); string(activity_id); string(note)
+            if correction is not None:
+                if note is None:
+                    number(">i", 0)
+                number(">i", 0x47525031); number(">i", 1)
+                string("c6d58bfd-dc26-4e32-9bdb-bdf321c28197"); number(">q", 1)
+                string("FINISH_AFTER"); string(activity_id); number(">?", False)
+                number(">?", True); number(">q", correction)
         with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
             archive.writestr("openmetronome.dat", data.getvalue())
             for name, raw in files.items(): archive.writestr(name, raw)
@@ -81,6 +88,11 @@ class UpgradeOracleTest(unittest.TestCase):
             result = subprocess.run([sys.executable, str(COMPARE), str(original), str(changed)], capture_output=True)
             self.assertNotEqual(0, result.returncode)
             self.assertIn(b"Upgrade changed music activities", result.stderr)
+            self.fixture(original, activities=[], correction=1)
+            self.fixture(changed, activities=[], correction=2)
+            result = subprocess.run([sys.executable, str(COMPARE), str(original), str(changed)], capture_output=True)
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn(b"Upgrade changed grouping corrections", result.stderr)
 
     def run_compare(self, actual):
         return subprocess.run([sys.executable, str(COMPARE), str(FIXTURE), str(actual)],

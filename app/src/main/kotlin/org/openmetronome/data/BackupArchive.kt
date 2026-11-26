@@ -23,6 +23,7 @@ data class BackupSnapshot(
     val sampleFiles: Map<String, ByteArray>,
     val preferences: String? = null,
     val musicActivities: List<MusicActivity> = emptyList(),
+    val groupingCorrections: List<GroupingCorrection> = emptyList(),
 )
 
 /** Versioned, private backup format. Parsing is bounded and validates all data before import. */
@@ -33,6 +34,8 @@ object BackupArchive {
     internal const val MAX_MUSIC_ACTIVITIES = 10_000
     internal const val MAX_MUSIC_INTERVALS = 65_536
     private const val MAX_ITEMS = 100_000
+    internal const val MAX_GROUPING_CORRECTIONS = 100_000
+    private const val GROUPING_SECTION = 0x47525031 // GRP1
 
     fun write(snapshot: BackupSnapshot, output: OutputStream) {
         writeStored(normalize(snapshot), output)
@@ -40,8 +43,8 @@ object BackupArchive {
 
     /** Compatibility export for 1.1/1.2: keep metronome data and omit music activities. */
     fun writeV2(snapshot: BackupSnapshot, output: OutputStream) {
-        writeStored(normalize(snapshot.copy(musicActivities = emptyList(),
-            preferences = AppPreferencesCodec.withoutMusic(snapshot.preferences))), output, 2)
+        writeStored(normalize(snapshot.copy(musicActivities = emptyList(), groupingCorrections = emptyList(),
+            preferences = AppPreferencesCodec.forCompatibility(snapshot.preferences))), output, 2)
     }
 
     /** Compatibility export deliberately omits configuration timelines and newer optional settings. */
@@ -55,14 +58,16 @@ object BackupArchive {
         require(configurations.none { it.sound.clickSound in org.openmetronome.domain.model.ClickSound.sampled }) {
             "Sampled sounds require backup v2"
         }
-        writeStored(normalize(snapshot.copy(sessions = snapshot.sessions.map { it.copy(timeline = null) }, preferences = null, musicActivities = emptyList())), output, 1)
+        writeStored(normalize(snapshot.copy(sessions = snapshot.sessions.map { it.copy(timeline = null) }, preferences = null,
+            musicActivities = emptyList(), groupingCorrections = emptyList())), output, 1)
     }
 
     internal fun writeStored(snapshot: BackupSnapshot, output: OutputStream, version: Int = VERSION) {
         require(version in 1..VERSION)
-        require(version >= 3 || snapshot.musicActivities.isEmpty())
+        require(version >= 3 || (snapshot.musicActivities.isEmpty() && snapshot.groupingCorrections.isEmpty()))
         require(snapshot.musicActivities.size <= MAX_MUSIC_ACTIVITIES)
         require(snapshot.musicActivities.sumOf { it.details.intervals.size.toLong() } <= MAX_MUSIC_INTERVALS)
+        require(snapshot.groupingCorrections.size <= MAX_GROUPING_CORRECTIONS)
         val encoded = ByteArrayOutputStream()
         encode(snapshot, encoded, version)
         val bytes = encoded.toByteArray()
@@ -106,8 +111,17 @@ object BackupArchive {
                 if (version >= 3) {
                     writeList(snapshot.musicActivities) { writeMusicActivity(it) }
                     val notes = snapshot.musicActivities.filter { it.details.note != null }
-                    if (notes.isNotEmpty()) writeList(notes) { activity ->
+                    if (notes.isNotEmpty() || snapshot.groupingCorrections.isNotEmpty()) writeList(notes) { activity ->
                         writeString(activity.id); writeString(requireNotNull(activity.details.note))
+                    }
+                    if (snapshot.groupingCorrections.isNotEmpty()) {
+                        writeInt(GROUPING_SECTION)
+                        writeList(snapshot.groupingCorrections) { correction ->
+                            writeString(correction.id); writeLong(correction.sequenceNumber); writeString(correction.kind.name)
+                            writeString(correction.playbackId)
+                            writeBoolean(correction.otherPlaybackId != null); correction.otherPlaybackId?.let { writeString(it) }
+                            writeBoolean(correction.deletedAt != null); correction.deletedAt?.let { writeLong(it) }
+                        }
                     }
                 }
                 flush()
@@ -196,6 +210,7 @@ object BackupArchive {
         val samples = metadata.readList { CustomSampleRecord(readString(), readString(), readLong()) }
         val preferences = if (version >= 2 && metadata.readBoolean()) metadata.readString().also(AppPreferencesCodec::decode) else null
         val musicActivities = if (version >= 3) metadata.readMusicActivities() else emptyList()
+        val groupingCorrections = if (version >= 3 && metadata.available() > 0) metadata.readGroupingCorrections() else emptyList()
         require(metadata.read() == -1)
         require(presets.map { it.id }.distinct().size == presets.size)
         require(sessions.map { it.id }.distinct().size == sessions.size)
@@ -222,7 +237,19 @@ object BackupArchive {
         }
         require(configs.all { it.sound.customSampleId == null || it.sound.customSampleId in sampleIds })
         require(entries.isEmpty())
-        return BackupSnapshot(settings, presets, sessions, days, samples, files, preferences, musicActivities)
+        return BackupSnapshot(settings, presets, sessions, days, samples, files, preferences, musicActivities, groupingCorrections)
+    }
+
+    private fun DataInputStream.readGroupingCorrections(): List<GroupingCorrection> {
+        require(readInt() == GROUPING_SECTION)
+        val corrections = readList(limit = MAX_GROUPING_CORRECTIONS) {
+            GroupingCorrection(readString(36), readLong(), GroupingCorrectionKind.valueOf(readString(12)), readString(36),
+                if (readBoolean()) readString(36) else null, if (readBoolean()) readLong() else null)
+        }
+        require(corrections.isNotEmpty())
+        require(corrections.mapTo(hashSetOf()) { it.id }.size == corrections.size)
+        require(corrections.mapTo(hashSetOf()) { it.sequenceNumber }.size == corrections.size)
+        return corrections
     }
 
     private fun DataOutputStream.writeMusicActivity(activity: MusicActivity) {
@@ -254,7 +281,8 @@ object BackupArchive {
         if (available() == 0) return activities // The first test v3 archives had no note section.
         val notes = mutableMapOf<String, String>()
         val noteCount = readInt()
-        require(noteCount in 1..activities.size)
+        require(noteCount in 0..activities.size)
+        require(noteCount > 0 || available() > 0) // Zero is a delimiter before a grouping trailer.
         repeat(noteCount) {
             val id = readString(36)
             require(id in ids && id !in notes)

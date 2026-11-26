@@ -18,7 +18,8 @@ def config(value):
     return DEFAULTS | dict(line.split("=", 1) for line in value.splitlines() if line.strip())
 
 
-PREFERENCE_DEFAULTS = dict(version="1", awake="false", reduceMotion="false", minimumSessionSeconds="20", activeDayMinutes="5")
+PREFERENCE_DEFAULTS = dict(version="1", awake="false", reduceMotion="false", minimumSessionSeconds="20", activeDayMinutes="5",
+                           practiceGroupingGap="MINUTES_30")
 
 
 def preferences(value):
@@ -78,7 +79,7 @@ def snapshot(path):
         notes = {}
         if version >= 3 and data.tell() < data.getbuffer().nbytes:
             count = read(">i")
-            if not 1 <= count <= len(activities):
+            if not 0 <= count <= len(activities) or (count == 0 and data.tell() == data.getbuffer().nbytes):
                 raise ValueError("Invalid activity note count")
             activity_ids = {item[0] for item in activities}
             for _ in range(count):
@@ -87,17 +88,25 @@ def snapshot(path):
                     raise ValueError("Invalid activity note reference")
                 notes[activity_id] = string()
         activities = [item + [notes.get(item[0])] for item in activities]
+        corrections = []
+        if version >= 3 and data.tell() < data.getbuffer().nbytes:
+            if read(">i") != 0x47525031:
+                raise ValueError("Invalid grouping section")
+            corrections = rows(lambda: [string(), read(">q"), string(), string(), string() if read(">?") else None,
+                                        read(">q") if read(">?") else None])
+            if not corrections:
+                raise ValueError("Empty grouping section")
         if data.read() != b"":
             raise ValueError("Trailing metadata")
         files = {name: archive.read(name) for name in archive.namelist() if name != "openmetronome.dat"}
-        return settings, presets, sessions, days, samples, files, app_preferences, activities
+        return settings, presets, sessions, days, samples, files, app_preferences, activities, corrections
 
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         raise SystemExit("Usage: compare-backup-fixtures.py expected.ombak actual.ombak")
     expected, actual = map(snapshot, sys.argv[1:])
-    for label, before, after in zip(["settings", "presets", "sessions", "days", "samples", "sample bytes", "app preferences", "music activities"], expected, actual):
+    for label, before, after in zip(["settings", "presets", "sessions", "days", "samples", "sample bytes", "app preferences", "music activities", "grouping corrections"], expected, actual):
         if before != after:
             raise ValueError(f"Upgrade changed {label}")
     print("PASS: settings, presets, complete history, day totals and exact sample bytes survived upgrade.")
