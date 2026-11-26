@@ -41,6 +41,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.platform.testTag
 import org.openmetronome.domain.model.MetronomeConfig
 import org.openmetronome.domain.model.TempoPercent
 import org.openmetronome.domain.model.TempoChange
@@ -171,7 +172,7 @@ internal fun AppNavigation(page: String, select: (String) -> Unit) {
 @Composable
 private fun PageButtons(page: String, select: (String) -> Unit) {
     listOf("Metronom", "Statystyki", "Ustawienia").forEach { target ->
-        TextButton({ select(target) }, Modifier.sizeIn(minHeight = 48.dp).semantics {
+        TextButton({ select(target) }, Modifier.sizeIn(minHeight = 48.dp).testTag("navigation-$target").semantics {
             selected = page == target
             role = Role.Tab
         }) {

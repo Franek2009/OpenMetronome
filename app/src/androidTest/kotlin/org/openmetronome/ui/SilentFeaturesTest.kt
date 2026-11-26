@@ -42,6 +42,7 @@ class SilentFeaturesTest {
         compose.waitUntil(10000) { model.state.value.audio.status == PlaybackStatus.STOPPED }
         runBlocking(Dispatchers.IO) {
             data.ready.await()
+            data.settings.saveMusicScope(false)
             data.database.clearAllTables()
             data.samples.load()
         }
