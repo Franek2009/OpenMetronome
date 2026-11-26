@@ -3,7 +3,6 @@ package org.openmetronome.ui
 import android.content.Intent
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
-import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.lifecycle.ViewModelProvider
@@ -490,9 +489,16 @@ class SilentFeaturesTest {
     }
 
     @Test fun musicActivityCanBeAddedAndScopeSurvivesRecreation() {
+        val start = System.currentTimeMillis() - 3_600_000
+        val date = java.time.Instant.ofEpochMilli(start).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString()
+        runBlocking(Dispatchers.IO) {
+            data.dao.checkpoint(PracticeSession("ui-fixture", start, start + 600_000, 600_000, true, false,
+                java.time.ZoneId.systemDefault().id, ConfigCodec.encode(MetronomeConfig())),
+                listOf(PracticeDay("ui-fixture", date, 600_000)))
+        }
         page("Statystyki")
         compose.onNodeWithText("Cała aktywność").performClick()
-        compose.waitUntil(10000) { compose.onAllNodesWithText("Brak aktywności.").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(10000) { compose.onAllNodesWithText("Dzisiaj").fetchSemanticsNodes().isNotEmpty() }
         captureUi("music-summary")
         compose.onNodeWithText("Analiza").performClick()
         compose.onNodeWithText("Analiza całej aktywności").assertExists()
@@ -515,6 +521,12 @@ class SilentFeaturesTest {
         compose.onNodeWithText("Próba").assertExists()
         compose.onNodeWithText("Zapisz").performClick()
         compose.waitUntil(10000) { runBlocking { data.musicActivities.first().any { it.details.note == "Próba" } } }
+        compose.waitUntil(10000) { compose.onAllNodesWithText("1 odtw.", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("1 odtw.", substring = true).performScrollTo().performClick()
+        captureUi("music-group")
+        page("Ustawienia")
+        compose.onNodeWithText("Grupowanie sesji").performScrollTo()
+        captureUi("music-settings")
     }
 
     @Test fun widgetLinksCanNavigateRepeatedlyWithoutChangingConfiguration() {
@@ -554,7 +566,9 @@ class SilentFeaturesTest {
     private fun captureUi(name: String) {
         if (InstrumentationRegistry.getArguments().getString("captureUi") != "true") return
         check(compose.activity.application is TestApplication)
-        val bitmap = compose.onRoot().captureToImage().asAndroidBitmap()
+        compose.waitForIdle()
+        // Capture the actual window, including dialogs hosted outside the Compose root.
+        val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
         java.io.File(compose.activity.cacheDir, "ui-v012-$name.png").outputStream().use {
             assertTrue(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it))
         }

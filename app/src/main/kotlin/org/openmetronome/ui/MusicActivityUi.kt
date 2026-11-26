@@ -102,7 +102,7 @@ private fun ActivityDialog(activity: MusicActivity?, close: () -> Unit, save: su
     val scope = rememberCoroutineScope()
     var saving by remember { mutableStateOf(false) }
     var saveError by rememberSaveable { mutableStateOf<String?>(null) }
-    AlertDialog(onDismissRequest = close, title = { Text(if (activity == null) "Dodaj aktywność" else "Edytuj aktywność") }, text = {
+    AlertDialog(onDismissRequest = { if (!saving) close() }, title = { Text(if (activity == null) "Dodaj aktywność" else "Edytuj aktywność") }, text = {
         Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 MusicActivityKind.entries.forEach { item -> FilterChip(kind == item.name, { kind = item.name }, label = { Text(item.label()) }) }
@@ -134,7 +134,7 @@ private fun ActivityDialog(activity: MusicActivity?, close: () -> Unit, save: su
         catch (_: Exception) { saveError = "Nie udało się zapisać aktywności. Spróbuj ponownie." }
         finally { saving = false }
     } } }, enabled = details != null && !saving) { Text(if (saving) "Zapisywanie…" else "Zapisz") } },
-        dismissButton = { TextButton(close) { Text("Anuluj") } })
+        dismissButton = { TextButton(close, enabled = !saving) { Text("Anuluj") } })
 }
 
 @Composable
@@ -211,7 +211,7 @@ internal fun GroupedHistory(data: AppData, sessions: List<PracticeSession>, incl
     if (includeMusic) MusicActivityHistory(data)
     val groups = grouping?.getOrNull()?.groups.orEmpty()
     LazyColumn(Modifier.fillMaxWidth().heightIn(max = 420.dp)) {
-      items(groups.size, key = { groups[it].playbackIds.first() }) { reverseIndex ->
+      items(groups.size, key = { groups[groups.lastIndex - it].playbackIds.first() }) { reverseIndex ->
         val index = groups.lastIndex - reverseIndex
         val group = groups[index]
         Card(Modifier.fillMaxWidth()) {
