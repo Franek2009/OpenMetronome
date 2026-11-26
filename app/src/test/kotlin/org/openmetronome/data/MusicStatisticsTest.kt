@@ -91,7 +91,8 @@ class MusicStatisticsTest {
         assertTrue(empty.days.isEmpty())
         assertEquals(0L, empty.totalMs)
         assertEquals(0, empty.activeDays)
-        assertEquals(MusicWeek(LocalDate.parse("2025-12-29"), 0, 5), empty.currentWeek)
+        assertEquals(MusicWeek(LocalDate.parse("2025-12-29"), 0, null), empty.currentWeek)
+        assertEquals(5, MusicStatisticsPreferences.SUGGESTED_WEEKLY_GOAL_DAYS)
         assertNull(empty.averageCalendarDayMs)
         assertNull(empty.averageActiveDayMs)
         assertThrows(IllegalArgumentException::class.java) { summarize(listOf(activity(5, 1)), "2026-01-01T12:00:00Z") }

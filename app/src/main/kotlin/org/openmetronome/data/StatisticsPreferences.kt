@@ -27,7 +27,7 @@ object AppPreferencesCodec {
         require(fields["version"] == "1")
         val music = fields["musicZone"]?.let { zone ->
             MusicStatisticsPreferences(ZoneId.of(zone), fields["musicActiveDayMinutes"]?.toInt() ?: 5,
-                (fields["musicWeeklyGoalDays"]?.toInt() ?: 5).takeUnless { it == 0 })
+                fields["musicWeeklyGoalDays"]?.toInt()?.takeUnless { it == 0 })
         }
         require(music != null || ("musicActiveDayMinutes" !in fields && "musicWeeklyGoalDays" !in fields))
         return AppPreferences(PracticeDisplayPreferences(fields["awake"]?.toBooleanStrict() ?: false,

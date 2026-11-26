@@ -1,7 +1,9 @@
 # Statystyki muzyczne w 1.3
 
 `AppData.observeMusicStatistics` przekazuje `MusicStatisticsSummary` przyszłym
-ekranom i widgetom. Wywołujący przekazuje chwilę obliczenia jako `Flow<Instant>`.
+ekranom i widgetom. Wywołujący przekazuje chwilę obliczenia jako `Flow<Instant>`
+i może przekazać zdarzenia ponowienia. Po błędzie zdarzenie uruchamia nowy
+odczyt w tej samej subskrypcji.
 Moduł reaguje na zmiany danych i ustawień. Podczas przywracania zgłasza
 `Loading`; błąd odczytu lub wymagane odzyskiwanie daje `Unavailable`.
 `Ready` z zerowym czasem oznacza poprawnie odczytaną pustą historię.
@@ -25,9 +27,10 @@ Moduł reaguje na zmiany danych i ustawień. Podczas przywracania zgłasza
   przesuwają zapisanych dni. Zmiana strefy statystyk przelicza całą historię
   według nowego kalendarza.
 - Dzień jest aktywny od 5 minut włącznie. Ustawienie 0 zalicza każdy dzień
-  z dodatnią aktywnością. Domyślny cel to 5 aktywnych dni w tygodniu od
-  poniedziałku. Można go zmienić na 1–7 albo wyłączyć. Po wyłączeniu celu
-  wystarcza co najmniej jeden aktywny dzień, żeby zaliczyć tydzień do serii.
+  z dodatnią aktywnością. Tydzień zaczyna się w poniedziałek. Cel jest
+  domyślnie wyłączony, a sugerowana wartość po włączeniu to 5 aktywnych dni
+  z zakresu 1–7. Gdy cel jest wyłączony, jeden aktywny dzień wystarcza,
+  żeby zaliczyć tydzień do serii.
 - Seria dzienna liczy kolejne aktywne dni, a tygodniowa kolejne tygodnie z
   osiągniętym celem. Otwarty dzień lub tydzień może kontynuować bieżącą
   serię po jej ostatnim zaliczonym okresie. Po przerwie przez pełny okres

@@ -48,7 +48,7 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
     suspend fun saveMusicStatistics(value: MusicStatisticsPreferences) { store.edit { it.putMusicStatistics(value) } }
 
     private fun Preferences.musicStatistics() = this[musicZoneKey]?.let { zone ->
-        MusicStatisticsPreferences(ZoneId.of(zone), this[musicDayKey] ?: 5, (this[musicGoalKey] ?: 5).takeUnless { it == 0 })
+        MusicStatisticsPreferences(ZoneId.of(zone), this[musicDayKey] ?: 5, this[musicGoalKey]?.takeUnless { it == 0 })
     }
 
     private fun MutablePreferences.putMusicStatistics(value: MusicStatisticsPreferences?) {
@@ -217,10 +217,15 @@ class AppData private constructor(
         emitAll(dao.statisticsSessions().map<List<PracticeSession>, StatisticsHistory> { StatisticsHistory.Ready(it) })
     }.catch { error -> if (error is CancellationException) throw error else emit(StatisticsHistory.Unavailable) }
     @OptIn(ExperimentalCoroutinesApi::class)
-    fun observeMusicStatistics(now: Flow<Instant>): Flow<MusicStatisticsState> = flow {
+    fun observeMusicStatistics(now: Flow<Instant>, retry: Flow<Unit> = emptyFlow()): Flow<MusicStatisticsState> = flow {
+        val defaults = MusicStatisticsPreferences()
+        emitAll(retry.onStart { emit(Unit) }.flatMapLatest { musicStatisticsAttempt(now, defaults) })
+    }.flowOn(Dispatchers.Default)
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun musicStatisticsAttempt(now: Flow<Instant>, defaults: MusicStatisticsPreferences): Flow<MusicStatisticsState> = flow {
         emit(MusicStatisticsState.Loading)
         ready.await()
-        val defaults = MusicStatisticsPreferences()
         emitAll(combine(backupWorking, recoveryRequired) { busy, recovery ->
             when {
                 recovery -> MusicStatisticsState.Unavailable
@@ -234,7 +239,7 @@ class AppData private constructor(
                 MusicStatisticsState.Ready(MusicStatisticsCalculator.calculate(ranges, prefs ?: defaults, instant) { owner.ensureActive() })
             }
         })
-    }.flowOn(Dispatchers.Default).catch { error ->
+    }.catch { error ->
         if (error is CancellationException) throw error
         emit(MusicStatisticsState.Unavailable)
     }

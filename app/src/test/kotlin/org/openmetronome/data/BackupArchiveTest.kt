@@ -22,7 +22,7 @@ class BackupArchiveTest {
         listOf(MusicActivityInterval(0, 61_000), MusicActivityInterval(125_000, 197_000)), "Kontrabas")
 
     @Test fun `full backup preserves independent music settings and legacy export omits them`() {
-        for (goal in listOf(3, null)) {
+        for (goal in listOf(3, 5, null)) {
             val music = MusicStatisticsPreferences(ZoneId.of("America/Toronto"), 11, goal)
             val preferences = AppPreferences(statistics = StatisticsPreferences(30, 8), musicStatistics = music)
             val data = snapshot().copy(preferences = AppPreferencesCodec.encode(preferences))
@@ -31,6 +31,7 @@ class BackupArchiveTest {
             assertEquals(preferences.copy(musicStatistics = null), AppPreferencesCodec.decode(legacy))
             assertEquals(preferences, AppPreferencesCodec.decode(AppPreferencesCodec.forRestore(legacy, data.preferences)!!))
         }
+        assertNull(AppPreferencesCodec.decode("version=1\nmusicZone=UTC").musicStatistics!!.weeklyGoalDays)
     }
 
     @Test fun `backup rejects invalid music preferences before writing output`() {

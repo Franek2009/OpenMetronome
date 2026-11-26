@@ -9,11 +9,15 @@ import java.time.temporal.TemporalAdjusters
 data class MusicStatisticsPreferences(
     val zone: ZoneId = ZoneId.systemDefault(),
     val activeDayMinutes: Int = 5,
-    val weeklyGoalDays: Int? = 5,
+    val weeklyGoalDays: Int? = null,
 ) {
     init {
         require(activeDayMinutes in 0..1440)
         require(weeklyGoalDays == null || weeklyGoalDays in 1..7)
+    }
+
+    companion object {
+        const val SUGGESTED_WEEKLY_GOAL_DAYS = 5
     }
 }
 

@@ -11,6 +11,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -83,6 +84,34 @@ class MusicStatisticsStorageTest {
             assertEquals(MusicStatisticsState.Unavailable, withTimeout(10_000) {
                 data.observeMusicStatistics(now).first { it != MusicStatisticsState.Loading }
             })
+        } finally { data.closeTestStorage() }
+    }
+
+    @Test fun retryRecoversStatisticsInTheSameSubscriptionAfterReadError(): Unit = runBlocking {
+        val data = AppData(context, isolatedTestStorage = true)
+        try {
+            data.ready.await()
+            data.addMusicActivity(MusicActivityDetails.manual(MusicActivityKind.LESSON, 0, 30_000, "UTC"))
+            data.awaitWrites()
+            val sqlite = data.database.openHelper.writableDatabase
+            sqlite.execSQL("UPDATE music_activity_intervals SET endAt = startAt")
+            val retries = Channel<Unit>(Channel.CONFLATED)
+            val states = Channel<MusicStatisticsState>(Channel.UNLIMITED)
+            val observer = launch { data.observeMusicStatistics(now, retries.receiveAsFlow()).collect { states.send(it) } }
+            try {
+                withTimeout(10_000) {
+                    assertEquals(MusicStatisticsState.Loading, states.receive())
+                    var unavailable = states.receive()
+                    while (unavailable == MusicStatisticsState.Loading) unavailable = states.receive()
+                    assertEquals(MusicStatisticsState.Unavailable, unavailable)
+                    sqlite.execSQL("UPDATE music_activity_intervals SET endAt = 30000")
+                    retries.send(Unit)
+                    assertEquals(MusicStatisticsState.Loading, states.receive())
+                    var result = states.receive()
+                    while (result == MusicStatisticsState.Loading) result = states.receive()
+                    assertEquals(30_000L, (result as MusicStatisticsState.Ready).summary.totalMs)
+                }
+            } finally { observer.cancelAndJoin() }
         } finally { data.closeTestStorage() }
     }
 
