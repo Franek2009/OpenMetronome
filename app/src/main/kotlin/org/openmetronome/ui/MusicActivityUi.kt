@@ -127,6 +127,7 @@ private fun ActivityDialog(activity: MusicActivity?, data: AppData, close: () ->
         require(duration in 1..604_800_000)
         MusicActivityDetails.manual(MusicActivityKind.valueOf(kind), from, Math.addExact(from, duration), zone.id, instrument, note)
     }.getOrNull()
+    val endsInFuture = details?.endAt?.let { it > System.currentTimeMillis() } == true
     val context = LocalContext.current
     val editor: MusicActivitySaveViewModel = viewModel()
     val saveState by editor.state.collectAsStateWithLifecycle()
@@ -159,10 +160,11 @@ private fun ActivityDialog(activity: MusicActivity?, data: AppData, close: () ->
             OutlinedTextField(instrument, { instrument = it }, label = { Text("Instrument (opcjonalnie)") })
             OutlinedTextField(note, { note = it }, label = { Text("Notatka (opcjonalnie)") })
             if (details == null) Text("Sprawdź datę, godzinę i czas. Godzina musi istnieć jednoznacznie w strefie $zone.", color = MaterialTheme.colorScheme.error)
+            if (endsInFuture) Text("Aktywność nie może kończyć się w przyszłości.", color = MaterialTheme.colorScheme.error)
             if (saveState == ActivitySaveState.FAILED) Text("Nie udało się zapisać aktywności. Spróbuj ponownie.", color = MaterialTheme.colorScheme.error)
         }
-    }, confirmButton = { TextButton({ details?.let { editor.save(data, it, activity?.id) } },
-        enabled = details != null && !saving && saveState != ActivitySaveState.SAVED) { Text(if (saving) "Zapisywanie…" else "Zapisz") } },
+    }, confirmButton = { TextButton({ details?.takeIf { it.endAt <= System.currentTimeMillis() }?.let { editor.save(data, it, activity?.id) } },
+        enabled = details != null && !endsInFuture && !saving && saveState != ActivitySaveState.SAVED) { Text(if (saving) "Zapisywanie…" else "Zapisz") } },
         dismissButton = { TextButton(::dismiss, enabled = !saving) { Text("Anuluj") } })
 }
 
@@ -219,16 +221,12 @@ internal fun GroupingPreviewDialog(preview: PracticeGroupingPreview, close: () -
 }
 
 @Composable
-internal fun GroupedHistory(data: AppData, sessions: List<PracticeSession>, includeMusic: Boolean) {
-    var revision by remember { mutableIntStateOf(0) }
+internal fun GroupedHistory(data: AppData, sessions: List<PracticeSession>, includeMusic: Boolean,
+    grouping: Result<PracticeGroupingSummary>?, retryGrouping: () -> Unit) {
     var expanded by rememberSaveable { mutableStateOf<String?>(null) }
     var preview by remember { mutableStateOf<PracticeGroupingPreview?>(null) }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
-    val gap by data.settings.groupingGap.collectAsStateWithLifecycle(initialValue = PracticeGroupingGap.DEFAULT)
     val scope = rememberCoroutineScope()
-    val grouping by produceState<Result<PracticeGroupingSummary>?>(null, sessions, gap, revision) {
-        value = runCatching { data.practiceGrouping(Instant.now()) }
-    }
     fun change(action: PracticeGroupingChange) {
         scope.launch {
             runCatching { data.previewPracticeGrouping(action, Instant.now()) }
@@ -236,7 +234,7 @@ internal fun GroupedHistory(data: AppData, sessions: List<PracticeSession>, incl
         }
     }
     if (grouping == null) Text("Wczytywanie sesji…")
-    if (grouping?.isFailure == true) TextButton({ revision++ }) { Text("Ponów odczyt sesji") }
+    if (grouping?.isFailure == true) TextButton(retryGrouping) { Text("Ponów odczyt sesji") }
     if (includeMusic) MusicActivityHistory(data)
     val groups = grouping?.getOrNull()?.groups.orEmpty()
     LazyColumn(Modifier.fillMaxWidth().heightIn(max = 420.dp)) {
@@ -291,7 +289,6 @@ internal fun GroupedHistory(data: AppData, sessions: List<PracticeSession>, incl
     }
     preview?.let { value -> GroupingPreviewDialog(value, { preview = null }, {
         data.applyPracticeGrouping(value)
-        scope.launch { data.awaitWrites(); revision++ }
         preview = null
     }) }
 }

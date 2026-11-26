@@ -297,6 +297,31 @@ class AppData private constructor(
 
     suspend fun practiceGrouping(at: Instant): PracticeGroupingSummary = readGrouping(at) { summarize() }
 
+    /** Cold and lifecycle-collected: no grouping timer runs when the UI is stopped. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun observePracticeGrouping(): Flow<Result<PracticeGroupingSummary>> = flow {
+        ready.await()
+        val storageAvailability = combine(backupWorking, recoveryRequired) { backup, recovery -> backup to recovery }
+        emitAll(combine(dao.statisticsSessions(), groupingDao.observeCorrections(), settings.groupingGap,
+            storageAvailability) { _, _, gap, _ -> gap }.flatMapLatest { gap ->
+            flow {
+                while (currentCoroutineContext().isActive) {
+                    val now = System.currentTimeMillis()
+                    val result = try { Result.success(practiceGrouping(Instant.ofEpochMilli(now))) }
+                    catch (cancelled: CancellationException) { throw cancelled }
+                    catch (error: Exception) { Result.failure(error) }
+                    emit(result)
+                    val last = result.getOrNull()?.groups?.lastOrNull()
+                    val gapMs = gap.minutes?.times(60_000L)
+                    val deadline = if (last != null && !last.completed && gapMs != null)
+                        runCatching { Math.addExact(last.endedAt, gapMs) }.getOrNull() else null
+                    if (deadline == null || deadline < now) awaitCancellation()
+                    delay((deadline - now).coerceAtMost(Long.MAX_VALUE - 1) + 1)
+                }
+            }
+        })
+    }.catch { error -> if (error is CancellationException) throw error else emit(Result.failure(error)) }.flowOn(Dispatchers.IO)
+
     suspend fun previewPracticeGrouping(change: PracticeGroupingChange, at: Instant): PracticeGroupingPreview =
         readGrouping(at) { plan(change).preview }
 

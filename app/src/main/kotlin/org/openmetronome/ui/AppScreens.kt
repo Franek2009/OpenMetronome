@@ -62,11 +62,10 @@ fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, widgetStatistics:
     val sessionWriteFailed by data.sessionWriteFailed.collectAsStateWithLifecycle()
     val latestSessions by data.sessions.collectAsStateWithLifecycle(initialValue = emptyList())
     val scope = rememberCoroutineScope()
-    var groupingRevision by remember { mutableIntStateOf(0) }
-    val groupingGap by data.settings.groupingGap.collectAsStateWithLifecycle(initialValue = PracticeGroupingGap.DEFAULT)
-    val grouping by produceState<PracticeGroupingSummary?>(null, latestSessions, groupingGap, playbackBusy, sessionWriteFailed, groupingRevision) {
-        value = if (!playbackBusy && !sessionWriteFailed) runCatching { data.practiceGrouping(Instant.now()) }.getOrNull() else null
-    }
+    var groupingRetry by remember { mutableIntStateOf(0) }
+    val groupingSource = remember(data, groupingRetry) { data.observePracticeGrouping() }
+    val groupingState by groupingSource.collectAsStateWithLifecycle(initialValue = null)
+    val grouping = groupingState?.getOrNull()
     val display by data.displayPreferences.collectAsStateWithLifecycle(initialValue = PracticeDisplayPreferences())
     val customSamples by data.samples.items.collectAsStateWithLifecycle()
     var fullscreen by rememberSaveable { mutableStateOf(false) }
@@ -118,7 +117,7 @@ fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, widgetStatistics:
                         else "Przygotowywanie danych…", modifier = Modifier.padding(16.dp))
                 } else when (page) {
                     "Presety" -> PresetsScreen(data, model)
-                    "Statystyki" -> StatisticsScreen(data, model)
+                    "Statystyki" -> StatisticsScreen(data, model, groupingState) { groupingRetry++ }
                     "Ustawienia" -> SettingsScreen(model, data, notificationPermission) {
                         @Suppress("DEPRECATION")
                         val info = context.packageManager.getPackageInfo(context.packageName, 0)
@@ -139,7 +138,7 @@ fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, widgetStatistics:
                         onFinishSession = grouping?.groups?.lastOrNull()?.takeIf { !it.completed && !playbackBusy && !sessionWriteFailed && !state.keepsScreenOn }
                             ?.playbackIds?.lastOrNull()?.takeIf { id -> latestSessions.any { it.id == id && it.finished } }?.let { id ->
                             { scope.launch { runCatching { data.previewPracticeGrouping(PracticeGroupingChange.FinishAfter(id), Instant.now()) }
-                                .onSuccess { data.applyPracticeGrouping(it); data.awaitWrites(); groupingRevision++ }.onFailure { data.error.value = "Nie udało się zakończyć sesji." } } }
+                                .onSuccess { data.applyPracticeGrouping(it) }.onFailure { data.error.value = "Nie udało się zakończyć sesji." } } }
                         },
                     )
                 }
@@ -233,7 +232,8 @@ private fun PresetsScreen(data: AppData, model: MetronomeViewModel) {
 }
 
 @Composable
-private fun StatisticsScreen(data: AppData, model: MetronomeViewModel) {
+private fun StatisticsScreen(data: AppData, model: MetronomeViewModel,
+    groupingState: Result<PracticeGroupingSummary>?, retryGrouping: () -> Unit) {
     val exporting by data.exporting.collectAsStateWithLifecycle()
     val notice by data.exportNotice.collectAsStateWithLifecycle()
     val backupWorking by data.backupWorking.collectAsStateWithLifecycle()
@@ -282,10 +282,7 @@ private fun StatisticsScreen(data: AppData, model: MetronomeViewModel) {
     }
     val analytics = calculation?.getOrNull()
     val sessions = (history as? StatisticsHistory.Ready)?.sessions ?: emptyList()
-    val statisticsGap by data.settings.groupingGap.collectAsStateWithLifecycle(initialValue = PracticeGroupingGap.DEFAULT)
-    val grouping by produceState<PracticeGroupingSummary?>(null, sessions, statisticsGap) {
-        value = runCatching { data.practiceGrouping(Instant.now()) }.getOrNull()
-    }
+    val grouping = groupingState?.getOrNull()
     var statisticsPage by rememberSaveable { mutableIntStateOf(0) }
     var thresholdsOpen by rememberSaveable { mutableStateOf(false) }
     val days = analytics?.days ?: emptyList()
@@ -354,7 +351,14 @@ private fun StatisticsScreen(data: AppData, model: MetronomeViewModel) {
                     Text("Średnia na aktywny dzień: ${summary.averageActiveDayMs?.let(::duration) ?: "—"}")
                     Text("Najdłuższa seria dni: ${summary.dayStreak.longest}")
                     Text("Najdłuższa seria tygodni: ${summary.weekStreak.longest}")
-                    Text("Średni czas metronomu na zakończoną sesję: ${grouping?.averageCompletedPlaybackMs?.let(::duration) ?: "—"}")
+                    when {
+                        groupingState == null -> Text("Wczytywanie średniej sesji…")
+                        groupingState.isFailure -> {
+                            Text("Nie udało się odczytać średniej sesji.", color = MaterialTheme.colorScheme.error)
+                            TextButton(retryGrouping) { Text("Ponów odczyt sesji") }
+                        }
+                        else -> Text("Średni czas metronomu na zakończoną sesję: ${grouping?.averageCompletedPlaybackMs?.let(::duration) ?: "—"}")
+                    }
                     val activityDays = summary.days.map { DayTotal(it.date.toString(), it.durationMs) }
                     PracticeBarChart(PracticeStats.chart(activityDays, StatisticsPeriod.DAYS_30, summary.today), "min/dzień")
                 }
@@ -400,7 +404,7 @@ private fun StatisticsScreen(data: AppData, model: MetronomeViewModel) {
             } }
         }
         }
-        if (history is StatisticsHistory.Ready && statisticsPage == 1) GroupedHistory(data, sessions, musicScope)
+        if (history is StatisticsHistory.Ready && statisticsPage == 1) GroupedHistory(data, sessions, musicScope, groupingState, retryGrouping)
         if (!musicScope && analytics != null && statisticsPage == 2) PracticeAnalysisPanel(analytics)
         if (!musicScope && history is StatisticsHistory.Ready && sessions.isEmpty()) Text("Rozpocznij ćwiczenie, aby zapisać pierwszą sesję.")
         HorizontalDivider(Modifier.padding(vertical = 4.dp))

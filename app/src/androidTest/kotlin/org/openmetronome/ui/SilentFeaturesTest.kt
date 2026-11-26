@@ -42,6 +42,7 @@ class SilentFeaturesTest {
         runBlocking(Dispatchers.IO) {
             data.ready.await()
             data.settings.saveMusicScope(false)
+            data.settings.saveGroupingGap(PracticeGroupingGap.DEFAULT)
             data.database.clearAllTables()
             data.samples.load()
         }
@@ -592,6 +593,57 @@ class SilentFeaturesTest {
         compose.onNodeWithText("Historia").assertIsDisplayed().performClick()
         compose.onNodeWithText("Dane").performScrollTo()
         compose.waitUntil(10000) { compose.onAllNodesWithText("1 odtw.", substring = true).fetchSemanticsNodes().size == 2 }
+    }
+
+    @Test fun completedActivityCannotEndInFuture() {
+        page("Statystyki")
+        compose.onNodeWithText("Cała aktywność").performClick()
+        compose.onNodeWithText("Historia").performClick()
+        compose.onNodeWithText("+ Dodaj aktywność").performScrollTo().performClick()
+        compose.onNodeWithText("60 min").performScrollTo().performClick()
+        compose.onNodeWithText("Aktywność nie może kończyć się w przyszłości.").assertExists()
+        compose.onNodeWithText("Zapisz").assertIsNotEnabled()
+    }
+
+    @Test fun groupingCorrectionRefreshesFinishActionWithoutNavigation() {
+        val now = System.currentTimeMillis()
+        val session = PracticeSession(java.util.UUID.randomUUID().toString(), now - 60_000, now, 60_000,
+            true, false, "UTC", ConfigCodec.encode(MetronomeConfig()))
+        runBlocking(Dispatchers.IO) { data.dao.insertSessions(listOf(session)) }
+        compose.waitUntil(10000) { compose.onAllNodesWithText("Zakończ sesję").fetchSemanticsNodes().isNotEmpty() }
+        runBlocking(Dispatchers.IO) {
+            val preview = data.previewPracticeGrouping(PracticeGroupingChange.FinishAfter(session.id), java.time.Instant.now())
+            data.applyPracticeGrouping(preview); data.awaitWrites()
+        }
+        compose.waitUntil(5000) { compose.onAllNodesWithText("Zakończ sesję").fetchSemanticsNodes().isEmpty() }
+    }
+
+    @Test fun groupingCorrectionRefreshesSessionAverageWithoutNavigation() {
+        val now = System.currentTimeMillis()
+        val start = now - 14_400_000
+        val config = ConfigCodec.encode(MetronomeConfig())
+        val first = PracticeSession(java.util.UUID.randomUUID().toString(), start, start + 600_000, 600_000, true, false, "UTC", config)
+        val second = PracticeSession(java.util.UUID.randomUUID().toString(), start + 3_600_000, start + 4_800_000, 1_200_000, true, false, "UTC", config)
+        runBlocking(Dispatchers.IO) { data.dao.insertSessions(listOf(first, second)) }
+        page("Statystyki")
+        compose.onNodeWithText("Cała aktywność").performClick()
+        compose.onNodeWithText("Analiza").performClick()
+        compose.waitUntil(10000) { compose.onAllNodesWithText("Średni czas metronomu na zakończoną sesję: 15 min 0 s").fetchSemanticsNodes().isNotEmpty() }
+        runBlocking(Dispatchers.IO) {
+            val preview = data.previewPracticeGrouping(PracticeGroupingChange.Join(first.id, second.id), java.time.Instant.now())
+            data.applyPracticeGrouping(preview); data.awaitWrites()
+        }
+        compose.waitUntil(5000) { compose.onAllNodesWithText("Średni czas metronomu na zakończoną sesję: 30 min 0 s").fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    @Test fun openGroupExpiresWhileScreenRemainsVisible() {
+        val now = System.currentTimeMillis()
+        val end = now - 300_000 + 10_000
+        val session = PracticeSession(java.util.UUID.randomUUID().toString(), end - 60_000, end, 60_000,
+            true, false, "UTC", ConfigCodec.encode(MetronomeConfig()))
+        runBlocking(Dispatchers.IO) { data.savePracticeGroupingGap(PracticeGroupingGap.MINUTES_5); data.awaitWrites(); data.dao.insertSessions(listOf(session)) }
+        compose.waitUntil(5000) { compose.onAllNodesWithText("Zakończ sesję").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(20000) { compose.onAllNodesWithText("Zakończ sesję").fetchSemanticsNodes().isEmpty() }
     }
 
     private fun openFromWidget(scenarioIntent: Intent, statistics: Boolean) {
