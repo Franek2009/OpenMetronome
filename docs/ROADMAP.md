@@ -11,10 +11,11 @@ jest wydaniem stabilnym. Obejmuje poprawki widgetów i edycji presetów;
 
 ## Kierunki po 1.2.1 — planowane
 
-- **1.3:** ręczne aktywności muzyczne, oddzielne statystyki, cele oraz grupowanie
-  odtwarzań w sesje przy zachowaniu faktycznych okresów pracy metronomu.
-  Import z Garmin Forerunner 55 wymaga najpierw analizy rzeczywistych plików FIT;
-  automatyczna synchronizacja nie jest potwierdzona.
+- **1.3:** fundament danych aktywności, silnik statystyk muzycznych i grupowanie
+  odtworzeń są na main. Interfejs aktywności i grupowania oraz widgety czekają
+  na projekt UX. Eksperyment z plikami FIT z Garmin Forerunner 55 potwierdził
+  odczyt na komputerze i rekonstrukcję przedziałów. Importer i automatyczna
+  synchronizacja pozostają do zaprojektowania i weryfikacji.
 - **1.4:** rozważana opcjonalna synchronizacja local-first, z możliwością
   samodzielnego hostowania serwera i pełną pracą offline. Architektura nie jest
   jeszcze zatwierdzona.

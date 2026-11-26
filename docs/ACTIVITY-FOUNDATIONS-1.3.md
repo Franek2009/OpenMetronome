@@ -1,9 +1,9 @@
 # Fundament danych aktywności muzycznych w 1.3
 
-Ten etap dodaje model i zapis aktywności oraz kopię v3. Interfejs obsługi
-aktywności, grupowanie, statystyki muzyczne i widgety powstaną w kolejnych
-etapach. Import FIT, automatyczna synchronizacja oraz USB OTG na Androidzie
-pozostają poza tym etapem.
+Ten etap dodał model i zapis aktywności oraz kopię v3. Silnik statystyk
+muzycznych i grupowanie odtworzeń są już na main. Interfejs aktywności,
+widgety i import FIT pozostają kolejnymi etapami. Automatyczna synchronizacja
+oraz USB OTG na Androidzie pozostają niepotwierdzone.
 
 | Tabela Room 4 | Dane |
 | --- | --- |
