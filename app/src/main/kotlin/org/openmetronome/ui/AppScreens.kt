@@ -62,6 +62,11 @@ fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, widgetStatistics:
     val sessionWriteFailed by data.sessionWriteFailed.collectAsStateWithLifecycle()
     val latestSessions by data.sessions.collectAsStateWithLifecycle(initialValue = emptyList())
     val scope = rememberCoroutineScope()
+    var groupingRevision by remember { mutableIntStateOf(0) }
+    val groupingGap by data.settings.groupingGap.collectAsStateWithLifecycle(initialValue = PracticeGroupingGap.DEFAULT)
+    val grouping by produceState<PracticeGroupingSummary?>(null, latestSessions, groupingGap, playbackBusy, sessionWriteFailed, groupingRevision) {
+        value = if (!playbackBusy && !sessionWriteFailed) runCatching { data.practiceGrouping(Instant.now()) }.getOrNull() else null
+    }
     val display by data.displayPreferences.collectAsStateWithLifecycle(initialValue = PracticeDisplayPreferences())
     val customSamples by data.samples.items.collectAsStateWithLifecycle()
     var fullscreen by rememberSaveable { mutableStateOf(false) }
@@ -131,9 +136,10 @@ fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, widgetStatistics:
                         onBeatAccent = model::cycleBeatAccent,
                         onFullscreen = { fullscreen = true },
                         onPresets = { page = "Presety" }, customSamples = customSamples,
-                        onFinishSession = latestSessions.firstOrNull { it.finished && it.durationMs > 0 }?.takeIf { !playbackBusy && !sessionWriteFailed && !state.keepsScreenOn }?.let { session ->
-                            { scope.launch { runCatching { data.previewPracticeGrouping(PracticeGroupingChange.FinishAfter(session.id), Instant.now()) }
-                                .onSuccess { data.applyPracticeGrouping(it) }.onFailure { data.error.value = "Nie udało się zakończyć sesji." } } }
+                        onFinishSession = grouping?.groups?.lastOrNull()?.takeIf { !it.completed && !playbackBusy && !sessionWriteFailed && !state.keepsScreenOn }
+                            ?.playbackIds?.lastOrNull()?.takeIf { id -> latestSessions.any { it.id == id && it.finished } }?.let { id ->
+                            { scope.launch { runCatching { data.previewPracticeGrouping(PracticeGroupingChange.FinishAfter(id), Instant.now()) }
+                                .onSuccess { data.applyPracticeGrouping(it); data.awaitWrites(); groupingRevision++ }.onFailure { data.error.value = "Nie udało się zakończyć sesji." } } }
                         },
                     )
                 }
@@ -276,6 +282,10 @@ private fun StatisticsScreen(data: AppData, model: MetronomeViewModel) {
     }
     val analytics = calculation?.getOrNull()
     val sessions = (history as? StatisticsHistory.Ready)?.sessions ?: emptyList()
+    val statisticsGap by data.settings.groupingGap.collectAsStateWithLifecycle(initialValue = PracticeGroupingGap.DEFAULT)
+    val grouping by produceState<PracticeGroupingSummary?>(null, sessions, statisticsGap) {
+        value = runCatching { data.practiceGrouping(Instant.now()) }.getOrNull()
+    }
     var statisticsPage by rememberSaveable { mutableIntStateOf(0) }
     var thresholdsOpen by rememberSaveable { mutableStateOf(false) }
     val days = analytics?.days ?: emptyList()
@@ -316,13 +326,33 @@ private fun StatisticsScreen(data: AppData, model: MetronomeViewModel) {
                 is MusicStatisticsState.Ready -> if (statisticsPage == 0) {
                     val summary = current.summary
                     if (summary.days.isEmpty()) Text("Brak aktywności.")
-                    Text("Dzisiaj: ${duration(summary.todayMs)}")
-                    Text("Ten tydzień: ${duration(summary.weekMs)} · miesiąc: ${duration(summary.monthMs)}")
-                    Text("Łącznie: ${duration(summary.totalMs)} · aktywne dni: ${summary.activeDays}")
+                    SummaryCard("Dzisiaj", duration(summary.todayMs), Modifier.fillMaxWidth())
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        SummaryCard("Ten tydzień", duration(summary.weekMs), Modifier.weight(1f))
+                        SummaryCard("Ten miesiąc", duration(summary.monthMs), Modifier.weight(1f))
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        SummaryCard("Łącznie", duration(summary.totalMs), Modifier.weight(1f))
+                        SummaryCard("Aktywne dni", summary.activeDays.toString(), Modifier.weight(1f))
+                    }
+                    Text("Ten tydzień", style = MaterialTheme.typography.titleMedium)
+                    val weekly = summary.days.filter { it.date in summary.currentWeek.monday..summary.today }
+                        .map { DayTotal(it.date.toString(), it.durationMs) }
+                    PracticeBarChart(PracticeStats.chart(weekly, StatisticsPeriod.DAYS_7, summary.today), "min/dzień")
+                    summary.currentWeek.goalDays?.let { goal ->
+                        Text("Cel tygodniowy: ${summary.currentWeek.activeDays}/$goal dni")
+                        LinearProgressIndicator(progress = { (summary.currentWeek.activeDays.toFloat() / goal).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
+                    }
+                } else if (statisticsPage == 2) {
+                    val summary = current.summary
+                    Text("Analiza całej aktywności", style = MaterialTheme.typography.titleLarge)
                     Text("Średnia na dzień: ${summary.averageCalendarDayMs?.let(::duration) ?: "—"}")
                     Text("Średnia na aktywny dzień: ${summary.averageActiveDayMs?.let(::duration) ?: "—"}")
-                    Text("Seria dni: ${summary.dayStreak.current} · tygodni: ${summary.weekStreak.current}")
-                    summary.currentWeek.goalDays?.let { Text("Cel tygodniowy: ${summary.currentWeek.activeDays}/$it dni") }
+                    Text("Najdłuższa seria dni: ${summary.dayStreak.longest}")
+                    Text("Najdłuższa seria tygodni: ${summary.weekStreak.longest}")
+                    Text("Średni czas metronomu na zakończoną sesję: ${grouping?.averageCompletedPlaybackMs?.let(::duration) ?: "—"}")
+                    val activityDays = summary.days.map { DayTotal(it.date.toString(), it.durationMs) }
+                    PracticeBarChart(PracticeStats.chart(activityDays, StatisticsPeriod.DAYS_30, summary.today), "min/dzień")
                 }
             }
         }
@@ -367,7 +397,7 @@ private fun StatisticsScreen(data: AppData, model: MetronomeViewModel) {
         }
         }
         if (history is StatisticsHistory.Ready && statisticsPage == 1) GroupedHistory(data, sessions, musicScope)
-        if (analytics != null && statisticsPage == 2) PracticeAnalysisPanel(analytics)
+        if (!musicScope && analytics != null && statisticsPage == 2) PracticeAnalysisPanel(analytics)
         if (!musicScope && history is StatisticsHistory.Ready && sessions.isEmpty()) Text("Rozpocznij ćwiczenie, aby zapisać pierwszą sesję.")
         HorizontalDivider(Modifier.padding(vertical = 4.dp))
         Text("Dane", style = MaterialTheme.typography.titleLarge)

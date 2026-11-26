@@ -185,6 +185,26 @@ class AppData private constructor(
     }
 
     fun deleteMusicActivity(id: String) = operation { musicDao.delete(id, System.currentTimeMillis()) }
+
+    suspend fun saveMusicActivity(details: MusicActivityDetails, id: String? = null) {
+        val snapshot = details.copy(intervals = details.intervals.toList())
+        val result = CompletableDeferred<Result<Unit>>()
+        check(submit {
+            try {
+                ready.await()
+                val now = System.currentTimeMillis()
+                if (id == null) musicDao.insert(MusicActivity(UUID.randomUUID().toString(), snapshot, now, now))
+                else musicDao.edit(id, snapshot, now)
+                result.complete(Result.success(Unit))
+            } catch (cancelled: CancellationException) {
+                result.cancel(cancelled)
+                throw cancelled
+            } catch (error: Exception) {
+                result.complete(Result.failure(error))
+            }
+        }) { "Zapis jest obecnie niedostępny" }
+        result.await().getOrThrow()
+    }
     internal var sessionCheckpoint: suspend (PracticeSession, List<PracticeDay>) -> Unit = { session, days ->
         dao.checkpoint(session, days)
         syncDatabase()

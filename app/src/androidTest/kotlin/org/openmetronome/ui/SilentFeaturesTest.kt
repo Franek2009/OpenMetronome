@@ -494,10 +494,14 @@ class SilentFeaturesTest {
         compose.onNodeWithText("Cała aktywność").performClick()
         compose.waitUntil(10000) { compose.onAllNodesWithText("Brak aktywności.").fetchSemanticsNodes().isNotEmpty() }
         captureUi("music-summary")
+        compose.onNodeWithText("Analiza").performClick()
+        compose.onNodeWithText("Analiza całej aktywności").assertExists()
+        captureUi("music-analysis")
         compose.onNodeWithText("Historia").performClick()
         compose.onNodeWithText("+ Dodaj aktywność").performScrollTo().performClick()
+        captureUi("music-form")
         compose.onNodeWithText("Lekcja").performClick()
-        compose.onNodeWithText("Czas w sekundach").performTextReplacement("600")
+        compose.onNodeWithText("Minuty").performTextReplacement("10")
         compose.onNodeWithText("Instrument (opcjonalnie)").performTextReplacement("Kontrabas")
         compose.onNodeWithText("Zapisz").performClick()
         compose.waitUntil(10000) { runBlocking { data.musicActivities.first().any { it.details.instrument == "Kontrabas" } } }

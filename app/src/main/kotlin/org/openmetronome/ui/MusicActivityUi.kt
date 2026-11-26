@@ -3,10 +3,15 @@ package org.openmetronome.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.time.*
@@ -43,7 +48,8 @@ internal fun MusicActivityHistory(data: AppData) {
         result?.isFailure == true -> TextButton({ retry++ }) { Text("Ponów odczyt aktywności") }
         activities.isEmpty() -> Text("Brak aktywności muzycznych.")
     }
-    activities.forEach { activity ->
+    LazyColumn(Modifier.fillMaxWidth().heightIn(max = 420.dp)) {
+      items(activities, key = { it.id }) { activity ->
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp)) {
                 Text(activity.details.kind.label(), style = MaterialTheme.typography.titleMedium)
@@ -57,9 +63,10 @@ internal fun MusicActivityHistory(data: AppData) {
                 }
             }
         }
+      }
     }
     if (adding || editing != null) ActivityDialog(editing, { adding = false; editingId = null }) { details ->
-        if (editing == null) data.addMusicActivity(details) else data.editMusicActivity(editing.id, details)
+        data.saveMusicActivity(details, editing?.id)
         adding = false; editingId = null
     }
     deletingId?.let { id -> AlertDialog(onDismissRequest = { deletingId = null }, title = { Text("Usunąć aktywność?") },
@@ -68,14 +75,16 @@ internal fun MusicActivityHistory(data: AppData) {
 }
 
 @Composable
-private fun ActivityDialog(activity: MusicActivity?, close: () -> Unit, save: (MusicActivityDetails) -> Unit) {
+private fun ActivityDialog(activity: MusicActivity?, close: () -> Unit, save: suspend (MusicActivityDetails) -> Unit) {
     val initial = activity?.details
     val zone = initial?.zoneId?.let(ZoneId::of) ?: ZoneId.systemDefault()
-    val start = initial?.startAt?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalDateTime() } ?: LocalDateTime.now().withSecond(0).withNano(0)
+    val start = initial?.startAt?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalDateTime() } ?: LocalDateTime.now().minusMinutes(30).withSecond(0).withNano(0)
     var kind by rememberSaveable(activity?.id) { mutableStateOf((initial?.kind ?: MusicActivityKind.INDIVIDUAL_PRACTICE).name) }
     var date by rememberSaveable(activity?.id) { mutableStateOf(start.toLocalDate().toString()) }
     var time by rememberSaveable(activity?.id) { mutableStateOf(start.toLocalTime().withNano(0).toString()) }
-    var seconds by rememberSaveable(activity?.id) { mutableStateOf(((initial?.timerDurationMs ?: 1_800_000) / 1000).toString()) }
+    var hours by rememberSaveable(activity?.id) { mutableStateOf(((initial?.timerDurationMs ?: 1_800_000) / 3_600_000).toString()) }
+    var minutes by rememberSaveable(activity?.id) { mutableStateOf((((initial?.timerDurationMs ?: 1_800_000) / 60_000) % 60).toString()) }
+    val remainder = (initial?.timerDurationMs ?: 0L) % 60_000L
     var instrument by rememberSaveable(activity?.id) { mutableStateOf(initial?.instrument.orEmpty()) }
     var note by rememberSaveable(activity?.id) { mutableStateOf(initial?.note.orEmpty()) }
     val details = runCatching {
@@ -83,9 +92,16 @@ private fun ActivityDialog(activity: MusicActivity?, close: () -> Unit, save: (M
         val offsets = zone.rules.getValidOffsets(local)
         require(offsets.size == 1)
         val from = local.toInstant(offsets.single()).toEpochMilli()
-        val duration = seconds.toLong().also { require(it in 1..604800) } * 1000
+        val hourValue = hours.toLong().also { require(it in 0..168) }
+        val minuteValue = minutes.toLong().also { require(it in 0..59) }
+        val duration = (hourValue * 60 + minuteValue) * 60_000 + remainder
+        require(duration in 1..604_800_000)
         MusicActivityDetails.manual(MusicActivityKind.valueOf(kind), from, Math.addExact(from, duration), zone.id, instrument, note)
     }.getOrNull()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var saving by remember { mutableStateOf(false) }
+    var saveError by rememberSaveable { mutableStateOf<String?>(null) }
     AlertDialog(onDismissRequest = close, title = { Text(if (activity == null) "Dodaj aktywność" else "Edytuj aktywność") }, text = {
         Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -93,12 +109,31 @@ private fun ActivityDialog(activity: MusicActivity?, close: () -> Unit, save: (M
             }
             OutlinedTextField(date, { date = it }, label = { Text("Data RRRR-MM-DD") }, singleLine = true)
             OutlinedTextField(time, { time = it }, label = { Text("Godzina GG:MM") }, singleLine = true)
-            OutlinedTextField(seconds, { seconds = it }, label = { Text("Czas w sekundach") }, singleLine = true)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(hours, { hours = it }, Modifier.weight(1f), label = { Text("Godziny") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
+                OutlinedTextField(minutes, { minutes = it }, Modifier.weight(1f), label = { Text("Minuty") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
+            }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf(15, 30, 45, 60).forEach { amount -> TextButton({ hours = (amount / 60).toString(); minutes = (amount % 60).toString() }) { Text("$amount min") } }
+            }
+            Row {
+                TextButton({ android.app.DatePickerDialog(context, { _, y, m, d -> date = LocalDate.of(y, m + 1, d).toString() },
+                    runCatching { LocalDate.parse(date).year }.getOrDefault(start.year), runCatching { LocalDate.parse(date).monthValue - 1 }.getOrDefault(start.monthValue - 1),
+                    runCatching { LocalDate.parse(date).dayOfMonth }.getOrDefault(start.dayOfMonth)).show() }) { Text("Wybierz datę") }
+                TextButton({ val selected = runCatching { LocalTime.parse(time) }.getOrDefault(start.toLocalTime())
+                    android.app.TimePickerDialog(context, { _, h, m -> time = LocalTime.of(h, m).toString() }, selected.hour, selected.minute, true).show() }) { Text("Wybierz godzinę") }
+            }
             OutlinedTextField(instrument, { instrument = it }, label = { Text("Instrument (opcjonalnie)") })
             OutlinedTextField(note, { note = it }, label = { Text("Notatka (opcjonalnie)") })
             if (details == null) Text("Sprawdź datę, godzinę i czas. Godzina musi istnieć jednoznacznie w strefie $zone.", color = MaterialTheme.colorScheme.error)
+            saveError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
-    }, confirmButton = { TextButton({ details?.let(save) }, enabled = details != null) { Text("Zapisz") } },
+    }, confirmButton = { TextButton({ details?.let { value -> scope.launch {
+        saving = true
+        try { save(value) } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+        catch (_: Exception) { saveError = "Nie udało się zapisać aktywności. Spróbuj ponownie." }
+        finally { saving = false }
+    } } }, enabled = details != null && !saving) { Text(if (saving) "Zapisywanie…" else "Zapisz") } },
         dismissButton = { TextButton(close) { Text("Anuluj") } })
 }
 
@@ -173,8 +208,12 @@ internal fun GroupedHistory(data: AppData, sessions: List<PracticeSession>, incl
     }
     if (grouping == null) Text("Wczytywanie sesji…")
     if (grouping?.isFailure == true) TextButton({ revision++ }) { Text("Ponów odczyt sesji") }
+    if (includeMusic) MusicActivityHistory(data)
     val groups = grouping?.getOrNull()?.groups.orEmpty()
-    groups.forEachIndexed { index, group ->
+    LazyColumn(Modifier.fillMaxWidth().heightIn(max = 420.dp)) {
+      items(groups.size, key = { groups[it].playbackIds.first() }) { reverseIndex ->
+        val index = groups.lastIndex - reverseIndex
+        val group = groups[index]
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp)) {
                 TextButton({ expanded = if (expanded == group.playbackIds.first()) null else group.playbackIds.first() }) {
@@ -197,9 +236,9 @@ internal fun GroupedHistory(data: AppData, sessions: List<PracticeSession>, incl
                 }
             }
         }
+      }
     }
     if (groups.isEmpty() && grouping?.isSuccess == true) Text("Brak odtworzeń.")
-    if (includeMusic) MusicActivityHistory(data)
     sessions.firstOrNull { it.id == selectedId }?.let { session ->
         val config = remember(session.config) { runCatching { ConfigCodec.decode(session.config) }.getOrNull() }
         val timeline by produceState<Result<SessionTimeline?>?>(null, session) {
