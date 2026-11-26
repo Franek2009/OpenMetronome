@@ -560,6 +560,35 @@ class SilentFeaturesTest {
         }
     }
 
+    @Test fun groupingResetAndChangedGapAreReflectedAfterRecreation() {
+        compose.activityRule.scenario.onActivity { it.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }
+        compose.waitUntil(10000) { compose.activity.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT }
+        val config = ConfigCodec.encode(MetronomeConfig())
+        val start = System.currentTimeMillis() - 7_200_000
+        val first = PracticeSession(java.util.UUID.randomUUID().toString(), start, start + 60_000, 60_000, true, false, "UTC", config)
+        val second = PracticeSession(java.util.UUID.randomUUID().toString(), start + 1_200_000, start + 1_260_000, 60_000, true, false, "UTC", config)
+        runBlocking(Dispatchers.IO) {
+            data.dao.insertSessions(listOf(first, second))
+            data.savePracticeGroupingGap(PracticeGroupingGap.MINUTES_5)
+            data.awaitWrites()
+            val preview = data.previewPracticeGrouping(PracticeGroupingChange.Join(first.id, second.id), java.time.Instant.now())
+            data.applyPracticeGrouping(preview)
+            data.awaitWrites()
+            assertEquals(1, data.practiceGrouping(java.time.Instant.now()).groups.size)
+        }
+        page("Ustawienia")
+        compose.onNodeWithText("Resetuj korekty grupowania").performScrollTo().performClick()
+        compose.onNodeWithText("Potwierdź zmianę grupowania").assertExists()
+        compose.onNodeWithText("Resetowane korekty: 1").assertExists()
+        compose.onNodeWithText("Zastosuj").performClick()
+        compose.waitUntil(10000) { runBlocking { data.practiceGrouping(java.time.Instant.now()).groups.size == 2 } }
+        compose.activityRule.scenario.recreate()
+        page("Statystyki")
+        compose.onNodeWithText("Historia").assertIsDisplayed().performClick()
+        compose.onNodeWithText("Dane").performScrollTo()
+        compose.waitUntil(10000) { compose.onAllNodesWithText("1 odtw.", substring = true).fetchSemanticsNodes().size == 2 }
+    }
+
     private fun openFromWidget(scenarioIntent: Intent, statistics: Boolean) {
         // Preserve ActivityScenario's original intent identity while Android delivers onNewIntent.
         compose.activityRule.scenario.onActivity { activity ->
