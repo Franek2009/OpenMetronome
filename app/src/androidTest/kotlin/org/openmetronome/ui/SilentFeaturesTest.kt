@@ -532,11 +532,16 @@ class SilentFeaturesTest {
         compose.onNodeWithText("Edytuj aktywność").assertExists()
         compose.onNodeWithText("Notatka (opcjonalnie)").performScrollTo().performTextReplacement("Próba")
         compose.activityRule.scenario.recreate()
-        compose.onNodeWithText("Próba").assertExists()
+        val noteField = hasText("Notatka (opcjonalnie)") and hasSetTextAction()
+        compose.waitUntil(10000) { compose.onAllNodes(noteField).fetchSemanticsNodes().size == 1 }
+        compose.onNode(noteField).performScrollTo().assertIsDisplayed().assertTextContains("Próba")
         compose.onNodeWithText("Zapisz").performClick()
         compose.waitUntil(10000) { runBlocking { data.musicActivities.first().any { it.details.note == "Próba" } } }
         compose.waitUntil(10000) { compose.onAllNodesWithText("1 odtw.", substring = true).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("1 odtw.", substring = true).performScrollTo().performClick()
+        val group = hasText("1 odtw.", substring = true)
+        showInStatistics(group)
+        compose.onNode(group).performClick()
+        compose.waitUntil(10000) { compose.onAllNodesWithText("Resetuj").fetchSemanticsNodes().size == 1 }
         compose.onNodeWithText("Dane").performScrollTo()
         compose.onNodeWithText("Resetuj").performScrollTo().assertIsDisplayed()
         captureUi("music-group")
@@ -607,6 +612,19 @@ class SilentFeaturesTest {
         val collapsed = compose.onAllNodesWithText("Trening pulsu").fetchSemanticsNodes().isNotEmpty()
         val toggle = compose.onNodeWithTag("training-toggle").performScrollTo()
         if (collapsed) toggle.performClick()
+    }
+    private fun showInStatistics(matcher: SemanticsMatcher) {
+        val node = compose.onNode(matcher)
+        node.performScrollTo()
+        repeat(16) {
+            if (runCatching { node.assertIsDisplayed() }.isSuccess) return
+            // boundsInRoot is empty when clipped; use the un-clipped layout position.
+            val targetY = node.fetchSemanticsNode().positionInRoot.y
+            val viewport = compose.onNodeWithTag("statistics-content").fetchSemanticsNode().boundsInRoot
+            val amount = if (targetY < viewport.center.y) -80f else 80f
+            compose.onNodeWithTag("statistics-content").performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, amount) }
+        }
+        node.assertIsDisplayed()
     }
     private fun captureUi(name: String) {
         if (InstrumentationRegistry.getArguments().getString("captureUi") != "true") return
