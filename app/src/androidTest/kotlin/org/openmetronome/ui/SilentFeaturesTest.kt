@@ -1,5 +1,6 @@
 package org.openmetronome.ui
 
+import android.content.Intent
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.graphics.asAndroidBitmap
@@ -138,12 +139,8 @@ class SilentFeaturesTest {
     }
 
     @Test fun widgetRequestIsNotReplayedAfterRecreationOrNavigation() {
-        val scenarioIntent = android.content.Intent(compose.activity.intent)
-        compose.runOnIdle {
-            compose.activity.startActivity(android.content.Intent(scenarioIntent)
-                .setFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                .putExtra("widget_statistics", true))
-        }
+        val scenarioIntent = Intent(compose.activity.intent)
+        openFromWidget(scenarioIntent, statistics = true)
         compose.onNodeWithText("Podsumowanie").assertExists()
         page("Metronom")
         compose.activityRule.scenario.recreate()
@@ -151,20 +148,12 @@ class SilentFeaturesTest {
         compose.onNodeWithText("Pełny ekran").performScrollTo().performClick()
         compose.onNodeWithText("Wróć").performClick()
         compose.onNodeWithText("Pełny ekran").assertExists()
-        compose.runOnIdle {
-            compose.activity.startActivity(android.content.Intent(scenarioIntent)
-                .setFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                .putExtra("widget_statistics", true))
-        }
+        openFromWidget(scenarioIntent, statistics = true)
         compose.onNodeWithText("Podsumowanie").assertExists()
         page("Ustawienia")
         compose.onNodeWithText("Informacje").performScrollTo().performClick()
         compose.onNodeWithText("Informacje i diagnostyka").assertExists()
-        compose.runOnIdle {
-            compose.activity.startActivity(android.content.Intent(scenarioIntent)
-                .setFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                .putExtra("widget_statistics", true))
-        }
+        openFromWidget(scenarioIntent, statistics = true)
         compose.onNodeWithText("Informacje i diagnostyka").assertDoesNotExist()
         compose.onNodeWithText("Podsumowanie").assertExists()
     }
@@ -500,27 +489,31 @@ class SilentFeaturesTest {
     }
 
     @Test fun widgetLinksCanNavigateRepeatedlyWithoutChangingConfiguration() {
-        // ActivityScenario matches lifecycle events by the original intent filter identity.
-        // Keep action/categories/identifier while exercising actual onNewIntent delivery.
-        val scenarioIntent = android.content.Intent(compose.activity.intent)
-        fun open(statistics: Boolean) {
-            compose.activity.startActivity(android.content.Intent(scenarioIntent)
-                .setFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                .putExtra("widget_statistics", statistics))
-            compose.waitUntil(10000) {
-                compose.onAllNodesWithText(if (statistics) "Podsumowanie" else "Pełny ekran").fetchSemanticsNodes().isNotEmpty()
-            }
-        }
-        open(true)
+        val scenarioIntent = Intent(compose.activity.intent)
+        openFromWidget(scenarioIntent, statistics = true)
         compose.onNodeWithText("Podsumowanie").assertIsDisplayed()
         page("Metronom")
-        open(true)
+        openFromWidget(scenarioIntent, statistics = true)
         compose.onNodeWithText("Podsumowanie").assertIsDisplayed()
-        open(false)
+        openFromWidget(scenarioIntent, statistics = false)
         compose.onNodeWithText("Pełny ekran").assertIsDisplayed()
         compose.runOnIdle {
             assertEquals(120, model.state.value.config.tempo.bpm)
             assertEquals(PlaybackStatus.STOPPED, model.state.value.audio.status)
+        }
+    }
+
+    private fun openFromWidget(scenarioIntent: Intent, statistics: Boolean) {
+        // Preserve ActivityScenario's original intent identity while Android delivers onNewIntent.
+        compose.activityRule.scenario.onActivity { activity ->
+            activity.startActivity(Intent(scenarioIntent)
+                .setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .putExtra("widget_statistics", statistics))
+        }
+        val destination = if (statistics) "Podsumowanie" else "Pełny ekran"
+        // A paused Activity can temporarily have no registered Compose roots.
+        compose.waitUntil(10000) {
+            compose.onAllNodesWithText(destination).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
         }
     }
 

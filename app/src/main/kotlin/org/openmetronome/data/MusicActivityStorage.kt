@@ -61,6 +61,18 @@ internal abstract class MusicActivityDao {
     @Query("SELECT * FROM music_activities ORDER BY startAt, id")
     abstract suspend fun all(): List<StoredMusicActivity>
 
+    @Query("""
+        SELECT startedAt AS startAt, durationMs AS extent, 1 AS playback
+        FROM practice_sessions WHERE durationMs > 0
+        UNION ALL
+        SELECT intervals.startAt, intervals.endAt, 0
+        FROM music_activity_intervals AS intervals
+        JOIN music_activities AS activity ON activity.id = intervals.activityId
+        WHERE activity.deletedAt IS NULL
+        ORDER BY startAt
+    """)
+    abstract fun statisticsRanges(): Flow<List<MusicStatisticsRange>>
+
     // Serialized record size: 70 fixed bytes, then optional instrument, deletion and note fields.
     @Query("""
         SELECT COUNT(*) AS activities, (SELECT COUNT(*) FROM music_activity_intervals) AS intervals,

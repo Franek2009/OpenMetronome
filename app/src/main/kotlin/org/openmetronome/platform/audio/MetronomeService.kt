@@ -272,7 +272,7 @@ open class MetronomeService : Service() {
     }
     override fun onDestroy() {
         audioEngine.observations?.event(audioEngine.diagnosticSessionId, TraceControlKind.SERVICE_DESTROYED)
-        if (controller.configurationRevision > 0) (application as OpenMetronomeApplication).data.saveSettings(controller.state.value.config)
+        // Edits are queued at admission. A dying service can hold an older snapshot.
         destroyed = true
         requests.cancel()
         playRequest?.cancel()
