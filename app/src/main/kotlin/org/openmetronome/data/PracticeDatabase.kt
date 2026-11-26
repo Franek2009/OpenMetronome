@@ -68,11 +68,23 @@ abstract class PracticeDao {
 }
 
 @Database(entities = [Preset::class, PracticeSession::class, PracticeDay::class, CustomSampleRecord::class,
-    MusicActivityRow::class, MusicActivityIntervalRow::class], version = 4, exportSchema = true)
+    MusicActivityRow::class, MusicActivityIntervalRow::class, GroupingCorrectionRow::class], version = 5, exportSchema = true)
 abstract class PracticeDatabase : RoomDatabase() {
     abstract fun practice(): PracticeDao
     internal abstract fun musicActivities(): MusicActivityDao
+    internal abstract fun grouping(): PracticeGroupingDao
     companion object {
+        val MIGRATION_4_5 = object : androidx.room.migration.Migration(4, 5) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE grouping_corrections (
+                        id TEXT NOT NULL PRIMARY KEY, sequenceNumber INTEGER NOT NULL, kind TEXT NOT NULL,
+                        playbackId TEXT NOT NULL, otherPlaybackId TEXT, deletedAt INTEGER
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE UNIQUE INDEX index_grouping_corrections_sequenceNumber ON grouping_corrections (sequenceNumber)")
+            }
+        }
         val MIGRATION_3_4 = object : androidx.room.migration.Migration(3, 4) {
             override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                 db.execSQL("""

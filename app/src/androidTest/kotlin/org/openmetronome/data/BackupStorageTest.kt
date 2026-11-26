@@ -66,7 +66,7 @@ class BackupStorageTest {
             listOf(PracticeSession(label, 0, 125000, 125000, true, false, "UTC", config,
                 SessionTimelineCodec.encode(SessionTimeline(true, listOf(SessionConfiguration(0, config)))))),
             listOf(PracticeDay(label, "1970-01-01", 125000)), listOf(CustomSampleRecord(id, label, 3)), mapOf(id to wav), AppPreferencesCodec.encode(AppPreferences(PracticeDisplayPreferences(label == "B", label == "B"),
-                if (label == "B") StatisticsPreferences(30, 10) else StatisticsPreferences())))
+                if (label == "B") StatisticsPreferences(30, 10) else StatisticsPreferences(), groupingGap = PracticeGroupingGap.DEFAULT)))
     }
     private suspend fun imported(data: AppData, value: BackupSnapshot, apply: (MetronomeConfig) -> Unit = {}) {
         data.importBackup({ ByteArrayInputStream(bytes(value)) }, apply)

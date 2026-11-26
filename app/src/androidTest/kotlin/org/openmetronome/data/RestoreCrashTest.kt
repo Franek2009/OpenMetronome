@@ -28,14 +28,18 @@ class RestoreCrashTest {
             MusicActivityDetails.manual(MusicActivityKind.LESSON, bpm.toLong(), 35_000, "UTC", "Kontrabas", "Ćwiczenie $bpm"), 1, 2)
         val deleted = activity.copy(id = UUID.randomUUID().toString(), deletedAt = 2)
         val musicPreferences = if (bpm == 137) MusicStatisticsPreferences(ZoneId.of("America/Toronto"), 17, null) else null
+        val playback = UUID(0, bpm.toLong()).toString()
+        val correction = GroupingCorrection(UUID.randomUUID().toString(), 1, GroupingCorrectionKind.FINISH_AFTER, playback)
         return ByteArrayOutputStream().also { BackupArchive.write(BackupSnapshot(config,
             listOf(Preset("preset-$bpm", "Preset $bpm", config, 1, 2)),
-            listOf(PracticeSession("session-$bpm", 0, 125000, 125000, true, false, "UTC", config,
+            listOf(PracticeSession(playback, 0, 125000, 125000, true, false, "UTC", config,
                 SessionTimelineCodec.encode(SessionTimeline(true, listOf(SessionConfiguration(0, config)))))),
-            listOf(PracticeDay("session-$bpm", "1970-01-01", 125000)),
+            listOf(PracticeDay(playback, "1970-01-01", 125000)),
             listOf(CustomSampleRecord(id, "Klik $bpm", 1)), mapOf(id to wav), AppPreferencesCodec.encode(AppPreferences(PracticeDisplayPreferences(bpm == 137, false),
-                if (bpm == 137) StatisticsPreferences(30, 10) else StatisticsPreferences(), musicPreferences)),
-            listOf(activity, deleted).sortedBy { it.id }), it) }.toByteArray()
+                if (bpm == 137) StatisticsPreferences(30, 10) else StatisticsPreferences(), musicPreferences,
+                if (bpm == 137) PracticeGroupingGap.DISABLED else PracticeGroupingGap.MINUTES_15)),
+            listOf(activity, deleted).sortedBy { it.id },
+            listOf(correction, correction.copy(id = UUID.randomUUID().toString(), sequenceNumber = 2, deletedAt = 3))), it) }.toByteArray()
     }
     private inner class Probe(private val fixture: String) : AutoCloseable {
         val connected = Channel<Messenger>(Channel.UNLIMITED)

@@ -120,7 +120,10 @@ class MusicActivityStorageTest {
                 val size = data.database.musicActivities().backupSize()
                 assertEquals(1L, size.activities)
                 assertEquals(1L, size.intervals)
-                assertEquals((metadataSize(v3) - metadataSize(v2)).toLong(), size.activityBytes + 16 * size.intervals)
+                val preferences = data.settings.preferencesSnapshot()
+                val legacy = AppPreferencesCodec.forCompatibility(preferences)!!
+                val preferenceBytes = preferences.toByteArray().size - legacy.toByteArray().size
+                assertEquals((metadataSize(v3) - metadataSize(v2) - preferenceBytes).toLong(), size.activityBytes + 16 * size.intervals)
             }
         } finally { fixture.deleteRecursively() }
     }

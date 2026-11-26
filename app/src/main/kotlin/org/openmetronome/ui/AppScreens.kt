@@ -355,8 +355,8 @@ private fun StatisticsScreen(data: AppData, model: MetronomeViewModel) {
         AlertDialog(onDismissRequest = { legacyWarning = 0 }, title = { Text("Kopia kompatybilna v$version") },
             text = {
                 Text(if (version == 1)
-                    "Format v1 pomija aktywności muzyczne, przebieg konfiguracji, progi i ustawienia ekranu. Aplikacja 1.0 ignoruje procenty i odliczanie. Nowe metra i nowe brzmienia mogą zablokować eksport v1. Pełne dane zachowuje zwykła kopia v3."
-                else "Format v2 zachowuje dane metronomu, pomijając aktywności muzyczne i ustawienia ich statystyk. Pełne dane zachowuje kopia v3.")
+                    "Format v1 pomija aktywności muzyczne, grupowanie, przebieg konfiguracji, progi i ustawienia ekranu. Aplikacja 1.0 ignoruje procenty i odliczanie. Nowe metra i nowe brzmienia mogą zablokować eksport v1. Pełne dane zachowuje kopia v3."
+                else "Kopia v2 zachowuje odtworzenia metronomu. Aktywności, ich ustawienia i korekty grupowania zachowuje pełna kopia v3.")
             },
             confirmButton = { TextButton({
                 legacyWarning = 0
@@ -368,7 +368,7 @@ private fun StatisticsScreen(data: AppData, model: MetronomeViewModel) {
     pendingImportPath?.let { path ->
         val uri = path.toUri()
         AlertDialog(onDismissRequest = { pendingImportPath = null }, title = { Text("Przywrócić kopię?") },
-            text = { Text("Kopia zastąpi bieżące ustawienia, presety, historię, własne sample i aktywności muzyczne. Kopie v1/v2 nie zawierają aktywności muzycznych. Najpierw warto zapisać obecną kopię v3.") },
+            text = { Text("Przywrócenie zastąpi obecne dane. Kopie v1/v2 pomijają aktywności i korekty grupowania. Najpierw warto zapisać obecną kopię v3.") },
             confirmButton = { TextButton({
                 pendingImportPath = null
                 data.importBackup({ checkNotNull(resolver.openInputStream(uri)) }, model::setConfig)

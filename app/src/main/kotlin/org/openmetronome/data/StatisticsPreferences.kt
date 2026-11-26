@@ -8,7 +8,8 @@ data class StatisticsPreferences(val minimumSessionSeconds: Int = 20, val active
 
 data class AppPreferences(val display: PracticeDisplayPreferences = PracticeDisplayPreferences(),
     val statistics: StatisticsPreferences = StatisticsPreferences(),
-    val musicStatistics: MusicStatisticsPreferences? = null)
+    val musicStatistics: MusicStatisticsPreferences? = null,
+    val groupingGap: PracticeGroupingGap? = null)
 
 object AppPreferencesCodec {
     fun encode(value: AppPreferences): String = with(value) {
@@ -17,6 +18,7 @@ object AppPreferencesCodec {
             musicStatistics?.let {
                 append("\nmusicZone=${it.zone.id}\nmusicActiveDayMinutes=${it.activeDayMinutes}\nmusicWeeklyGoalDays=${it.weeklyGoalDays ?: 0}")
             }
+            groupingGap?.let { append("\npracticeGroupingGap=${it.name}") }
         }
     }
     fun decode(value: String): AppPreferences {
@@ -32,19 +34,22 @@ object AppPreferencesCodec {
         require(music != null || ("musicActiveDayMinutes" !in fields && "musicWeeklyGoalDays" !in fields))
         return AppPreferences(PracticeDisplayPreferences(fields["awake"]?.toBooleanStrict() ?: false,
             fields["reduceMotion"]?.toBooleanStrict() ?: false), StatisticsPreferences(
-            fields["minimumSessionSeconds"]?.toInt() ?: 20, fields["activeDayMinutes"]?.toInt() ?: 5), music)
+            fields["minimumSessionSeconds"]?.toInt() ?: 20, fields["activeDayMinutes"]?.toInt() ?: 5), music,
+            fields["practiceGroupingGap"]?.let(PracticeGroupingGap::valueOf))
     }
 
     internal fun forRestore(incoming: String?, previous: String?): String? {
         if (incoming == null) return previous
         val settings = decode(incoming)
-        if (settings.musicStatistics != null) return incoming
-        val currentMusic = previous?.let(::decode)?.musicStatistics ?: return incoming
-        return encode(settings.copy(musicStatistics = currentMusic))
+        val current = previous?.let(::decode) ?: return incoming
+        val resolved = settings.copy(musicStatistics = settings.musicStatistics ?: current.musicStatistics,
+            groupingGap = settings.groupingGap ?: current.groupingGap)
+        return if (resolved == settings) incoming else encode(resolved)
     }
 
-    internal fun withoutMusic(payload: String?): String? = payload?.let { value ->
+    internal fun forCompatibility(payload: String?): String? = payload?.let { value ->
         val settings = decode(value)
-        if (settings.musicStatistics == null) value else encode(settings.copy(musicStatistics = null))
+        if (settings.musicStatistics == null && settings.groupingGap == null) value
+        else encode(settings.copy(musicStatistics = null, groupingGap = null))
     }
 }
