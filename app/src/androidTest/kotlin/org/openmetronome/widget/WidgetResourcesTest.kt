@@ -25,10 +25,20 @@ class WidgetResourcesTest {
             assertEquals("Dzisiaj · cała aktywność", compact.findViewById<TextView>(R.id.widget_statistics_title).text.toString())
             val detail = compact.findViewById<TextView>(R.id.widget_streak).text.toString()
             assertFalse(detail.contains("Seria")); assertTrue(detail.contains("Tydzień")); assertTrue(detail.contains("4/5"))
-            assertEquals("", compact.findViewById<TextView>(R.id.widget_week).text.toString())
+            assertEquals(View.GONE, compact.findViewById<View>(R.id.widget_week).visibility)
             val expanded = WidgetHost.statisticsViews(context, 1002, config, Result.success(sample), true).apply(context, FrameLayout(context))
-            assertTrue(expanded.findViewById<TextView>(R.id.widget_week).text.contains("Pn"))
-            assertTrue(expanded.findViewById<TextView>(R.id.widget_week).contentDescription.contains("poniedziałek"))
+            assertEquals(View.VISIBLE, expanded.findViewById<View>(R.id.widget_week).visibility)
+            val bars = listOf(R.id.widget_day_0, R.id.widget_day_1, R.id.widget_day_2, R.id.widget_day_3, R.id.widget_day_4, R.id.widget_day_5, R.id.widget_day_6)
+            assertEquals(listOf(0, 16, 33, 50, 66, 83, 100), bars.map { expanded.findViewById<android.widget.ProgressBar>(it).progress })
+            assertTrue(expanded.findViewById<View>(R.id.widget_day_0).contentDescription.contains("poniedziałek"))
+            val goal = expanded.findViewById<android.widget.ProgressBar>(R.id.widget_goal_progress)
+            assertEquals(View.VISIBLE, goal.visibility); assertEquals(5, goal.max); assertEquals(4, goal.progress)
+            val noGoal = WidgetHost.statisticsViews(context, 1006, config, Result.success(sample.copy(weeklyGoal = null)), true).apply(context, FrameLayout(context))
+            assertEquals(View.GONE, noGoal.findViewById<View>(R.id.widget_goal_progress).visibility)
+            assertTrue(noGoal.findViewById<TextView>(R.id.widget_streak).text.contains("Aktywne dni: 4"))
+            val hidden = WidgetHost.statisticsViews(context, 1007, config.copy(showActiveDays = false, showChart = false), Result.success(sample), true).apply(context, FrameLayout(context))
+            assertEquals(View.GONE, hidden.findViewById<View>(R.id.widget_goal_progress).visibility)
+            assertEquals(View.GONE, hidden.findViewById<View>(R.id.widget_week).visibility)
             val error = WidgetHost.statisticsViews(context, 1003, WidgetConfiguration(), Result.failure(IllegalStateException()), false).apply(context, FrameLayout(context))
             assertTrue(error.findViewById<TextView>(R.id.widget_stats).text.contains("niedostępne"))
             val loading = WidgetHost.statisticsViews(context, 1004, WidgetConfiguration(), null, false).apply(context, FrameLayout(context))
@@ -87,6 +97,39 @@ class WidgetResourcesTest {
             val bounds = android.graphics.Rect(); detail.getDrawingRect(bounds)
             (view as android.view.ViewGroup).offsetDescendantRectToMyCoords(detail, bounds)
             assertTrue("Clipped statistics bounds: $bounds", bounds.bottom <= height)
+        }
+    }
+
+    @Test fun expandedStatisticsFitsMinimumWidthAndLargeFont() {
+        instrumentation.runOnMainSync {
+            val sized = context.createConfigurationContext(android.content.res.Configuration(context.resources.configuration).apply { fontScale = 1.5f })
+            val density = sized.resources.displayMetrics.density
+            val monday = java.time.LocalDate.of(2026, 11, 23)
+            val sample = WidgetStatistics(600_000, 3, 3_600_000, 4, 5, (0L..6L).map { WidgetDay(monday.plusDays(it), it * 60_000, true) })
+            val view = WidgetHost.statisticsViews(sized, 1011, WidgetConfiguration(scope = WidgetStatisticsScope.MUSIC), Result.success(sample), true).apply(sized, FrameLayout(sized))
+            val width = (250 * density).toInt(); val height = (190 * density).toInt()
+            view.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY))
+            view.layout(0, 0, width, height)
+            val chart = view.findViewById<View>(R.id.widget_week)
+            val goal = view.findViewById<View>(R.id.widget_goal_progress)
+            assertEquals(View.VISIBLE, chart.visibility); assertEquals(View.VISIBLE, goal.visibility)
+            for (id in listOf(R.id.widget_day_0, R.id.widget_day_1, R.id.widget_day_2, R.id.widget_day_3, R.id.widget_day_4, R.id.widget_day_5, R.id.widget_day_6)) {
+                val bar = view.findViewById<View>(id)
+                assertTrue("Bar has no visible area: $id size=${bar.width}x${bar.height}, chart=${chart.width}x${chart.height}, detail=${view.findViewById<View>(R.id.widget_streak).height}, bpm=${view.findViewById<View>(R.id.widget_stats).height}", bar.width > 0 && bar.height >= (8 * density).toInt())
+                val bounds = android.graphics.Rect(); bar.getDrawingRect(bounds)
+                (view as android.view.ViewGroup).offsetDescendantRectToMyCoords(bar, bounds)
+                assertTrue("Bar outside widget: $bounds", bounds.left >= 0 && bounds.right <= width && bounds.bottom <= height)
+            }
+            val detail = view.findViewById<TextView>(R.id.widget_streak)
+            for (line in 0 until detail.lineCount) assertEquals("Clipped statistics", 0, detail.layout.getEllipsisCount(line))
+            if (InstrumentationRegistry.getArguments().getString("captureUi") == "true") {
+                val bitmap = android.graphics.Bitmap.createBitmap(width, height, android.graphics.Bitmap.Config.ARGB_8888)
+                view.draw(android.graphics.Canvas(bitmap))
+                java.io.File(context.cacheDir, "ui-v012-widget-statistics-min-font150.png").outputStream().use {
+                    assertTrue(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it))
+                }
+                bitmap.recycle()
+            }
         }
     }
 
@@ -183,7 +226,6 @@ class WidgetResourcesTest {
             val stats = android.widget.RemoteViews(context.packageName, R.layout.widget_statistics).apply {
                 setTextViewText(R.id.widget_stats, "42 min 00 s")
                 setTextViewText(R.id.widget_streak, "Seria: 3 dni")
-                setTextViewText(R.id.widget_week, "Pn ●  Wt ●  Śr ●  Cz ○  Pt ○  So ○  Nd ○")
             }
             val monday = java.time.LocalDate.of(2026, 11, 23)
             val sample = WidgetStatistics(600_000, 3, 3_600_000, 4, 5,

@@ -301,17 +301,26 @@ object WidgetHost {
                     if (config.showWeek) "Tydzień: ${dailyPracticeDuration(it.weekMs)}" else null,
                     if (config.showActiveDays) it.weeklyGoal?.let { goal -> "Cel: ${it.activeDays}/$goal dni" } ?: "Aktywne dni: ${it.activeDays}" else null).joinToString(" · ")
             }.orEmpty())
-            views.setTextViewText(R.id.widget_week, if (expanded && config.showChart && summary != null) {
-                val maximum = summary.week.maxOf { it.durationMs }
-                val bars = "▁▂▃▄▅▆▇█"
-                listOf("Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd").zip(summary.week)
-                    .joinToString("  ") { (name, day) ->
-                        val bar = if (day.durationMs == 0L || maximum == 0L) "·" else bars[(day.durationMs.toDouble() / maximum * 7).toInt().coerceIn(0, 7)].toString()
-                        "$name $bar"
-                    }
-            } else "")
-            views.setContentDescription(R.id.widget_week, summary?.week?.zip(listOf("poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota", "niedziela"))
-                ?.joinToString(", ") { (day, name) -> "$name: ${dailyPracticeDuration(day.durationMs)}" }.orEmpty())
+            val goal = summary?.weeklyGoal?.takeIf { config.showActiveDays && it > 0 }
+            views.setViewVisibility(R.id.widget_goal_progress, if (goal != null) View.VISIBLE else View.GONE)
+            if (goal != null) {
+                views.setProgressBar(R.id.widget_goal_progress, goal, summary.activeDays.coerceIn(0, goal), false)
+                views.setContentDescription(R.id.widget_goal_progress, "Cel tygodniowy: ${summary.activeDays} z $goal dni")
+            }
+            val showChart = expanded && config.showChart && summary != null
+            views.setViewVisibility(R.id.widget_week, if (showChart) View.VISIBLE else View.GONE)
+            if (showChart) {
+                val days = summary!!.week
+                val maximum = days.maxOfOrNull { it.durationMs } ?: 0L
+                val ids = listOf(R.id.widget_day_0, R.id.widget_day_1, R.id.widget_day_2, R.id.widget_day_3, R.id.widget_day_4, R.id.widget_day_5, R.id.widget_day_6)
+                val names = listOf("poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota", "niedziela")
+                ids.forEachIndexed { index, viewId ->
+                    val duration = days.getOrNull(index)?.durationMs ?: 0L
+                    val progress = if (duration <= 0L || maximum <= 0L) 0 else (duration.toDouble() / maximum * 100).toInt().coerceIn(1, 100)
+                    views.setProgressBar(viewId, 100, progress, false)
+                    views.setContentDescription(viewId, "${names[index]}: ${dailyPracticeDuration(duration)}")
+                }
+            }
             views.setOnClickPendingIntent(R.id.widget_root, open(context, true, id, config.scope == WidgetStatisticsScope.MUSIC))
             views.setOnClickPendingIntent(R.id.widget_configure, configureIntent(context, id))
             return views

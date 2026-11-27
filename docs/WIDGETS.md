@@ -8,6 +8,9 @@ zakres metronomu. W konfiguracji można wybrać serię, czas tygodniowy, aktywne
 dni/cel i wykres; dzisiejszy czas pozostaje widoczny. Przy większej wysokości
 wykres pokazuje tydzień od poniedziałku do niedzieli. Dane korzystają z tych
 samych obliczeń co aplikacja; błąd i ładowanie nie oznaczają zerowej aktywności.
+Siedem słupków jest skalowanych względem najdłuższego dnia widocznego tygodnia;
+przy włączonym celu liczbie aktywnych dni towarzyszy pasek postępu. Gdy cel
+nie obowiązuje lub jest wyłączony, widget pokazuje liczbę aktywnych dni.
 
 Skróty dodawania aktywności otwierają istniejący formularz: prosty przycisk,
 pojedynczy szablon oraz pasek maksymalnie czterech szablonów. Szablon określa

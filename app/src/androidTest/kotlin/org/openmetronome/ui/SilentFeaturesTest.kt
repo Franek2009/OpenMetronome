@@ -612,6 +612,45 @@ class SilentFeaturesTest {
         }
     }
 
+    @Test fun widgetActivitySavesExactlyOnceAcrossRecreationDuringWrite() {
+        val context = compose.activity.applicationContext
+        val host = android.appwidget.AppWidgetHost(context, (java.util.UUID.randomUUID().hashCode() and 0x3fffffff) + 1)
+        val id = host.allocateAppWidgetId()
+        val entered = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val release = kotlinx.coroutines.CompletableDeferred<Unit>()
+        try {
+            val manager = android.appwidget.AppWidgetManager.getInstance(context)
+            assertTrue(manager.bindAppWidgetIdIfAllowed(id, android.content.ComponentName(context, ActivityTemplateWidget::class.java)))
+            WidgetConfigurationStore(context).put(id, WidgetConfiguration(category = MusicActivityKind.LESSON, instrument = "Kontrabas", durationMinutes = 45))
+            val identity = Intent(compose.activity.intent)
+            compose.activityRule.scenario.onActivity { activity ->
+                activity.startActivity(Intent(identity).setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    .putExtra("widget_activity_id", id).putExtra("widget_activity_slot", -1))
+            }
+            compose.waitUntil(10000) { compose.onAllNodesWithText("Dodaj aktywność").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
+            data.operation { entered.complete(Unit); release.await() }
+            runBlocking { kotlinx.coroutines.withTimeout(10000) { entered.await() } }
+            compose.onNodeWithText("Zapisz").performClick()
+            compose.waitUntil(10000) { compose.onAllNodesWithText("Zapisywanie…").fetchSemanticsNodes().isNotEmpty() }
+            compose.activityRule.scenario.recreate()
+            compose.onNodeWithText("Zapisywanie…").assertIsNotEnabled()
+            release.complete(Unit)
+            compose.waitUntil(10000) { runBlocking { data.musicActivities.first().size == 1 } }
+            compose.waitUntil(10000) { compose.onAllNodesWithText("Dodaj aktywność").fetchSemanticsNodes().isEmpty() }
+            compose.activityRule.scenario.recreate()
+            val saved = runBlocking { data.musicActivities.first() }
+            assertEquals(1, saved.size)
+            assertEquals(MusicActivityKind.LESSON, saved.single().details.kind)
+            assertEquals("Kontrabas", saved.single().details.instrument)
+            assertEquals(45 * 60_000L, saved.single().details.timerDurationMs)
+            compose.onAllNodesWithText("Dodaj aktywność").assertCountEquals(0)
+        } finally {
+            release.complete(Unit)
+            host.deleteAppWidgetId(id)
+            WidgetConfigurationStore(context).remove(intArrayOf(id))
+        }
+    }
+
     @Test fun statisticsWidgetInstancesOpenTheirOwnScope() {
         val context = compose.activity.applicationContext
         val host = android.appwidget.AppWidgetHost(context, (java.util.UUID.randomUUID().hashCode() and 0x3fffffff) + 1)
