@@ -2,7 +2,7 @@
 
 ## Rozwijany wariant 1.3 — Widgety 2.0
 
-Na gałęzi rozwojowej widget statystyk ma indywidualny zakres: metronom lub
+W kodzie rozwojowym na main widget statystyk ma indywidualny zakres: metronom lub
 cała aktywność muzyczna. Obecne instancje bez zapisanej konfiguracji zachowują
 zakres metronomu. W konfiguracji można wybrać serię, czas tygodniowy, aktywne
 dni/cel i wykres; dzisiejszy czas pozostaje widoczny. Przy większej wysokości
@@ -39,6 +39,8 @@ APK podpisanych wspólnym tymczasowym kluczem i zastąpienia tej samej wartości
 versionCode 22; nie jest weryfikacją aktualizacji oficjalnie podpisanego 1.3.
 
 Ta sekcja opisuje bieżący zakres rozwoju, a nie opublikowane wydanie 1.3.
+PR #48 przeszedł pełne CI 7/7, w tym cichą instrumentację PROD i DEV na API 26
+i 35. Testy emulatorowe i podglądy nie zastępują odbioru fizycznego launchera.
 
 Dostępne od wersji 1.2.0. Widgety rozszerzają obecny interfejs,
 bez nowego silnika audio.

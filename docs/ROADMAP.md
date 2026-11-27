@@ -12,8 +12,10 @@ jest wydaniem stabilnym. Obejmuje poprawki widgetów i edycji presetów;
 ## Kierunki po 1.2.1 — planowane
 
 - **1.3:** fundament danych aktywności, silnik statystyk muzycznych, grupowanie
-  odtworzeń oraz interfejs aktywności i grupowania są na main. Widgety 2.0
-  czekają na ustalenie zakresu i wyglądu; nie zostały jeszcze wdrożone.
+  odtworzeń, interfejs aktywności i grupowania oraz Widgety 2.0 są na main.
+  Widgety statystyk umożliwiają wybór zakresu, a skróty aktywności otwierają
+  formularz wymagający potwierdzenia. [PR #48](https://github.com/Franek2009/OpenMetronome/pull/48)
+  przeszedł pełne CI 7/7 na zatwierdzonym commicie.
   Interfejs przeszedł automatyczne testy i audyt zrzutów w PR #46; nie oznacza
   to zakończenia odbioru fizycznego ani gotowości całego wydania 1.3.
   Eksperyment z plikami FIT z Garmin Forerunner 55 potwierdził
@@ -23,7 +25,7 @@ jest wydaniem stabilnym. Obejmuje poprawki widgetów i edycji presetów;
   samodzielnego hostowania serwera i pełną pracą offline. Architektura nie jest
   jeszcze zatwierdzona.
 
-Powyższe funkcje nie są deklaracją ich implementacji ani terminu wydania.
+Planowane funkcje nie są deklaracją ich implementacji ani terminu wydania.
 Parametry fizycznego audio pozostają oddzielone od testów oprogramowania;
 aktualny zakres odbioru opisuje [M6](M6-ACCEPTANCE.md).
 
