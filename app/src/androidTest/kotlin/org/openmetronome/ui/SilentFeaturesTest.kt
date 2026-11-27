@@ -696,7 +696,19 @@ class SilentFeaturesTest {
             assertEquals(1, data.practiceGrouping(java.time.Instant.now()).groups.size)
         }
         page("Ustawienia")
-        compose.onNodeWithText("Resetuj korekty grupowania").performScrollTo().performClick()
+        val entered = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val release = kotlinx.coroutines.CompletableDeferred<Unit>()
+        data.operation { entered.complete(Unit); release.await() }
+        try {
+            runBlocking { kotlinx.coroutines.withTimeout(10000) { entered.await() } }
+            compose.onNodeWithText("Resetuj korekty grupowania").performScrollTo().performClick()
+            compose.onNodeWithText("Potwierdź zmianę grupowania").assertDoesNotExist()
+        } finally {
+            release.complete(Unit)
+        }
+        compose.waitUntil(10000) {
+            compose.onAllNodesWithText("Potwierdź zmianę grupowania").fetchSemanticsNodes().size == 1
+        }
         compose.onNodeWithText("Potwierdź zmianę grupowania").assertExists()
         compose.onNodeWithText("Resetowane korekty: 1").assertExists()
         compose.onNodeWithText("Zastosuj").performClick()
