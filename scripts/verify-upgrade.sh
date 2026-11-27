@@ -9,14 +9,16 @@ upgrade_official=false
 upgrade_dev=false
 upgrade_beta=false
 upgrade_120=false
+upgrade_test_121=false
 case "${1:-}" in
     --official) upgrade_official=true; shift ;;
     --official-beta) upgrade_official=true; upgrade_beta=true; shift ;;
     --official-1.2) upgrade_official=true; upgrade_120=true; shift ;;
+    --test-1.2.1) upgrade_test_121=true; shift ;;
     --official-dev) upgrade_official=true; upgrade_dev=true; shift
         release_package="$release_dev_package"; release_version="$release_dev_version" ;;
 esac
-[[ $# == 2 ]] || { echo 'Usage: verify-upgrade.sh [--official|--official-beta|--official-1.2|--official-dev] old.apk new.apk' >&2; exit 2; }
+[[ $# == 2 ]] || { echo 'Usage: verify-upgrade.sh [--official|--official-beta|--official-1.2|--official-dev|--test-1.2.1] old.apk new.apk' >&2; exit 2; }
 : "${ANDROID_HOME:?Set ANDROID_HOME}"
 upgrade_old="$1"
 upgrade_new="$2"
@@ -30,6 +32,10 @@ upgrade_new_badging="$($upgrade_tools/aapt dump badging "$upgrade_new")"
 upgrade_baseline_code=15
 upgrade_baseline_version=0.13.0-beta.3
 upgrade_expected_cert=563cd960efc3fc5b483ceae4b96e66728af9e2bb0c52d6162fe37cded72ac4a2
+if [[ "$upgrade_test_121" == true ]]; then
+    upgrade_baseline_code=22; upgrade_baseline_version=1.2.1
+    [[ "$(sha256sum "$upgrade_old" | cut -d ' ' -f 1)" == c95aa7caa4b1cfca586b8a5fd7a1f0a6f4d28e01657b8f1d9113a0f1a39f6e72 ]]
+fi
 if [[ "$upgrade_official" == true ]]; then
     upgrade_baseline_code=18; upgrade_baseline_version=1.0.0
     if [[ "$upgrade_beta" == true ]]; then
@@ -45,7 +51,7 @@ if [[ "$upgrade_official" == true ]]; then
 fi
 grep -q "^package: name='$release_package' versionCode='$upgrade_baseline_code' versionName='$upgrade_baseline_version'" <<< "$upgrade_old_badging"
 grep -q "^package: name='$release_package' versionCode='$release_code' versionName='$release_version'" <<< "$upgrade_new_badging"
-if [[ "$upgrade_dev" == true ]]; then
+if [[ "$upgrade_dev" == true || "$upgrade_test_121" == true ]]; then
     [[ "$release_code" -ge "$upgrade_baseline_code" ]]
 else
     [[ "$release_code" -gt "$upgrade_baseline_code" ]]

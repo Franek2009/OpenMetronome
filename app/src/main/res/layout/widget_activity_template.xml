@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@drawable/widget_panel" android:orientation="vertical" android:padding="8dp">
+    <TextView android:id="@+id/widget_activity_open" android:layout_width="match_parent" android:layout_height="0dp"
+        android:layout_weight="1" android:gravity="center" android:text="+" android:textSize="24sp" android:maxLines="4" android:ellipsize="end" android:autoSizeTextType="uniform" android:autoSizeMinTextSize="12sp" android:autoSizeMaxTextSize="24sp" android:textColor="#E0E2DB" />
+    <TextView android:id="@+id/widget_activity_configure" android:layout_width="48dp" android:layout_height="48dp"
+        android:layout_gravity="end" android:gravity="center" android:text="⚙" android:textSize="18sp"
+        android:textColor="#E0E2DB" android:contentDescription="@string/widget_configure" />
+</LinearLayout>

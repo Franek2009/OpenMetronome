@@ -30,10 +30,12 @@ class WidgetStatisticsTest {
         val analytics = PracticeAnalyticsCalculator.calculate(emptyList(), StatisticsPreferences(), today) { null }
         val result = WidgetStatisticsProjector.metronome(today, 10_000, analytics)
         assertEquals(10_000L, result.todayMs)
+        assertTrue(result.hasData)
         assertEquals(0L, result.weekMs)
         assertEquals(0, result.activeDays)
         assertNull(result.weeklyGoal)
         assertEquals(today.minusDays(2), result.week.first().date)
         assertEquals(today.plusDays(4), result.week.last().date)
+        assertFalse(WidgetStatisticsProjector.metronome(today, 0, analytics).hasData)
     }
 }

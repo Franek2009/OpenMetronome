@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.openmetronome.data.*
 import org.openmetronome.domain.model.*
+import org.openmetronome.widget.WidgetShortcut
 
 private fun MusicActivityKind.label() = when (this) {
     MusicActivityKind.LESSON -> "Lekcja"
@@ -104,17 +105,23 @@ internal class MusicActivitySaveViewModel : ViewModel() {
 }
 
 @Composable
-private fun ActivityDialog(activity: MusicActivity?, data: AppData, close: () -> Unit) {
+internal fun ActivityDialog(activity: MusicActivity?, data: AppData, template: WidgetShortcut? = null, close: () -> Unit) {
+    DisposableEffect(data) {
+        data.activityEditorVisible.value = true
+        onDispose { data.activityEditorVisible.value = false }
+    }
     val initial = activity?.details
     val zone = initial?.zoneId?.let(ZoneId::of) ?: ZoneId.systemDefault()
-    val start = initial?.startAt?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalDateTime() } ?: LocalDateTime.now().minusMinutes(30).withSecond(0).withNano(0)
-    var kind by rememberSaveable(activity?.id) { mutableStateOf((initial?.kind ?: MusicActivityKind.INDIVIDUAL_PRACTICE).name) }
+    val initialMinutes = template?.durationMinutes ?: 30
+    val start = initial?.startAt?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalDateTime() }
+        ?: Instant.now().minusSeconds(initialMinutes * 60L).atZone(zone).toLocalDateTime().withSecond(0).withNano(0)
+    var kind by rememberSaveable(activity?.id) { mutableStateOf((initial?.kind ?: template?.category ?: MusicActivityKind.INDIVIDUAL_PRACTICE).name) }
     var date by rememberSaveable(activity?.id) { mutableStateOf(start.toLocalDate().toString()) }
     var time by rememberSaveable(activity?.id) { mutableStateOf(start.toLocalTime().withNano(0).toString()) }
-    var hours by rememberSaveable(activity?.id) { mutableStateOf(((initial?.timerDurationMs ?: 1_800_000) / 3_600_000).toString()) }
-    var minutes by rememberSaveable(activity?.id) { mutableStateOf((((initial?.timerDurationMs ?: 1_800_000) / 60_000) % 60).toString()) }
+    var hours by rememberSaveable(activity?.id) { mutableStateOf(((initial?.timerDurationMs ?: initialMinutes * 60_000L) / 3_600_000).toString()) }
+    var minutes by rememberSaveable(activity?.id) { mutableStateOf((((initial?.timerDurationMs ?: initialMinutes * 60_000L) / 60_000) % 60).toString()) }
     val remainder = (initial?.timerDurationMs ?: 0L) % 60_000L
-    var instrument by rememberSaveable(activity?.id) { mutableStateOf(initial?.instrument.orEmpty()) }
+    var instrument by rememberSaveable(activity?.id) { mutableStateOf(initial?.instrument ?: template?.instrument.orEmpty()) }
     var note by rememberSaveable(activity?.id) { mutableStateOf(initial?.note.orEmpty()) }
     val details = runCatching {
         val local = LocalDateTime.of(LocalDate.parse(date), LocalTime.parse(time))

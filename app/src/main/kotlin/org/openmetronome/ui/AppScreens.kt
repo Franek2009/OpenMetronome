@@ -48,9 +48,11 @@ import org.openmetronome.domain.model.TempoChange
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import org.openmetronome.widget.WidgetConfiguration
+import org.openmetronome.widget.WidgetShortcut
 
 @Composable
-fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, widgetStatistics: Boolean = false, widgetRequest: Int = 0, onWidgetRequestHandled: (Int) -> Unit = {}, notificationPermission: (() -> Unit)? = null) {
+fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, widgetStatistics: Boolean = false, widgetRequest: Int = 0, onWidgetRequestHandled: (Int) -> Unit = {}, notificationPermission: (() -> Unit)? = null, widgetMusicScope: Boolean = false, widgetActivityTemplate: String? = null) {
     val state by model.state.collectAsStateWithLifecycle()
     val error by data.error.collectAsStateWithLifecycle()
     val sampleWorking by data.sampleWorking.collectAsStateWithLifecycle()
@@ -60,6 +62,7 @@ fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, widgetStatistics:
     val historyExporting by data.exporting.collectAsStateWithLifecycle()
     val playbackBusy by data.playbackBusy.collectAsStateWithLifecycle()
     val sessionWriteFailed by data.sessionWriteFailed.collectAsStateWithLifecycle()
+    val activityEditorVisible by data.activityEditorVisible.collectAsStateWithLifecycle()
     val latestSessions by data.sessions.collectAsStateWithLifecycle(initialValue = emptyList())
     val scope = rememberCoroutineScope()
     var groupingRetry by remember { mutableIntStateOf(0) }
@@ -71,13 +74,16 @@ fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, widgetStatistics:
     var fullscreen by rememberSaveable { mutableStateOf(false) }
     var page by rememberSaveable { mutableStateOf("Metronom") }
     var report by rememberSaveable { mutableStateOf<String?>(null) }
+    var activityTemplate by rememberSaveable { mutableStateOf<String?>(null) }
     var handledWidgetRequest by rememberSaveable { mutableIntStateOf(0) }
-    LaunchedEffect(widgetRequest) {
-        if (widgetRequest > 0 && widgetRequest != handledWidgetRequest) {
-            handledWidgetRequest = widgetRequest
+    LaunchedEffect(widgetRequest, activityTemplate, activityEditorVisible) {
+        if (widgetRequest > 0 && widgetRequest != handledWidgetRequest && activityTemplate == null && !activityEditorVisible) {
             fullscreen = false
             report = null
-            page = if (widgetStatistics) "Statystyki" else "Metronom"
+            if (widgetActivityTemplate != null) activityTemplate = widgetActivityTemplate
+            else page = if (widgetStatistics) "Statystyki" else "Metronom"
+            if (widgetStatistics) { data.saveMusicScope(widgetMusicScope); data.awaitWrites() }
+            handledWidgetRequest = widgetRequest
             onWidgetRequestHandled(widgetRequest)
         }
     }
@@ -150,6 +156,10 @@ fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, widgetStatistics:
             context.getSystemService(ClipboardManager::class.java).setPrimaryClip(
                 ClipData.newPlainText(diagnosticsTitle, text))
         }
+    }
+    activityTemplate?.takeIf { storageReady }?.let { encoded ->
+        val value = remember(encoded) { WidgetConfiguration.decode(encoded) }
+        ActivityDialog(null, data, WidgetShortcut(value.category, value.instrument, value.durationMinutes)) { activityTemplate = null }
     }
 }
 

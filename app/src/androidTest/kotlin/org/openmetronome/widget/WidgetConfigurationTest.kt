@@ -21,7 +21,8 @@ class WidgetConfigurationTest {
             val store = WidgetConfigurationStore(isolated)
             assertEquals(WidgetStatisticsScope.METRONOME, store.get(1).scope)
             val first = WidgetConfiguration(scope = WidgetStatisticsScope.MUSIC, instrument = "Kontrabas")
-            val second = WidgetConfiguration(category = MusicActivityKind.LESSON, durationMinutes = 45)
+            val second = WidgetConfiguration(category = MusicActivityKind.LESSON, durationMinutes = 45,
+                shortcuts = listOf(WidgetShortcut(MusicActivityKind.CONCERT, "Gitara", 90), WidgetShortcut()))
             store.put(1, first); store.put(2, second)
             store.remap(intArrayOf(1, 2), intArrayOf(2, 1))
             assertEquals(second, store.get(1)); assertEquals(first, store.get(2))

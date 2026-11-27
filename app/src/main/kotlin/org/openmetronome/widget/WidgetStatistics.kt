@@ -14,6 +14,7 @@ internal data class WidgetStatistics(
     val activeDays: Int,
     val weeklyGoal: Int?,
     val week: List<WidgetDay>,
+    val hasData: Boolean = true,
 )
 
 internal object WidgetStatisticsProjector {
@@ -26,7 +27,7 @@ internal object WidgetStatisticsProjector {
                 date <= today && date in analytics.activeDates)
         }
         return WidgetStatistics(savedTodayMs, analytics.summary.currentStreak, analytics.weekMs,
-            days.count { it.active }, null, days)
+            days.count { it.active }, null, days, analytics.days.isNotEmpty() || savedTodayMs > 0)
     }
 
     fun music(summary: MusicStatisticsSummary): WidgetStatistics {
@@ -37,6 +38,6 @@ internal object WidgetStatisticsProjector {
             WidgetDay(date, day?.durationMs ?: 0L, day?.active == true)
         }
         return WidgetStatistics(summary.todayMs, summary.dayStreak.current, summary.weekMs,
-            summary.currentWeek.activeDays, summary.currentWeek.goalDays, days)
+            summary.currentWeek.activeDays, summary.currentWeek.goalDays, days, summary.days.isNotEmpty())
     }
 }

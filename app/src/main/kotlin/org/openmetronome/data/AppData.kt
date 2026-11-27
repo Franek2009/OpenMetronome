@@ -133,6 +133,7 @@ class AppData private constructor(
         else File(context.filesDir, "dev-reports")
 
     val error = MutableStateFlow<String?>(null)
+    internal val activityEditorVisible = MutableStateFlow(false)
     val exporting = MutableStateFlow(false)
     val exportNotice = MutableStateFlow<String?>(null)
     val backupWorking = MutableStateFlow(false)

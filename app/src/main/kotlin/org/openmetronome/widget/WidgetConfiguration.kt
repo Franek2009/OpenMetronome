@@ -2,9 +2,38 @@ package org.openmetronome.widget
 
 import android.content.Context
 import org.json.JSONObject
+import org.json.JSONArray
 import org.openmetronome.domain.model.MusicActivityKind
 
 internal enum class WidgetStatisticsScope { METRONOME, MUSIC }
+
+internal data class WidgetShortcut(val category: MusicActivityKind = MusicActivityKind.INDIVIDUAL_PRACTICE,
+    val instrument: String = "", val durationMinutes: Int = 30) {
+    init { require(durationMinutes in 1..10_080); require(instrument.length <= 120) }
+}
+
+internal fun MusicActivityKind.widgetLabel(): String = when (this) {
+    MusicActivityKind.LESSON -> "Lekcja"
+    MusicActivityKind.INDIVIDUAL_PRACTICE -> "Ćwiczenie"
+    MusicActivityKind.ENSEMBLE_REHEARSAL -> "Próba"
+    MusicActivityKind.CONCERT -> "Koncert"
+    MusicActivityKind.OTHER -> "Inne"
+}
+
+internal fun MusicActivityKind.compactWidgetLabel(): String = when (this) {
+    MusicActivityKind.LESSON -> "Lek."
+    MusicActivityKind.INDIVIDUAL_PRACTICE -> "Ćw."
+    MusicActivityKind.ENSEMBLE_REHEARSAL -> "Pró."
+    MusicActivityKind.CONCERT -> "Kon."
+    MusicActivityKind.OTHER -> "Inne"
+}
+
+internal fun defaultWidgetShortcuts(): List<WidgetShortcut> = listOf(
+    WidgetShortcut(MusicActivityKind.INDIVIDUAL_PRACTICE, durationMinutes = 30),
+    WidgetShortcut(MusicActivityKind.LESSON, durationMinutes = 45),
+    WidgetShortcut(MusicActivityKind.ENSEMBLE_REHEARSAL, durationMinutes = 60),
+    WidgetShortcut(MusicActivityKind.OTHER, durationMinutes = 15),
+)
 
 internal data class WidgetConfiguration(
     val scope: WidgetStatisticsScope = WidgetStatisticsScope.METRONOME,
@@ -15,12 +44,15 @@ internal data class WidgetConfiguration(
     val category: MusicActivityKind = MusicActivityKind.INDIVIDUAL_PRACTICE,
     val instrument: String = "",
     val durationMinutes: Int = 30,
+    val shortcuts: List<WidgetShortcut> = emptyList(),
 ) {
-    init { require(durationMinutes in 1..10_080); require(instrument.length <= 120) }
+    init { require(durationMinutes in 1..10_080); require(instrument.length <= 120); require(shortcuts.size <= 4) }
 
     fun encode(): String = JSONObject().put("scope", scope.name).put("streak", showStreak)
         .put("week", showWeek).put("active", showActiveDays).put("chart", showChart)
-        .put("category", category.name).put("instrument", instrument).put("duration", durationMinutes).toString()
+        .put("category", category.name).put("instrument", instrument).put("duration", durationMinutes)
+        .put("shortcuts", JSONArray().also { array -> shortcuts.forEach { shortcut -> array.put(JSONObject()
+            .put("category", shortcut.category.name).put("instrument", shortcut.instrument).put("duration", shortcut.durationMinutes)) } }).toString()
 
     companion object {
         fun decode(text: String?): WidgetConfiguration {
@@ -33,6 +65,10 @@ internal data class WidgetConfiguration(
                     json.optBoolean("active", true), json.optBoolean("chart", true),
                     MusicActivityKind.valueOf(json.optString("category", MusicActivityKind.INDIVIDUAL_PRACTICE.name)),
                     json.optString("instrument", ""), json.optInt("duration", 30),
+                    json.optJSONArray("shortcuts")?.let { array -> (0 until array.length()).map { index ->
+                        val item = array.getJSONObject(index)
+                        WidgetShortcut(MusicActivityKind.valueOf(item.getString("category")), item.optString("instrument", ""), item.getInt("duration"))
+                    } }.orEmpty(),
                 )
             }.getOrDefault(WidgetConfiguration())
         }
