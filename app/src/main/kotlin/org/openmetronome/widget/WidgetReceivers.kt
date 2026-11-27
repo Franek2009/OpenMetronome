@@ -10,13 +10,25 @@ import org.openmetronome.platform.audio.MetronomeService
 import kotlin.coroutines.resume
 
 open class MetronomeWidget : AppWidgetProvider() {
-    override fun onDeleted(context: Context, appWidgetIds: IntArray) { WidgetHost.widgetsChanged(context) }
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
+        runCatching { WidgetConfigurationStore(context).remove(appWidgetIds) }
+        WidgetHost.widgetsChanged(context)
+    }
+    override fun onRestored(context: Context, oldWidgetIds: IntArray, newWidgetIds: IntArray) {
+        val restored = runCatching { WidgetConfigurationStore(context).remap(oldWidgetIds, newWidgetIds) }.isSuccess
+        if (restored) newWidgetIds.forEach { id ->
+            AppWidgetManager.getInstance(context).updateAppWidgetOptions(id, android.os.Bundle().apply {
+                putBoolean(AppWidgetManager.OPTION_APPWIDGET_RESTORE_COMPLETED, true)
+            })
+        }
+    }
     override fun onDisabled(context: Context) { WidgetHost.widgetsChanged(context) }
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         if (intent.action in setOf(AppWidgetManager.ACTION_APPWIDGET_UPDATE,
                 AppWidgetManager.ACTION_APPWIDGET_OPTIONS_CHANGED, Intent.ACTION_DATE_CHANGED,
                 Intent.ACTION_TIME_CHANGED, Intent.ACTION_TIMEZONE_CHANGED)) {
+            if (intent.action in setOf(Intent.ACTION_DATE_CHANGED, Intent.ACTION_TIME_CHANGED, Intent.ACTION_TIMEZONE_CHANGED)) WidgetHost.clockChanged()
             val pending = goAsync()
             CoroutineScope(Dispatchers.Main.immediate + widgetFailureHandler).launch {
                 try { withTimeout(8500) { WidgetHost.refresh(context.applicationContext) } }
@@ -28,6 +40,9 @@ open class MetronomeWidget : AppWidgetProvider() {
 class MiniWidget : MetronomeWidget()
 class ControlWidget : MetronomeWidget()
 class StatisticsWidget : MetronomeWidget()
+class AddActivityWidget : MetronomeWidget()
+class ActivityTemplateWidget : MetronomeWidget()
+class ActivityShortcutsWidget : MetronomeWidget()
 
 /** Only immutable, explicit PendingIntents can reach this non-exported receiver. */
 class WidgetCommandReceiver : BroadcastReceiver() {

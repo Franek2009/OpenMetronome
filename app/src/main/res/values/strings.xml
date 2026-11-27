@@ -83,6 +83,10 @@
   <string name="widget_mini_name">Mini Metronom</string>
   <string name="widget_control_name">Sterowanie metronomem</string>
   <string name="widget_statistics_name">Statystyki ćwiczeń</string>
+  <string name="widget_configure">Konfiguruj widget</string>
+  <string name="widget_activity_add">Dodaj aktywność</string>
+  <string name="widget_activity_template">Szablon aktywności</string>
+  <string name="widget_activity_shortcuts">Skróty aktywności</string>
   <string name="widget_label_1">120 BPM</string>
   <string name="widget_label_2">Zatrzymany</string>
   <string name="widget_label_3">▶ Start</string>

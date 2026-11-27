@@ -18,6 +18,8 @@ quiet_apks="${QUIET_APK_DIR:-quiet-apks}"
 mkdir -p "$quiet_report"
 "${quiet_adb[@]}" install "$quiet_apks/$quiet_flavor/debug/app-$quiet_flavor-debug.apk"
 "${quiet_adb[@]}" install "$quiet_apks/androidTest/$quiet_flavor/debug/app-$quiet_flavor-debug-androidTest.apk"
+# This fresh emulator grants the test package permission to act as an AppWidgetHost.
+"${quiet_adb[@]}" shell appwidget grantbind --package "$quiet_package" --user 0
 # Capture settled windows, not intermediate transition frames, on this disposable emulator.
 for quiet_scale in window_animation_scale transition_animation_scale animator_duration_scale; do
     "${quiet_adb[@]}" shell settings put global "$quiet_scale" 0
@@ -27,7 +29,7 @@ done
     "$quiet_package.test/org.openmetronome.OpenMetronomeTestRunner" | tee "$quiet_report/instrumentation.log"
 awk -f scripts/instrumentation-summary.awk "$quiet_report/instrumentation.log" | tee "$quiet_report/summary.txt"
 printf '%s\n' 'DEV performance qualification: NOT RUN in release regression; capture disabled in beta.' > "$quiet_report/qualification-scope.txt"
-for quiet_capture in initial landscape sound-controls sound-picker sample-library fullscreen statistics music-summary music-analysis music-form music-history music-group music-settings widget-mini widget-control widget-statistics; do
+for quiet_capture in initial landscape sound-controls sound-picker sample-library fullscreen statistics music-summary music-analysis music-form music-history music-group music-settings widget-mini widget-control widget-statistics widget-statistics-compact widget-statistics-expanded widget-statistics-min-font150 widget-activity-add widget-activity-template widget-activity-shortcuts widget-system-host; do
     "${quiet_adb[@]}" exec-out run-as "$quiet_package" cat "cache/ui-v012-$quiet_capture.png" > "$quiet_report/$quiet_capture.png"
 done
 

@@ -16,6 +16,11 @@ import org.openmetronome.data.AppData
 open class OpenMetronomeApplication : Application() {
     open val data: AppData by lazy { AppData(this) }
 
+    override fun onCreate() {
+        super.onCreate()
+        org.openmetronome.widget.WidgetHost.widgetsChanged(this)
+    }
+
     /** Platform composition root; instrumentation can guard or replace hardware output. */
     open fun createAudioEngine(context: Context): AudioEngine {
         val manager = context.getSystemService(AudioManager::class.java)

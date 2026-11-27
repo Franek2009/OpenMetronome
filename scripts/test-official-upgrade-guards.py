@@ -112,6 +112,29 @@ printf 'Signer #1 certificate SHA-256 digest: %s\n' "$cert"
         self.assertNotEqual(0, result.returncode)
         self.assertFalse(installed)
 
+    def test_121_test_baseline_is_explicit_and_hash_checked_before_resigning(self):
+        self.metadata(22, "1.2.1")
+        (self.root / "app/build").mkdir()
+        self.stub("bin/sha256sum", '''#!/usr/bin/env bash
+echo "${BASELINE_HASH}  $1"
+''')
+        self.stub("bin/keytool", '''#!/usr/bin/env bash
+touch "$KEY_MARKER"
+exit 73
+''')
+        valid = {"OLD_CODE": "22", "OLD_VERSION": "1.2.1", "NEW_CODE": "22", "NEW_VERSION": "1.2.1",
+                 "BASELINE_HASH": "c95aa7caa4b1cfca586b8a5fd7a1f0a6f4d28e01657b8f1d9113a0f1a39f6e72",
+                 "KEY_MARKER": str(self.root / "key-created")}
+        result, installed = self.run_gate("--test-1.2.1", **valid)
+        self.assertNotEqual(0, result.returncode)
+        self.assertFalse(installed)
+        self.assertTrue((self.root / "key-created").exists())
+        (self.root / "key-created").unlink()
+        result, installed = self.run_gate("--test-1.2.1", **(valid | {"BASELINE_HASH": "wrong"}))
+        self.assertNotEqual(0, result.returncode)
+        self.assertFalse(installed)
+        self.assertFalse((self.root / "key-created").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

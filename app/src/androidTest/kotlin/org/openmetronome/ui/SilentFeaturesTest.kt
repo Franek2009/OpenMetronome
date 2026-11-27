@@ -24,6 +24,7 @@ import org.openmetronome.R
 import org.openmetronome.audio.PlaybackStatus
 import org.openmetronome.data.*
 import org.openmetronome.domain.model.*
+import org.openmetronome.widget.*
 
 /** Real UI and repositories, but no Start action, hardware audio, or vibration. */
 @RunWith(AndroidJUnit4::class)
@@ -566,6 +567,157 @@ class SilentFeaturesTest {
         }
     }
 
+    @Test fun activityWidgetOpensTemplateOnceAndNeverSavesWithoutConfirmation() {
+        val context = compose.activity.applicationContext
+        val host = android.appwidget.AppWidgetHost(context, (java.util.UUID.randomUUID().hashCode() and 0x3fffffff) + 1)
+        val id = host.allocateAppWidgetId()
+        val nextId = host.allocateAppWidgetId()
+        try {
+            val manager = android.appwidget.AppWidgetManager.getInstance(context)
+            assertTrue(manager.bindAppWidgetIdIfAllowed(id, android.content.ComponentName(context, ActivityTemplateWidget::class.java)))
+            assertTrue(manager.bindAppWidgetIdIfAllowed(nextId, android.content.ComponentName(context, ActivityTemplateWidget::class.java)))
+            WidgetConfigurationStore(context).put(id, WidgetConfiguration(category = MusicActivityKind.LESSON, instrument = "Kontrabas", durationMinutes = 45))
+            WidgetConfigurationStore(context).put(nextId, WidgetConfiguration(category = MusicActivityKind.CONCERT, instrument = "Gitara", durationMinutes = 15))
+            compose.onNodeWithText("Pełny ekran").performScrollTo().performClick()
+            val identity = Intent(compose.activity.intent)
+            compose.activityRule.scenario.onActivity { activity ->
+                activity.startActivity(Intent(identity).setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    .putExtra("widget_activity_id", id).putExtra("widget_activity_slot", -1))
+            }
+            compose.waitUntil(10000) { compose.onAllNodesWithText("Dodaj aktywność").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
+            compose.onNodeWithText("Lekcja").assertIsSelected()
+            compose.onNodeWithText("Minuty").performScrollTo().assertTextContains("45")
+            compose.onNodeWithText("Instrument (opcjonalnie)").performScrollTo().assertTextContains("Kontrabas")
+            compose.activityRule.scenario.recreate()
+            compose.onNodeWithText("Minuty").performScrollTo().assertTextContains("45")
+            compose.activityRule.scenario.onActivity { activity ->
+                activity.startActivity(Intent(identity).setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    .putExtra("widget_activity_id", nextId).putExtra("widget_activity_slot", -1))
+            }
+            compose.waitUntil(10000) { compose.activity.intent.getIntExtra("widget_activity_id", -1) == nextId }
+            compose.activityRule.scenario.recreate()
+            compose.onNodeWithText("Instrument (opcjonalnie)").performScrollTo().assertTextContains("Kontrabas")
+            compose.onNodeWithText("Anuluj").performClick()
+            compose.waitUntil(10000) { compose.onAllNodes(hasText("Koncert") and isSelected()).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
+            compose.onNodeWithText("Koncert").assertIsSelected()
+            compose.onNodeWithText("Instrument (opcjonalnie)").performScrollTo().assertTextContains("Gitara")
+            compose.onNodeWithText("Anuluj").performClick()
+            compose.activityRule.scenario.recreate()
+            compose.onAllNodesWithText("Dodaj aktywność").assertCountEquals(0)
+            assertTrue(runBlocking { data.musicActivities.first().isEmpty() })
+            assertEquals(PlaybackStatus.STOPPED, model.state.value.audio.status)
+        } finally {
+            host.deleteAppWidgetId(id); host.deleteAppWidgetId(nextId)
+            WidgetConfigurationStore(context).remove(intArrayOf(id, nextId))
+        }
+    }
+
+    @Test fun widgetActivitySavesExactlyOnceAcrossRecreationDuringWrite() {
+        val context = compose.activity.applicationContext
+        val host = android.appwidget.AppWidgetHost(context, (java.util.UUID.randomUUID().hashCode() and 0x3fffffff) + 1)
+        val id = host.allocateAppWidgetId()
+        val entered = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val release = kotlinx.coroutines.CompletableDeferred<Unit>()
+        try {
+            val manager = android.appwidget.AppWidgetManager.getInstance(context)
+            assertTrue(manager.bindAppWidgetIdIfAllowed(id, android.content.ComponentName(context, ActivityTemplateWidget::class.java)))
+            WidgetConfigurationStore(context).put(id, WidgetConfiguration(category = MusicActivityKind.LESSON, instrument = "Kontrabas", durationMinutes = 45))
+            val identity = Intent(compose.activity.intent)
+            compose.activityRule.scenario.onActivity { activity ->
+                activity.startActivity(Intent(identity).setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    .putExtra("widget_activity_id", id).putExtra("widget_activity_slot", -1))
+            }
+            compose.waitUntil(10000) { compose.onAllNodesWithText("Dodaj aktywność").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
+            data.operation { entered.complete(Unit); release.await() }
+            runBlocking { kotlinx.coroutines.withTimeout(10000) { entered.await() } }
+            compose.onNodeWithText("Zapisz").performClick()
+            compose.waitUntil(10000) { compose.onAllNodesWithText("Zapisywanie…").fetchSemanticsNodes().isNotEmpty() }
+            compose.activityRule.scenario.recreate()
+            compose.onNodeWithText("Zapisywanie…").assertIsNotEnabled()
+            release.complete(Unit)
+            compose.waitUntil(10000) { runBlocking { data.musicActivities.first().size == 1 } }
+            compose.waitUntil(10000) { compose.onAllNodesWithText("Dodaj aktywność").fetchSemanticsNodes().isEmpty() }
+            compose.activityRule.scenario.recreate()
+            val saved = runBlocking { data.musicActivities.first() }
+            assertEquals(1, saved.size)
+            assertEquals(MusicActivityKind.LESSON, saved.single().details.kind)
+            assertEquals("Kontrabas", saved.single().details.instrument)
+            assertEquals(45 * 60_000L, saved.single().details.timerDurationMs)
+            compose.onAllNodesWithText("Dodaj aktywność").assertCountEquals(0)
+        } finally {
+            release.complete(Unit)
+            host.deleteAppWidgetId(id)
+            WidgetConfigurationStore(context).remove(intArrayOf(id))
+        }
+    }
+
+    @Test fun statisticsWidgetInstancesOpenTheirOwnScope() {
+        val context = compose.activity.applicationContext
+        val host = android.appwidget.AppWidgetHost(context, (java.util.UUID.randomUUID().hashCode() and 0x3fffffff) + 1)
+        val metronome = host.allocateAppWidgetId()
+        val music = host.allocateAppWidgetId()
+        try {
+            val manager = android.appwidget.AppWidgetManager.getInstance(context)
+            for (id in listOf(metronome, music)) assertTrue(manager.bindAppWidgetIdIfAllowed(id, android.content.ComponentName(context, StatisticsWidget::class.java)))
+            val first = WidgetHost.statisticsIntent(context, metronome, false)
+            val second = WidgetHost.statisticsIntent(context, music, true)
+            assertNotEquals(first, second)
+            val identity = Intent(compose.activity.intent)
+            fun openScope(musicScope: Boolean) {
+                compose.activityRule.scenario.onActivity { activity ->
+                    activity.startActivity(Intent(identity).setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                        .putExtra("widget_statistics", true).putExtra("widget_music_scope", musicScope))
+                }
+            }
+            openScope(true)
+            compose.waitUntil(10000) { runBlocking { data.settings.musicScope.first() } }
+            compose.waitUntil(10000) { compose.onAllNodes(hasText("Cała aktywność") and isSelected()).fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithText("Cała aktywność").assertIsSelected()
+            openScope(false)
+            compose.waitUntil(10000) { !runBlocking { data.settings.musicScope.first() } }
+            compose.waitUntil(10000) { compose.onAllNodes(hasText("Metronom") and isSelected()).fetchSemanticsNodes().isNotEmpty() }
+            compose.onAllNodesWithText("Metronom").filter(isSelected()).assertCountEquals(1)
+            compose.activityRule.scenario.recreate()
+            compose.onAllNodesWithText("Metronom").filter(isSelected()).assertCountEquals(1)
+        } finally {
+            host.deleteAppWidgetId(metronome); host.deleteAppWidgetId(music)
+            WidgetConfigurationStore(context).remove(intArrayOf(metronome, music))
+        }
+    }
+
+    @Test fun addAndBarWidgetOpenExpectedFormsWithoutSaving() {
+        val context = compose.activity.applicationContext
+        val host = android.appwidget.AppWidgetHost(context, (java.util.UUID.randomUUID().hashCode() and 0x3fffffff) + 1)
+        val add = host.allocateAppWidgetId()
+        val bar = host.allocateAppWidgetId()
+        try {
+            val manager = android.appwidget.AppWidgetManager.getInstance(context)
+            assertTrue(manager.bindAppWidgetIdIfAllowed(add, android.content.ComponentName(context, AddActivityWidget::class.java)))
+            assertTrue(manager.bindAppWidgetIdIfAllowed(bar, android.content.ComponentName(context, ActivityShortcutsWidget::class.java)))
+            val shortcut = WidgetShortcut(MusicActivityKind.CONCERT, "Gitara", 90)
+            WidgetConfigurationStore(context).put(bar, WidgetConfiguration(shortcuts = listOf(WidgetShortcut(), shortcut, WidgetShortcut(), WidgetShortcut())))
+            val identity = Intent(compose.activity.intent)
+            fun launch(id: Int, slot: Int) = compose.activityRule.scenario.onActivity { activity ->
+                activity.startActivity(Intent(identity).setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    .putExtra("widget_activity_id", id).putExtra("widget_activity_slot", slot))
+            }
+            launch(add, -1)
+            compose.waitUntil(10000) { compose.onAllNodesWithText("Dodaj aktywność").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
+            compose.onNodeWithText("Ćwiczenie indywidualne").assertIsSelected()
+            compose.onNodeWithText("Anuluj").performClick()
+            launch(bar, 1)
+            compose.waitUntil(10000) { compose.onAllNodes(hasText("Koncert") and isSelected()).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
+            compose.onNodeWithText("Instrument (opcjonalnie)").performScrollTo().assertTextContains("Gitara")
+            compose.onNodeWithText("Godziny").performScrollTo().assertTextContains("1")
+            compose.onNodeWithText("Minuty").performScrollTo().assertTextContains("30")
+            compose.onNodeWithText("Anuluj").performClick()
+            assertTrue(runBlocking { data.musicActivities.first().isEmpty() })
+        } finally {
+            host.deleteAppWidgetId(add); host.deleteAppWidgetId(bar)
+            WidgetConfigurationStore(context).remove(intArrayOf(add, bar))
+        }
+    }
+
     @Test fun groupingResetAndChangedGapAreReflectedAfterRecreation() {
         compose.activityRule.scenario.onActivity { it.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }
         compose.waitUntil(10000) { compose.activity.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT }
@@ -583,7 +735,19 @@ class SilentFeaturesTest {
             assertEquals(1, data.practiceGrouping(java.time.Instant.now()).groups.size)
         }
         page("Ustawienia")
-        compose.onNodeWithText("Resetuj korekty grupowania").performScrollTo().performClick()
+        val entered = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val release = kotlinx.coroutines.CompletableDeferred<Unit>()
+        data.operation { entered.complete(Unit); release.await() }
+        try {
+            runBlocking { kotlinx.coroutines.withTimeout(10000) { entered.await() } }
+            compose.onNodeWithText("Resetuj korekty grupowania").performScrollTo().performClick()
+            compose.onNodeWithText("Potwierdź zmianę grupowania").assertDoesNotExist()
+        } finally {
+            release.complete(Unit)
+        }
+        compose.waitUntil(10000) {
+            compose.onAllNodesWithText("Potwierdź zmianę grupowania").fetchSemanticsNodes().size == 1
+        }
         compose.onNodeWithText("Potwierdź zmianę grupowania").assertExists()
         compose.onNodeWithText("Resetowane korekty: 1").assertExists()
         compose.onNodeWithText("Zastosuj").performClick()

@@ -17,6 +17,7 @@ import org.openmetronome.audio.MetronomeState
 import org.openmetronome.data.*
 import java.time.LocalDate
 import java.time.ZonedDateTime
+import java.time.Instant
 
 /** Optional launcher work must never terminate the playback process. */
 internal val widgetFailureHandler = CoroutineExceptionHandler { _, error ->
@@ -30,8 +31,13 @@ object WidgetHost {
     private var controlsJob: Job? = null
     private var dateJob: Job? = null
     private var statisticsJob: Job? = null
+    private val clockRevision = MutableStateFlow(0L)
+    private val statisticsRetry = MutableStateFlow(0L)
     @Volatile private var statistics = "Ładowanie statystyk…"
-    private val providers = listOf(MiniWidget::class.java, ControlWidget::class.java, StatisticsWidget::class.java)
+    @Volatile private var metronomeStatistics: Result<WidgetStatistics>? = null
+    @Volatile private var musicStatistics: Result<WidgetStatistics>? = null
+    private val providers = listOf(MiniWidget::class.java, ControlWidget::class.java, StatisticsWidget::class.java,
+        AddActivityWidget::class.java, ActivityTemplateWidget::class.java, ActivityShortcutsWidget::class.java)
 
     private fun ids(context: Context, provider: Class<*>) = AppWidgetManager.getInstance(context)
         .getAppWidgetIds(ComponentName(context, provider))
@@ -47,6 +53,7 @@ object WidgetHost {
         }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     private fun observe(context: Context) {
         if (!hasWidgets(context)) {
             scope.coroutineContext.cancelChildren()
@@ -58,33 +65,53 @@ object WidgetHost {
         if (controlsJob?.isActive != true) {
             controlsJob = scope.launch { playback.filterNotNull().collect { drawControls(context, it) } }
         }
+        if (ids(context, StatisticsWidget::class.java).isEmpty()) {
+            statisticsJob?.cancel(); statisticsJob = null
+            dateJob?.cancel(); dateJob = null
+            return
+        }
+        val data = (context as OpenMetronomeApplication).data
         if (dateJob?.isActive != true) {
             dateJob = scope.launch {
-                while (hasWidgets(context)) {
-                    delay(millisUntilNextPracticeDate(ZonedDateTime.now()))
-                    refresh(context)
+                combine(data.settings.musicStatistics, clockRevision) { settings, _ -> settings?.zone ?: java.time.ZoneId.systemDefault() }.collectLatest { zone ->
+                    while (hasWidgets(context)) {
+                        val deviceMidnight = millisUntilNextPracticeDate(ZonedDateTime.now())
+                        val musicMidnight = millisUntilNextPracticeDate(ZonedDateTime.now(zone))
+                        delay(minOf(deviceMidnight, musicMidnight))
+                        refresh(context)
+                    }
                 }
             }
         }
-        if (ids(context, StatisticsWidget::class.java).isEmpty()) {
-            statisticsJob?.cancel(); statisticsJob = null
-            return
-        }
         if (statisticsJob?.isActive == true) return
-        val data = (context as OpenMetronomeApplication).data
         statisticsJob = scope.launch(Dispatchers.IO) {
             // Room changes include final writes and restored history; no polling of the audio engine.
-            combine(data.statisticsHistory(), data.statisticsPreferences()) { history, preferences -> history to preferences }
-                .conflate().collect { (history, preferences) ->
+            val activityChanges = statisticsRetry.flatMapLatest {
+                data.musicActivities.map { true }.catch { error ->
+                    if (error is CancellationException) throw error else emit(false)
+                }
+            }
+            val historyChanges = statisticsRetry.flatMapLatest { data.statisticsHistory() }
+            val preferenceChanges = statisticsRetry.flatMapLatest { data.statisticsPreferences() }
+            val musicSettings = statisticsRetry.flatMapLatest { data.settings.musicStatistics.catch { error ->
+                if (error is CancellationException) throw error else emit(null)
+            } }
+            combine(historyChanges, preferenceChanges, activityChanges,
+                musicSettings) { history, preferences, musicReadable, _ -> Triple(history, preferences, musicReadable) }
+                .conflate().collectLatest { (history, preferences, musicReadable) ->
                     try {
                         if (history is StatisticsHistory.Ready && preferences != null) {
-                            updateStatistics(context, data, history, preferences.getOrThrow())
+                            updateStatistics(context, data, history, preferences.getOrThrow(), musicReadable)
                         } else {
                             statistics = if (history is StatisticsHistory.Unavailable) "Statystyki niedostępne" else "Ładowanie statystyk…"
+                            if (history is StatisticsHistory.Unavailable || preferences?.isFailure == true) {
+                                metronomeStatistics = Result.failure(IllegalStateException(statistics))
+                                musicStatistics = Result.failure(IllegalStateException(statistics))
+                            } else { metronomeStatistics = null; musicStatistics = null }
                             drawStatistics(context)
                         }
                     } catch (cancelled: CancellationException) { throw cancelled }
-                    catch (_: Exception) { statistics = "Statystyki niedostępne"; drawStatistics(context) }
+                    catch (error: Exception) { statistics = "Statystyki niedostępne"; metronomeStatistics = Result.failure(error); musicStatistics = Result.failure(error); drawStatistics(context) }
                 }
         }
 
@@ -95,10 +122,14 @@ object WidgetHost {
         catch (error: RuntimeException) { Log.w("OpenMetronomeWidget", "Launcher unavailable", error) }
     }
 
+    fun clockChanged() { clockRevision.value += 1 }
+
     suspend fun refresh(context: Context) {
         val app = context.applicationContext as OpenMetronomeApplication
         if (!hasWidgets(app)) return
+        statisticsRetry.value += 1
         observe(app)
+        drawActivityWidgets(app)
         withContext(Dispatchers.IO) {
             try {
                 app.data.ready.await()
@@ -106,43 +137,104 @@ object WidgetHost {
                 withContext(Dispatchers.Main.immediate) {
                     drawControls(app, playback.value ?: WidgetModel.playback(MetronomeState(config = saved)))
                 }
-                if (ids(app, StatisticsWidget::class.java).isEmpty()) return@withContext
-                val history = app.data.statisticsHistory().first { it !is StatisticsHistory.Loading }
-                val preferences = app.data.statisticsPreferences().filterNotNull().first().getOrThrow()
-                if (history is StatisticsHistory.Ready) updateStatistics(app, app.data, history, preferences)
-                else { statistics = "Statystyki niedostępne"; drawStatistics(app) }
+                if (ids(app, StatisticsWidget::class.java).isNotEmpty()) drawStatistics(app)
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) {
                 statistics = "Dane niedostępne · otwórz aplikację"
+                metronomeStatistics = Result.failure(IllegalStateException(statistics)); musicStatistics = Result.failure(IllegalStateException(statistics))
                 drawStatistics(app)
                 withContext(Dispatchers.Main.immediate) { drawControls(app, playback.value, statistics) }
             }
         }
     }
 
-    private suspend fun updateStatistics(context: Context, data: AppData, history: StatisticsHistory.Ready, preferences: StatisticsPreferences) {
+    private suspend fun updateStatistics(context: Context, data: AppData, history: StatisticsHistory.Ready, preferences: StatisticsPreferences, musicReadable: Boolean = true) {
         if (ids(context, StatisticsWidget::class.java).isEmpty()) return
         val today = LocalDate.now()
-        val daily = data.dailyPractice(today).first { it !is DailyPractice.Loading }
-        if (daily !is DailyPractice.Ready) { statistics = "Statystyki niedostępne"; drawStatistics(context); return }
-        // Summary needs no detailed timelines. Short sessions still contribute to the large daily total.
-        val analytics = PracticeAnalyticsCalculator.calculate(history.sessions, preferences, today) { null }
-        val monday = today.minusDays((today.dayOfWeek.value - 1).toLong())
-        val names = listOf("Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd")
-        val week = names.mapIndexed { index, name -> "$name ${if (monday.plusDays(index.toLong()) in analytics.activeDates) "●" else "○"}" }.joinToString("  ")
-        statistics = "${dailyPracticeDuration(daily.durationMs)}\nSeria: ${analytics.summary.currentStreak} dni\n$week"
+        metronomeStatistics = try {
+            val daily = data.dailyPractice(today).first { it !is DailyPractice.Loading }
+            check(daily is DailyPractice.Ready) { "Practice statistics unavailable" }
+            // Short sessions still contribute to today's saved total.
+            val analytics = PracticeAnalyticsCalculator.calculate(history.sessions, preferences, today) { null }
+            Result.success(WidgetStatisticsProjector.metronome(today, daily.durationMs, analytics))
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (error: Exception) { Result.failure(error) }
+        musicStatistics = if (!musicReadable) Result.failure(IllegalStateException("Music activities unavailable")) else try {
+            when (val value = data.observeMusicStatistics(flowOf(Instant.now())).first { it !is MusicStatisticsState.Loading }) {
+                is MusicStatisticsState.Ready -> Result.success(WidgetStatisticsProjector.music(value.summary))
+                else -> Result.failure(IllegalStateException("Music statistics unavailable"))
+            }
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (error: Exception) { Result.failure(error) }
+        statistics = metronomeStatistics?.getOrNull()?.let { dailyPracticeDuration(it.todayMs) } ?: "Statystyki niedostępne"
         drawStatistics(context)
     }
 
-    private fun open(context: Context, statistics: Boolean = false): PendingIntent = PendingIntent.getActivity(context,
-        if (statistics) 2 else 1, Intent(context, MainActivity::class.java).apply {
+    private fun open(context: Context, statistics: Boolean = false, id: Int = 0, music: Boolean = false): PendingIntent = PendingIntent.getActivity(context,
+        if (statistics) 1000 + id else 1, Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra("widget_statistics", statistics)
+            if (statistics) putExtra("widget_music_scope", music)
         }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+
+    internal fun statisticsIntent(context: Context, id: Int, music: Boolean): PendingIntent = open(context, true, id, music)
 
     private fun action(context: Context, command: String): PendingIntent = PendingIntent.getBroadcast(context,
         WidgetModel.commands.indexOf(command) + 10, Intent(context, WidgetCommandReceiver::class.java).setAction(command),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+
+    private fun activityIntent(context: Context, id: Int, slot: Int): PendingIntent {
+        val intent = Intent(context, MainActivity::class.java).setAction("org.openmetronome.widget.ACTIVITY.$id.$slot")
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            .putExtra("widget_activity_id", id).putExtra("widget_activity_slot", slot)
+        return PendingIntent.getActivity(context, id, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    }
+
+    private fun configureIntent(context: Context, id: Int): PendingIntent = PendingIntent.getActivity(context, id,
+        Intent(context, WidgetConfigureActivity::class.java).setAction("org.openmetronome.widget.CONFIGURE.$id")
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+
+    private fun drawActivityWidgets(context: Context) {
+        val manager = AppWidgetManager.getInstance(context)
+        val store = WidgetConfigurationStore(context)
+        for (id in ids(context, AddActivityWidget::class.java)) {
+            manager.updateAppWidget(id, activityViews(context, id, AddActivityWidget::class.java, store.get(id)))
+        }
+        for (id in ids(context, ActivityTemplateWidget::class.java)) {
+            manager.updateAppWidget(id, activityViews(context, id, ActivityTemplateWidget::class.java, store.get(id)))
+        }
+        for (id in ids(context, ActivityShortcutsWidget::class.java)) {
+            manager.updateAppWidget(id, activityViews(context, id, ActivityShortcutsWidget::class.java, store.get(id)))
+        }
+    }
+
+    internal fun activityViews(context: Context, id: Int, provider: Class<*>, config: WidgetConfiguration): RemoteViews {
+        if (provider == AddActivityWidget::class.java) {
+            return RemoteViews(context.packageName, R.layout.widget_activity_add).apply {
+                setOnClickPendingIntent(R.id.widget_activity_add, activityIntent(context, id, -1))
+            }
+        }
+        if (provider == ActivityTemplateWidget::class.java) {
+            return RemoteViews(context.packageName, R.layout.widget_activity_template).apply {
+                setTextViewText(R.id.widget_activity_open, "+ ${config.category.widgetLabel()}\n${config.instrument.takeIf { it.isNotBlank() }?.let { "$it\n" }.orEmpty()}${config.durationMinutes} min")
+                setOnClickPendingIntent(R.id.widget_activity_open, activityIntent(context, id, -1))
+                setOnClickPendingIntent(R.id.widget_activity_configure, configureIntent(context, id))
+            }
+        }
+        require(provider == ActivityShortcutsWidget::class.java)
+        return RemoteViews(context.packageName, R.layout.widget_activity_shortcuts).apply {
+            listOf(R.id.widget_shortcut_1, R.id.widget_shortcut_2, R.id.widget_shortcut_3, R.id.widget_shortcut_4).forEachIndexed { index, view ->
+                val shortcut = config.shortcuts.getOrNull(index) ?: defaultWidgetShortcuts()[index]
+                val duration = if (shortcut.durationMinutes % 60 == 0) "${shortcut.durationMinutes / 60}h" else "${shortcut.durationMinutes}m"
+                setTextViewText(view, "${shortcut.category.compactWidgetLabel()}\n$duration")
+                val instrument = shortcut.instrument.takeIf { it.isNotBlank() }?.let { ", $it" }.orEmpty()
+                setContentDescription(view, "Dodaj: ${shortcut.category.widgetLabel()}$instrument, ${shortcut.durationMinutes} minut")
+                setOnClickPendingIntent(view, activityIntent(context, id, index))
+            }
+            setOnClickPendingIntent(R.id.widget_activity_configure, configureIntent(context, id))
+        }
+    }
 
     private fun drawControls(context: Context, value: WidgetPlayback?, error: String? = null) {
         val manager = AppWidgetManager.getInstance(context)
@@ -188,14 +280,49 @@ object WidgetHost {
 
     private fun drawStatistics(context: Context) {
         val manager = AppWidgetManager.getInstance(context)
+        val configStore = WidgetConfigurationStore(context)
         for (id in ids(context, StatisticsWidget::class.java)) {
-            val views = RemoteViews(context.packageName, R.layout.widget_statistics)
-            val lines = statistics.lines()
-            views.setTextViewText(R.id.widget_stats, lines.first())
-            views.setTextViewText(R.id.widget_streak, lines.getOrElse(1) { "" })
-            views.setTextViewText(R.id.widget_week, lines.getOrElse(2) { "" })
-            views.setOnClickPendingIntent(R.id.widget_root, open(context, true))
-            manager.updateAppWidget(id, views)
+            val config = configStore.get(id)
+            val value = if (config.scope == WidgetStatisticsScope.MUSIC) musicStatistics else metronomeStatistics
+            val expanded = manager.getAppWidgetOptions(id).getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT) >= 190
+            manager.updateAppWidget(id, statisticsViews(context, id, config, value, expanded))
         }
+    }
+
+    internal fun statisticsViews(context: Context, id: Int, config: WidgetConfiguration,
+        value: Result<WidgetStatistics>?, expanded: Boolean): RemoteViews {
+            val views = RemoteViews(context.packageName, R.layout.widget_statistics)
+            views.setTextViewText(R.id.widget_statistics_title, if (config.scope == WidgetStatisticsScope.MUSIC) "Dzisiaj · cała aktywność" else "Dzisiaj · metronom")
+            val summary = value?.getOrNull()
+            views.setTextViewText(R.id.widget_stats, when { value == null -> "Ładowanie statystyk…"; value.isFailure -> "Statystyki niedostępne"; else -> dailyPracticeDuration(summary!!.todayMs) })
+            views.setTextViewText(R.id.widget_streak, summary?.let {
+                listOfNotNull(if (!it.hasData) "Brak danych" else null,
+                    if (config.showStreak) "Seria: ${it.streakDays} dni" else null,
+                    if (config.showWeek) "Tydzień: ${dailyPracticeDuration(it.weekMs)}" else null,
+                    if (config.showActiveDays) it.weeklyGoal?.let { goal -> "Cel: ${it.activeDays}/$goal dni" } ?: "Aktywne dni: ${it.activeDays}" else null).joinToString(" · ")
+            }.orEmpty())
+            val goal = summary?.weeklyGoal?.takeIf { config.showActiveDays && it > 0 }
+            views.setViewVisibility(R.id.widget_goal_progress, if (goal != null) View.VISIBLE else View.GONE)
+            if (goal != null) {
+                views.setProgressBar(R.id.widget_goal_progress, goal, summary.activeDays.coerceIn(0, goal), false)
+                views.setContentDescription(R.id.widget_goal_progress, "Cel tygodniowy: ${summary.activeDays} z $goal dni")
+            }
+            val showChart = expanded && config.showChart && summary != null
+            views.setViewVisibility(R.id.widget_week, if (showChart) View.VISIBLE else View.GONE)
+            if (showChart) {
+                val days = summary!!.week
+                val maximum = days.maxOfOrNull { it.durationMs } ?: 0L
+                val ids = listOf(R.id.widget_day_0, R.id.widget_day_1, R.id.widget_day_2, R.id.widget_day_3, R.id.widget_day_4, R.id.widget_day_5, R.id.widget_day_6)
+                val names = listOf("poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota", "niedziela")
+                ids.forEachIndexed { index, viewId ->
+                    val duration = days.getOrNull(index)?.durationMs ?: 0L
+                    val progress = if (duration <= 0L || maximum <= 0L) 0 else (duration.toDouble() / maximum * 100).toInt().coerceIn(1, 100)
+                    views.setProgressBar(viewId, 100, progress, false)
+                    views.setContentDescription(viewId, "${names[index]}: ${dailyPracticeDuration(duration)}")
+                }
+            }
+            views.setOnClickPendingIntent(R.id.widget_root, open(context, true, id, config.scope == WidgetStatisticsScope.MUSIC))
+            views.setOnClickPendingIntent(R.id.widget_configure, configureIntent(context, id))
+            return views
     }
 }

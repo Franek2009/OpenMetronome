@@ -1,7 +1,40 @@
 <?xml version="1.0" ?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/widget_root" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:gravity="center_vertical" android:padding="12dp" android:background="@drawable/widget_panel">
-  <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/widget_label_11" android:textSize="14sp" android:textColor="#BAC2B9"/>
-  <TextView android:id="@+id/widget_stats" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/widget_label_12" android:textSize="28sp" android:maxLines="2" android:autoSizeTextType="uniform" android:autoSizeMinTextSize="14sp" android:autoSizeMaxTextSize="28sp" android:textColor="#E0E2DB" />
-  <TextView android:id="@+id/widget_streak" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="14sp" android:textColor="#E0E2DB" android:paddingTop="6dp"/>
-  <TextView android:id="@+id/widget_week" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="12sp" android:textColor="#8FB89B" android:paddingTop="12dp"/>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/widget_root" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:gravity="center_vertical" android:padding="8dp" android:background="@drawable/widget_panel">
+  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+    <TextView android:id="@+id/widget_statistics_title" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/widget_label_11" android:textSize="14sp" android:textColor="#BAC2B9"/>
+    <TextView android:id="@+id/widget_configure" android:layout_width="48dp" android:layout_height="48dp" android:gravity="center" android:text="⚙" android:textSize="20sp" android:textColor="#E0E2DB" android:contentDescription="@string/widget_configure"/>
+  </LinearLayout>
+  <TextView android:id="@+id/widget_stats" android:layout_width="match_parent" android:layout_height="34dp" android:text="@string/widget_label_12" android:textSize="28sp" android:maxLines="1" android:maxHeight="34dp" android:autoSizeTextType="uniform" android:autoSizeMinTextSize="14sp" android:autoSizeMaxTextSize="28sp" android:textColor="#E0E2DB" />
+  <TextView android:id="@+id/widget_streak" android:layout_width="match_parent" android:layout_height="38dp" android:maxHeight="36dp" android:maxLines="2" android:autoSizeTextType="uniform" android:autoSizeMinTextSize="10sp" android:autoSizeMaxTextSize="14sp" android:textSize="14sp" android:textColor="#E0E2DB" android:paddingTop="4dp"/>
+  <ProgressBar android:id="@+id/widget_goal_progress" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="6dp" android:progressTint="#8FB89B" android:progressBackgroundTint="#405247" android:visibility="gone"/>
+  <LinearLayout android:id="@+id/widget_week" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:minHeight="38dp" android:orientation="horizontal" android:paddingTop="4dp" android:visibility="gone">
+    <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center_horizontal">
+      <ProgressBar android:id="@+id/widget_day_0" style="?android:attr/progressBarStyleHorizontal" android:layout_width="12dp" android:layout_height="0dp" android:layout_weight="1" android:progressDrawable="@drawable/widget_vertical_progress" android:max="100"/>
+      <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Pn" android:textSize="10sp" android:textColor="#BAC2B9" android:importantForAccessibility="no"/>
+    </LinearLayout>
+    <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center_horizontal">
+      <ProgressBar android:id="@+id/widget_day_1" style="?android:attr/progressBarStyleHorizontal" android:layout_width="12dp" android:layout_height="0dp" android:layout_weight="1" android:progressDrawable="@drawable/widget_vertical_progress" android:max="100"/>
+      <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Wt" android:textSize="10sp" android:textColor="#BAC2B9" android:importantForAccessibility="no"/>
+    </LinearLayout>
+    <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center_horizontal">
+      <ProgressBar android:id="@+id/widget_day_2" style="?android:attr/progressBarStyleHorizontal" android:layout_width="12dp" android:layout_height="0dp" android:layout_weight="1" android:progressDrawable="@drawable/widget_vertical_progress" android:max="100"/>
+      <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Śr" android:textSize="10sp" android:textColor="#BAC2B9" android:importantForAccessibility="no"/>
+    </LinearLayout>
+    <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center_horizontal">
+      <ProgressBar android:id="@+id/widget_day_3" style="?android:attr/progressBarStyleHorizontal" android:layout_width="12dp" android:layout_height="0dp" android:layout_weight="1" android:progressDrawable="@drawable/widget_vertical_progress" android:max="100"/>
+      <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Cz" android:textSize="10sp" android:textColor="#BAC2B9" android:importantForAccessibility="no"/>
+    </LinearLayout>
+    <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center_horizontal">
+      <ProgressBar android:id="@+id/widget_day_4" style="?android:attr/progressBarStyleHorizontal" android:layout_width="12dp" android:layout_height="0dp" android:layout_weight="1" android:progressDrawable="@drawable/widget_vertical_progress" android:max="100"/>
+      <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Pt" android:textSize="10sp" android:textColor="#BAC2B9" android:importantForAccessibility="no"/>
+    </LinearLayout>
+    <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center_horizontal">
+      <ProgressBar android:id="@+id/widget_day_5" style="?android:attr/progressBarStyleHorizontal" android:layout_width="12dp" android:layout_height="0dp" android:layout_weight="1" android:progressDrawable="@drawable/widget_vertical_progress" android:max="100"/>
+      <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="So" android:textSize="10sp" android:textColor="#BAC2B9" android:importantForAccessibility="no"/>
+    </LinearLayout>
+    <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center_horizontal">
+      <ProgressBar android:id="@+id/widget_day_6" style="?android:attr/progressBarStyleHorizontal" android:layout_width="12dp" android:layout_height="0dp" android:layout_weight="1" android:progressDrawable="@drawable/widget_vertical_progress" android:max="100"/>
+      <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Nd" android:textSize="10sp" android:textColor="#BAC2B9" android:importantForAccessibility="no"/>
+    </LinearLayout>
+  </LinearLayout>
 </LinearLayout>

@@ -1,5 +1,45 @@
 # Widgety OpenMetronome 1.2
 
+## Rozwijany wariant 1.3 — Widgety 2.0
+
+Na gałęzi rozwojowej widget statystyk ma indywidualny zakres: metronom lub
+cała aktywność muzyczna. Obecne instancje bez zapisanej konfiguracji zachowują
+zakres metronomu. W konfiguracji można wybrać serię, czas tygodniowy, aktywne
+dni/cel i wykres; dzisiejszy czas pozostaje widoczny. Przy większej wysokości
+wykres pokazuje tydzień od poniedziałku do niedzieli. Dane korzystają z tych
+samych obliczeń co aplikacja; błąd i ładowanie nie oznaczają zerowej aktywności.
+Siedem słupków jest skalowanych względem najdłuższego dnia widocznego tygodnia;
+przy włączonym celu liczbie aktywnych dni towarzyszy pasek postępu. Gdy cel
+nie obowiązuje lub jest wyłączony, widget pokazuje liczbę aktywnych dni.
+
+Skróty dodawania aktywności otwierają istniejący formularz: prosty przycisk,
+pojedynczy szablon oraz pasek maksymalnie czterech szablonów. Szablon określa
+kategorię, instrument i czas, a jego koniec przypada przed otwarciem formularza.
+Zapis zawsze wymaga potwierdzenia. Rozmiary komórek i możliwość umieszczenia
+paska 4×1 zależą od launchera; na starszym Androidzie przycisk konfiguracji
+widgetu pozostaje dostępny bez systemowej opcji ponownej konfiguracji.
+
+Konfiguracja jest lokalna i przypisana do identyfikatora widgetu, oddzielnie dla
+PROD i DEV. Po zmianie identyfikatorów dostępne lokalnie ustawienia są mapowane;
+po przeniesieniu na inne urządzenie mogą być niedostępne, ponieważ systemowy
+backup aplikacji jest wyłączony. Wówczas stosowane są wartości domyślne.
+Podglądy RemoteViews, systemowy AppWidgetHost i rzeczywisty launcher telefonu
+to osobne rodzaje testów; podgląd nie oznacza odbioru fizycznego launchera.
+
+Lokalna próba Launcher3 na emulatorze API 35: widget 1×1 i pasek 4×1 zostały
+dodane na pulpit. Dotknięcie 1×1 otworzyło formularz, a drugi skrót paska
+otworzył formularz lekcji na 45 minut; oba formularze anulowano. Nie jest to
+test launchera fizycznego telefonu ani dowód poprawności wszystkich launcherów.
+
+Próbę aktualizacji danych z 1.2.1 wykonano na emulatorach API 26 i 35:
+ustawienia, presety, historia, dzienne sumy i bajty sampla zostały zachowane.
+Na API 35 sprawdzono ponadto w Launcher3, że istniejący widget statystyk
+pozostaje na pulpicie i domyślnie pokazuje zakres metronomu. Test używał kopii
+APK podpisanych wspólnym tymczasowym kluczem i zastąpienia tej samej wartości
+versionCode 22; nie jest weryfikacją aktualizacji oficjalnie podpisanego 1.3.
+
+Ta sekcja opisuje bieżący zakres rozwoju, a nie opublikowane wydanie 1.3.
+
 Dostępne od wersji 1.2.0. Widgety rozszerzają obecny interfejs,
 bez nowego silnika audio.
 
