@@ -110,7 +110,7 @@ class FullscreenPracticeTest {
             compose.onNodeWithText("Pełny ekran").performScrollTo().performClick()
             compose.runOnIdle { statistics.value = true; request.intValue++ }
             compose.onNodeWithText("Podsumowanie").assertExists()
-            compose.onNodeWithText("Metronom").performClick()
+            compose.onNodeWithTag("navigation-Metronom").performClick()
             compose.onNodeWithText("Pełny ekran").performScrollTo().performClick()
             compose.onNodeWithText("Wróć").performClick()
             compose.onNodeWithText("Pełny ekran").assertExists()

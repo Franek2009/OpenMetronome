@@ -6,6 +6,7 @@ import androidx.room.Index
 import androidx.room.Insert
 import androidx.room.PrimaryKey
 import androidx.room.Query
+import kotlinx.coroutines.flow.Flow
 
 @Entity(tableName = "grouping_corrections", indices = [Index(value = ["sequenceNumber"], unique = true)])
 internal data class GroupingCorrectionRow(
@@ -27,6 +28,9 @@ internal interface PracticeGroupingDao {
 
     @Query("SELECT * FROM grouping_corrections ORDER BY sequenceNumber")
     suspend fun corrections(): List<GroupingCorrectionRow>
+
+    @Query("SELECT * FROM grouping_corrections ORDER BY sequenceNumber")
+    fun observeCorrections(): Flow<List<GroupingCorrectionRow>>
 
     // Each UUID uses 40 bytes, plus the sequence, kind, nullable flags and deletion timestamp.
     @Query("""

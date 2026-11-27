@@ -11,6 +11,9 @@ import java.util.UUID
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.channels.Channel
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -24,6 +27,41 @@ class PracticeGroupingStorageTest {
     @get:Rule val migration = MigrationTestHelper(instrumentation, PracticeDatabase::class.java)
     private val now = Instant.ofEpochMilli(810_000)
     private val config = ConfigCodec.encode(MetronomeConfig())
+
+    @Test fun observedProjectionRefreshesAfterJoinSplitAndReset() = runBlocking {
+        val dir = File(context.cacheDir, "group-observation-${UUID.randomUUID()}").also { check(it.mkdirs()) }
+        val data = AppData(context, dir)
+        val first = playback(11, 0)
+        val second = playback(12, 700_000)
+        val updates = Channel<PracticeGroupingSummary>(Channel.UNLIMITED)
+        try {
+            data.ready.await()
+            data.dao.insertSessions(listOf(first, second))
+            data.savePracticeGroupingGap(PracticeGroupingGap.MINUTES_5)
+            data.awaitWrites()
+            val collector = launch { data.observePracticeGrouping().collect { updates.send(it.getOrThrow()) } }
+            suspend fun nextCount(count: Int) = withTimeout(10000) {
+                var value: PracticeGroupingSummary
+                do { value = updates.receive() } while (value.groups.size != count)
+                value
+            }
+            assertEquals(2, nextCount(2).groups.size)
+            for ((change, expected) in listOf(
+                PracticeGroupingChange.Join(first.id, second.id) to 1,
+                PracticeGroupingChange.SplitBefore(second.id) to 2,
+            )) {
+                val preview = data.previewPracticeGrouping(change, Instant.now())
+                data.applyPracticeGrouping(preview); data.awaitWrites()
+                assertEquals(expected, nextCount(expected).groups.size)
+            }
+            data.savePracticeGroupingGap(PracticeGroupingGap.MINUTES_30); data.awaitWrites()
+            assertEquals(2, nextCount(2).groups.size)
+            val reset = data.previewPracticeGrouping(PracticeGroupingChange.ResetAll, Instant.now())
+            data.applyPracticeGrouping(reset); data.awaitWrites()
+            assertEquals(1, nextCount(1).groups.size)
+            collector.cancel()
+        } finally { updates.close(); data.closeTestStorage() }
+    }
 
     @Test fun migrationFromRoom4KeepsRawPlaybacksAndMusicActivities() {
         val name = "grouping-migration-${UUID.randomUUID()}.db"

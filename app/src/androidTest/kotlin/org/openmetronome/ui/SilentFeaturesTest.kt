@@ -3,7 +3,6 @@ package org.openmetronome.ui
 import android.content.Intent
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
-import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.lifecycle.ViewModelProvider
@@ -42,6 +41,8 @@ class SilentFeaturesTest {
         compose.waitUntil(10000) { model.state.value.audio.status == PlaybackStatus.STOPPED }
         runBlocking(Dispatchers.IO) {
             data.ready.await()
+            data.settings.saveMusicScope(false)
+            data.settings.saveGroupingGap(PracticeGroupingGap.DEFAULT)
             data.database.clearAllTables()
             data.samples.load()
         }
@@ -488,6 +489,68 @@ class SilentFeaturesTest {
         assertEquals(PlaybackStatus.STOPPED, model.state.value.audio.status)
     }
 
+    @Test fun musicActivityCanBeAddedAndScopeSurvivesRecreation() {
+        if (InstrumentationRegistry.getArguments().getString("layoutLandscape") == "true") {
+            compose.activityRule.scenario.onActivity { it.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
+            compose.waitUntil(10000) { compose.activity.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE }
+        }
+        val start = System.currentTimeMillis() - 3_600_000
+        val date = java.time.Instant.ofEpochMilli(start).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString()
+        runBlocking(Dispatchers.IO) {
+            data.dao.checkpoint(PracticeSession("ui-fixture", start, start + 600_000, 600_000, true, false,
+                java.time.ZoneId.systemDefault().id, ConfigCodec.encode(MetronomeConfig())),
+                listOf(PracticeDay("ui-fixture", date, 600_000)))
+        }
+        page("Statystyki")
+        compose.onNodeWithText("Cała aktywność").performClick()
+        compose.waitUntil(10000) { compose.onAllNodesWithText("Dzisiaj").fetchSemanticsNodes().isNotEmpty() }
+        captureUi("music-summary")
+        compose.onNodeWithText("Analiza").performClick()
+        compose.onNodeWithText("Analiza całej aktywności").assertExists()
+        captureUi("music-analysis")
+        compose.onNodeWithText("Historia").performClick()
+        compose.onNodeWithText("+ Dodaj aktywność").performScrollTo().performClick()
+        captureUi("music-form")
+        compose.onNodeWithText("Lekcja").performClick()
+        compose.onNodeWithText("Minuty").performTextReplacement("10")
+        compose.onNodeWithText("Instrument (opcjonalnie)").performTextReplacement("Kontrabas")
+        compose.onNodeWithText("Zapisz").performClick()
+        compose.activityRule.scenario.recreate()
+        compose.waitUntil(10000) { runBlocking { data.musicActivities.first().any { it.details.instrument == "Kontrabas" } } }
+        compose.waitUntil(10000) { compose.onAllNodesWithText("Dodaj aktywność").fetchSemanticsNodes().isEmpty() }
+        assertEquals(1, runBlocking { data.musicActivities.first().count { it.details.instrument == "Kontrabas" } })
+        compose.onNodeWithText("Cała aktywność").assertIsSelected()
+        compose.onNodeWithText("Kontrabas").performScrollTo().assertExists()
+        captureUi("music-history")
+        compose.onNodeWithText("Dane").performScrollTo()
+        compose.onNodeWithText("Edytuj").performScrollTo()
+        repeat(8) {
+            if (runCatching { compose.onNodeWithText("Edytuj").assertIsDisplayed() }.isFailure) {
+                compose.onNodeWithTag("statistics-content").performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, -80f) }
+            }
+        }
+        compose.onNodeWithText("Edytuj").assertIsDisplayed().performClick()
+        compose.onNodeWithText("Edytuj aktywność").assertExists()
+        compose.onNodeWithText("Notatka (opcjonalnie)").performScrollTo().performTextReplacement("Próba")
+        compose.activityRule.scenario.recreate()
+        val noteField = hasText("Notatka (opcjonalnie)") and hasSetTextAction()
+        compose.waitUntil(10000) { compose.onAllNodes(noteField).fetchSemanticsNodes().size == 1 }
+        compose.onNode(noteField).performScrollTo().assertIsDisplayed().assertTextContains("Próba")
+        compose.onNodeWithText("Zapisz").performClick()
+        compose.waitUntil(10000) { runBlocking { data.musicActivities.first().any { it.details.note == "Próba" } } }
+        compose.waitUntil(10000) { compose.onAllNodesWithText("1 odtw.", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        val group = hasText("1 odtw.", substring = true)
+        showInStatistics(group)
+        compose.onNode(group).performClick()
+        compose.waitUntil(10000) { compose.onAllNodesWithText("Resetuj").fetchSemanticsNodes().size == 1 }
+        compose.onNodeWithText("Dane").performScrollTo()
+        compose.onNodeWithText("Resetuj").performScrollTo().assertIsDisplayed()
+        captureUi("music-group")
+        page("Ustawienia")
+        compose.onNodeWithText("Grupowanie sesji").performScrollTo()
+        captureUi("music-settings")
+    }
+
     @Test fun widgetLinksCanNavigateRepeatedlyWithoutChangingConfiguration() {
         val scenarioIntent = Intent(compose.activity.intent)
         openFromWidget(scenarioIntent, statistics = true)
@@ -501,6 +564,86 @@ class SilentFeaturesTest {
             assertEquals(120, model.state.value.config.tempo.bpm)
             assertEquals(PlaybackStatus.STOPPED, model.state.value.audio.status)
         }
+    }
+
+    @Test fun groupingResetAndChangedGapAreReflectedAfterRecreation() {
+        compose.activityRule.scenario.onActivity { it.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }
+        compose.waitUntil(10000) { compose.activity.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT }
+        val config = ConfigCodec.encode(MetronomeConfig())
+        val start = System.currentTimeMillis() - 7_200_000
+        val first = PracticeSession(java.util.UUID.randomUUID().toString(), start, start + 60_000, 60_000, true, false, "UTC", config)
+        val second = PracticeSession(java.util.UUID.randomUUID().toString(), start + 1_200_000, start + 1_260_000, 60_000, true, false, "UTC", config)
+        runBlocking(Dispatchers.IO) {
+            data.dao.insertSessions(listOf(first, second))
+            data.savePracticeGroupingGap(PracticeGroupingGap.MINUTES_5)
+            data.awaitWrites()
+            val preview = data.previewPracticeGrouping(PracticeGroupingChange.Join(first.id, second.id), java.time.Instant.now())
+            data.applyPracticeGrouping(preview)
+            data.awaitWrites()
+            assertEquals(1, data.practiceGrouping(java.time.Instant.now()).groups.size)
+        }
+        page("Ustawienia")
+        compose.onNodeWithText("Resetuj korekty grupowania").performScrollTo().performClick()
+        compose.onNodeWithText("Potwierdź zmianę grupowania").assertExists()
+        compose.onNodeWithText("Resetowane korekty: 1").assertExists()
+        compose.onNodeWithText("Zastosuj").performClick()
+        compose.waitUntil(10000) { runBlocking { data.practiceGrouping(java.time.Instant.now()).groups.size == 2 } }
+        compose.activityRule.scenario.recreate()
+        page("Statystyki")
+        compose.onNodeWithText("Historia").assertIsDisplayed().performClick()
+        compose.onNodeWithText("Dane").performScrollTo()
+        compose.waitUntil(10000) { compose.onAllNodesWithText("1 odtw.", substring = true).fetchSemanticsNodes().size == 2 }
+    }
+
+    @Test fun completedActivityCannotEndInFuture() {
+        page("Statystyki")
+        compose.onNodeWithText("Cała aktywność").performClick()
+        compose.onNodeWithText("Historia").performClick()
+        compose.onNodeWithText("+ Dodaj aktywność").performScrollTo().performClick()
+        compose.onNodeWithText("60 min").performScrollTo().performClick()
+        compose.onNodeWithText("Aktywność nie może kończyć się w przyszłości.").assertExists()
+        compose.onNodeWithText("Zapisz").assertIsNotEnabled()
+    }
+
+    @Test fun groupingCorrectionRefreshesFinishActionWithoutNavigation() {
+        val now = System.currentTimeMillis()
+        val session = PracticeSession(java.util.UUID.randomUUID().toString(), now - 60_000, now, 60_000,
+            true, false, "UTC", ConfigCodec.encode(MetronomeConfig()))
+        runBlocking(Dispatchers.IO) { data.dao.insertSessions(listOf(session)) }
+        compose.waitUntil(10000) { compose.onAllNodesWithText("Zakończ sesję").fetchSemanticsNodes().isNotEmpty() }
+        runBlocking(Dispatchers.IO) {
+            val preview = data.previewPracticeGrouping(PracticeGroupingChange.FinishAfter(session.id), java.time.Instant.now())
+            data.applyPracticeGrouping(preview); data.awaitWrites()
+        }
+        compose.waitUntil(5000) { compose.onAllNodesWithText("Zakończ sesję").fetchSemanticsNodes().isEmpty() }
+    }
+
+    @Test fun groupingCorrectionRefreshesSessionAverageWithoutNavigation() {
+        val now = System.currentTimeMillis()
+        val start = now - 14_400_000
+        val config = ConfigCodec.encode(MetronomeConfig())
+        val first = PracticeSession(java.util.UUID.randomUUID().toString(), start, start + 600_000, 600_000, true, false, "UTC", config)
+        val second = PracticeSession(java.util.UUID.randomUUID().toString(), start + 3_600_000, start + 4_800_000, 1_200_000, true, false, "UTC", config)
+        runBlocking(Dispatchers.IO) { data.dao.insertSessions(listOf(first, second)) }
+        page("Statystyki")
+        compose.onNodeWithText("Cała aktywność").performClick()
+        compose.onNodeWithText("Analiza").performClick()
+        compose.waitUntil(10000) { compose.onAllNodesWithText("Średni czas metronomu na zakończoną sesję: 15 min 0 s").fetchSemanticsNodes().isNotEmpty() }
+        runBlocking(Dispatchers.IO) {
+            val preview = data.previewPracticeGrouping(PracticeGroupingChange.Join(first.id, second.id), java.time.Instant.now())
+            data.applyPracticeGrouping(preview); data.awaitWrites()
+        }
+        compose.waitUntil(5000) { compose.onAllNodesWithText("Średni czas metronomu na zakończoną sesję: 30 min 0 s").fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    @Test fun openGroupExpiresWhileScreenRemainsVisible() {
+        val now = System.currentTimeMillis()
+        val end = now - 300_000 + 10_000
+        val session = PracticeSession(java.util.UUID.randomUUID().toString(), end - 60_000, end, 60_000,
+            true, false, "UTC", ConfigCodec.encode(MetronomeConfig()))
+        runBlocking(Dispatchers.IO) { data.savePracticeGroupingGap(PracticeGroupingGap.MINUTES_5); data.awaitWrites(); data.dao.insertSessions(listOf(session)) }
+        compose.waitUntil(5000) { compose.onAllNodesWithText("Zakończ sesję").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(20000) { compose.onAllNodesWithText("Zakończ sesję").fetchSemanticsNodes().isEmpty() }
     }
 
     private fun openFromWidget(scenarioIntent: Intent, statistics: Boolean) {
@@ -522,10 +665,25 @@ class SilentFeaturesTest {
         val toggle = compose.onNodeWithTag("training-toggle").performScrollTo()
         if (collapsed) toggle.performClick()
     }
+    private fun showInStatistics(matcher: SemanticsMatcher) {
+        val node = compose.onNode(matcher)
+        node.performScrollTo()
+        repeat(16) {
+            if (runCatching { node.assertIsDisplayed() }.isSuccess) return
+            // boundsInRoot is empty when clipped; use the un-clipped layout position.
+            val targetY = node.fetchSemanticsNode().positionInRoot.y
+            val viewport = compose.onNodeWithTag("statistics-content").fetchSemanticsNode().boundsInRoot
+            val amount = if (targetY < viewport.center.y) -80f else 80f
+            compose.onNodeWithTag("statistics-content").performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, amount) }
+        }
+        node.assertIsDisplayed()
+    }
     private fun captureUi(name: String) {
         if (InstrumentationRegistry.getArguments().getString("captureUi") != "true") return
         check(compose.activity.application is TestApplication)
-        val bitmap = compose.onRoot().captureToImage().asAndroidBitmap()
+        compose.waitForIdle()
+        // Capture the actual window, including dialogs hosted outside the Compose root.
+        val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
         java.io.File(compose.activity.cacheDir, "ui-v012-$name.png").outputStream().use {
             assertTrue(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it))
         }

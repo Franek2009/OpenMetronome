@@ -50,6 +50,7 @@ fun MetronomeScreen(
     onBeatAccent: (Int) -> Unit = { onConfigChange(state.config.cycleBeatAccent(it)) },
     onFullscreen: (() -> Unit)? = null,
     onPresets: (() -> Unit)? = null,
+    onFinishSession: (() -> Unit)? = null,
     customSamples: List<org.openmetronome.data.CustomSampleItem> = emptyList(),
 ) {
     val config = state.config
@@ -70,6 +71,7 @@ fun MetronomeScreen(
             val compactInstrument = short || (!tablet && maxHeight < 600.dp)
             val instrument: @Composable ColumnScope.() -> Unit = {
                 onFullscreen?.let { TextButton(it, Modifier.align(Alignment.End)) { Text("Pełny ekran") } }
+                onFinishSession?.let { TextButton(it) { Text("Zakończ sesję") } }
                 PulseLamps(state, onBeatAccent, if (tablet) 72.dp else if (compactInstrument) 32.dp else 44.dp,
                     compactInstrument || layout == InstrumentLayout.TABLET_LANDSCAPE)
                 TempoPanel(config, onTempoChange, onIncreaseTempo, onDecreaseTempo, onAdjustTempo, onTapTempo,

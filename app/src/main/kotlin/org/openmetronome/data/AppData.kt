@@ -31,6 +31,7 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
     suspend fun save(config: MetronomeConfig) { store.edit { it[key] = ConfigCodec.encode(config) } }
     private val awakeKey = booleanPreferencesKey("fullscreen_awake")
     private val motionKey = booleanPreferencesKey("reduce_motion")
+    private val musicScopeKey = booleanPreferencesKey("music_statistics_scope")
     private val sessionThresholdKey = intPreferencesKey("minimum_session_seconds")
     private val dayThresholdKey = intPreferencesKey("active_day_minutes")
     private val musicZoneKey = stringPreferencesKey("music_statistics_zone")
@@ -39,6 +40,8 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
     private val groupingGapKey = stringPreferencesKey("practice_grouping_gap")
     val display = store.data.map { PracticeDisplayPreferences(it[awakeKey] ?: false, it[motionKey] ?: false) }
     val statistics = store.data.map { StatisticsPreferences(it[sessionThresholdKey] ?: 20, it[dayThresholdKey] ?: 5) }
+    val musicScope = store.data.map { it[musicScopeKey] ?: false }
+    suspend fun saveMusicScope(value: Boolean) { store.edit { it[musicScopeKey] = value } }
     val musicStatistics = store.data.map { it.musicStatistics() }.distinctUntilChanged()
     val groupingGap = store.data.map { it[groupingGapKey]?.let(PracticeGroupingGap::valueOf) ?: PracticeGroupingGap.DEFAULT }
     suspend fun saveDisplay(value: PracticeDisplayPreferences) {
@@ -182,6 +185,26 @@ class AppData private constructor(
     }
 
     fun deleteMusicActivity(id: String) = operation { musicDao.delete(id, System.currentTimeMillis()) }
+
+    suspend fun saveMusicActivity(details: MusicActivityDetails, id: String? = null) {
+        val snapshot = details.copy(intervals = details.intervals.toList())
+        val result = CompletableDeferred<Result<Unit>>()
+        check(submit {
+            try {
+                ready.await()
+                val now = System.currentTimeMillis()
+                if (id == null) musicDao.insert(MusicActivity(UUID.randomUUID().toString(), snapshot, now, now))
+                else musicDao.edit(id, snapshot, now)
+                result.complete(Result.success(Unit))
+            } catch (cancelled: CancellationException) {
+                result.cancel(cancelled)
+                throw cancelled
+            } catch (error: Exception) {
+                result.complete(Result.failure(error))
+            }
+        }) { "Zapis jest obecnie niedostępny" }
+        result.await().getOrThrow()
+    }
     internal var sessionCheckpoint: suspend (PracticeSession, List<PracticeDay>) -> Unit = { session, days ->
         dao.checkpoint(session, days)
         syncDatabase()
@@ -269,9 +292,35 @@ class AppData private constructor(
     fun saveDisplayPreferences(value: PracticeDisplayPreferences) = operation { settings.saveDisplay(value) }
     fun saveStatisticsPreferences(value: StatisticsPreferences) = operation { settings.saveStatistics(value) }
     fun saveMusicStatisticsPreferences(value: MusicStatisticsPreferences) = operation { settings.saveMusicStatistics(value) }
+    fun saveMusicScope(value: Boolean) = operation { settings.saveMusicScope(value) }
     fun savePracticeGroupingGap(value: PracticeGroupingGap) = operation { settings.saveGroupingGap(value) }
 
     suspend fun practiceGrouping(at: Instant): PracticeGroupingSummary = readGrouping(at) { summarize() }
+
+    /** Cold and lifecycle-collected: no grouping timer runs when the UI is stopped. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun observePracticeGrouping(): Flow<Result<PracticeGroupingSummary>> = flow {
+        ready.await()
+        val storageAvailability = combine(backupWorking, recoveryRequired) { backup, recovery -> backup to recovery }
+        emitAll(combine(dao.statisticsSessions(), groupingDao.observeCorrections(), settings.groupingGap,
+            storageAvailability) { _, _, gap, _ -> gap }.flatMapLatest { gap ->
+            flow {
+                while (currentCoroutineContext().isActive) {
+                    val now = System.currentTimeMillis()
+                    val result = try { Result.success(practiceGrouping(Instant.ofEpochMilli(now))) }
+                    catch (cancelled: CancellationException) { throw cancelled }
+                    catch (error: Exception) { Result.failure(error) }
+                    emit(result)
+                    val last = result.getOrNull()?.groups?.lastOrNull()
+                    val gapMs = gap.minutes?.times(60_000L)
+                    val deadline = if (last != null && !last.completed && gapMs != null)
+                        runCatching { Math.addExact(last.endedAt, gapMs) }.getOrNull() else null
+                    if (deadline == null || deadline < now) awaitCancellation()
+                    delay((deadline - now).coerceAtMost(Long.MAX_VALUE - 1) + 1)
+                }
+            }
+        })
+    }.catch { error -> if (error is CancellationException) throw error else emit(Result.failure(error)) }.flowOn(Dispatchers.IO)
 
     suspend fun previewPracticeGrouping(change: PracticeGroupingChange, at: Instant): PracticeGroupingPreview =
         readGrouping(at) { plan(change).preview }
