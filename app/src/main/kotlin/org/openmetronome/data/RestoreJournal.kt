@@ -68,11 +68,16 @@ internal class RestoreJournal(
     }
 
     private fun collectRetired() {
-        root.listFiles()?.filter { candidate ->
+        val retired = root.listFiles()?.filter { candidate ->
             candidate.name.startsWith("retired-") &&
                 runCatching { UUID.fromString(candidate.name.removePrefix("retired-")).toString() == candidate.name.removePrefix("retired-") }.getOrDefault(false) &&
                 !Files.isSymbolicLink(candidate.toPath())
-        }?.forEach { it.deleteRecursively() }
+        }.orEmpty()
+        if (retired.isEmpty()) return
+        // A previous attempt may have moved active before its directory fsync completed.
+        syncDirectory(root)
+        retired.forEach { check(it.deleteRecursively()) }
+        syncDirectory(root)
     }
 
     private fun writeAtomic(target: File, write: (FileOutputStream) -> Unit) {
@@ -84,7 +89,8 @@ internal class RestoreJournal(
 }
 
 internal enum class RestoreCheckpoint {
+    RESERVE_DURABLE,
     PREPARED, OLD_FILES_MOVED, NEW_FILES_MOVED, DATABASE_CHANGED, SETTINGS_WRITTEN,
     DATABASE_COMMITTED, STORES_SYNCED, COMMITTED, JOURNAL_RETIRED,
-    RECOVERY_FILES_MOVED, RECOVERY_DATABASE_CHANGED, RECOVERY_STORES_SYNCED,
+    RECOVERY_RESERVE_RELEASED, RECOVERY_FILES_MOVED, RECOVERY_DATABASE_CHANGED, RECOVERY_STORES_SYNCED,
 }

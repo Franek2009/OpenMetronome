@@ -35,6 +35,7 @@ import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.openmetronome.data.BackupArchive.writeString
 import org.openmetronome.MainActivity
 import org.openmetronome.TestApplication
 import org.openmetronome.UnlockedScreenRule
@@ -155,59 +156,28 @@ class BackupBaselineTest {
                     } else {
                         add(JSONObject().put("phase", "$mode-validate-archive").put("outcome", "no-archive-after-limit"))
                     }
-                    val source = if (archive.isFile) archive else fallback
-                    val before = rowCounts(data).toString()
-                    val expectedSuccess = source == archive
-                    val beforeTempo = if (expectedSuccess) Tempo(79) else config.tempo
-                    data.settings.save(config.copy(tempo = beforeTempo))
+                    val full = archive.isFile
+                    val source = if (full) archive else fallback
+                    val expectedRows = if (full) fingerprint(data) else null
+                    data.settings.save(config.copy(tempo = Tempo(79)))
                     measure(dir, "$mode-restore", ::add) { gauge, result ->
-                        val checkpoints = JSONObject()
-                        result.put("source", if (expectedSuccess) "same-history" else "small-valid-archive")
-                            .put("sourceBytes", source.length()).put("checkpointsMs", checkpoints)
-                        val start = now()
-                        data.restoreCheckpoint = { stage ->
-                            checkpoints.put(stage.name, ms(now() - start))
-                            if (stage == RestoreCheckpoint.PREPARED) {
-                                result.put("startBlockedAtReady", playbackBlocked(data))
-                                var editCalled = false
-                                data.editConfiguration { editCalled = true }
-                                result.put("configurationEditBlockedAtReady", !editCalled)
-                                val journal = File(dir, "restore-journal/active")
-                                result.put("beforeArchiveBytes", File(journal, "before.ombak").length())
-                                result.put("afterArchiveBytes", File(journal, "after.ombak").length())
-                            }
-                            gauge.capture()
-                        }
-                        try {
-                            data.importBackup({
-                                object : FilterInputStream(source.inputStream()) {
-                                    override fun close() {
-                                        super.close()
-                                        result.put("sourceReadMs", ms(now() - start))
-                                    }
-                                }
-                            }, {})
-                            awaitRelease(data, start, result)
-                        } finally { data.restoreCheckpoint = {} }
-                        val restored = data.backupNotice.value.orEmpty().startsWith("Kopia została przywrócona:")
-                        result.put("notice", data.backupNotice.value)
-                        result.put("outcome", when {
-                            restored -> "restored"
-                            !expectedSuccess && isOverBudget(data) && checkpoints.length() == 0 -> "limit-refusal-current-history"
-                            else -> "unexpected-failure"
-                        })
-                        assertEquals(expectedSuccess, restored)
-                        assertNotEquals("unexpected-failure", result.getString("outcome"))
-                        if (restored) {
-                            assertTrue(result.getBoolean("startBlockedAtReady"))
-                            assertTrue(result.getBoolean("configurationEditBlockedAtReady"))
-                            assertTrue(result.getLong("beforeArchiveBytes") > 0)
-                            assertTrue(result.getLong("afterArchiveBytes") > 0)
-                        }
-                        assertEquals(before, rowCounts(data).toString())
-                        assertEquals(if (restored) config.tempo else beforeTempo, data.settings.load().tempo)
+                        result.put("source", if (full) "same-history" else "small-valid-archive")
+                        restore(data, dir, source, BackupStreamLimits(), gauge, result)
+                    }
+                    if (full) {
+                        assertEquals(expectedRows, fingerprint(data))
+                        assertEquals(config, data.settings.load())
                         assertEquals(sampleHashes, sampleHashes.keys.associateWith { digest(File(dir, "samples/$it.wav").readBytes()) })
-                        assertFalse(data.recoveryRequired.value)
+                    } else {
+                        assertEquals(0L, data.dao.total().first().sessions)
+                        assertEquals(77, data.settings.load().tempo.bpm)
+                        assertTrue(data.samples.items.value.isEmpty())
+                        activity?.close()
+                        activity = null
+                        app.backupBaselineData = null
+                        measure(dir, "$mode-reseed", ::add) { _, _ ->
+                            seed(data, dir, count, profile == "dense", config, sampleHashes)
+                        }
                     }
                 } finally {
                     activity?.close()
@@ -241,6 +211,16 @@ class BackupBaselineTest {
                         StreamingBackupValidator(limits, owner::ensureActive).validate(stage.archive, stage.index)
                         result.put("outcome", "validated")
                     }
+                    val expectedRows = fingerprint(data)
+                    val expectedPreferences = data.settings.preferencesSnapshot()
+                    data.settings.save(config.copy(tempo = Tempo(79)))
+                    measure(dir, "experiment-restore", ::add) { gauge, result ->
+                        restore(data, dir, stage.archive, limits, gauge, result)
+                    }
+                    assertEquals(expectedRows, fingerprint(data))
+                    assertEquals(expectedPreferences, data.settings.preferencesSnapshot())
+                    assertEquals(config, data.settings.load())
+                    assertEquals(sampleHashes, sampleHashes.keys.associateWith { digest(File(dir, "samples/$it.wav").readBytes()) })
                 }
             }
             val next = playback(count, ConfigCodec.encode(config), emptyList())
@@ -262,6 +242,74 @@ class BackupBaselineTest {
         data.awaitWrites()
         assertTrue(data.reservePlayback())
         data.playbackFinished()
+    }
+
+    private suspend fun restore(data: AppData, dir: File, source: File, limits: BackupStreamLimits,
+        gauge: Gauge, result: JSONObject) {
+        val checkpoints = JSONObject()
+        result.put("sourceBytes", source.length()).put("checkpointsMs", checkpoints)
+        val start = now()
+        data.restoreCheckpoint = { stage ->
+            checkpoints.put(stage.name, ms(now() - start))
+            if (stage == RestoreCheckpoint.PREPARED) {
+                result.put("startBlockedAtReady", playbackBlocked(data))
+                var editCalled = false
+                data.editConfiguration { editCalled = true }
+                result.put("configurationEditBlockedAtReady", !editCalled)
+                val journal = File(dir, "restore-journal/active")
+                result.put("beforeArchiveBytes", RestoreDiskSnapshot(File(journal, "before")).sizeOnDisk())
+                result.put("afterArchiveBytes", RestoreDiskSnapshot(File(journal, "after")).sizeOnDisk())
+                result.put("rollbackReserveBytes", File(journal, "rollback-reserve").length())
+            }
+            gauge.capture()
+        }
+        try {
+            data.importBackup({
+                object : FilterInputStream(source.inputStream()) {
+                    override fun close() {
+                        super.close()
+                        result.put("sourceReadMs", ms(now() - start))
+                    }
+                }
+            }, {}, limits)
+            awaitRelease(data, start, result)
+        } finally { data.restoreCheckpoint = {} }
+        val notice = data.backupNotice.value.orEmpty()
+        result.put("notice", notice)
+        assertTrue(notice, notice.startsWith("Kopia została przywrócona:"))
+        assertTrue(result.getBoolean("startBlockedAtReady"))
+        assertTrue(result.getBoolean("configurationEditBlockedAtReady"))
+        assertTrue(result.getLong("beforeArchiveBytes") > 0)
+        assertTrue(result.getLong("afterArchiveBytes") > 0)
+        assertFalse(data.recoveryRequired.value)
+        result.put("outcome", "restored")
+    }
+
+    private fun fingerprint(data: AppData): String {
+        val queries = mapOf("practice_sessions" to "id", "practice_days" to "sessionId,date",
+            "presets" to "id", "custom_samples" to "id", "music_activities" to "id",
+            "music_activity_intervals" to "activityId,startAt", "grouping_corrections" to "id")
+        val digest = MessageDigest.getInstance("SHA-256")
+        val discard = object : java.io.OutputStream() { override fun write(value: Int) = Unit }
+        val out = java.io.DataOutputStream(java.security.DigestOutputStream(discard, digest))
+        for ((table, key) in queries) {
+            out.writeString(table)
+            data.database.openHelper.readableDatabase.query("SELECT * FROM $table ORDER BY $key").use { cursor ->
+                while (cursor.moveToNext()) {
+                    for (column in 0 until cursor.columnCount) {
+                        val type = cursor.getType(column)
+                        out.writeByte(type)
+                        when (type) {
+                            android.database.Cursor.FIELD_TYPE_INTEGER -> out.writeLong(cursor.getLong(column))
+                            android.database.Cursor.FIELD_TYPE_STRING -> out.writeString(cursor.getString(column))
+                            android.database.Cursor.FIELD_TYPE_NULL -> Unit
+                            else -> error("Unexpected fixture column type")
+                        }
+                    }
+                }
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
     private fun playbackBlocked(data: AppData): Boolean {
