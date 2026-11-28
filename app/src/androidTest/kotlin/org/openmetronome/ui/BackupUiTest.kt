@@ -117,6 +117,43 @@ class BackupUiTest {
         }
     }
 
+    @Test fun recreatedActivityOpensExactlyOneDocumentAfterValidation() {
+        val filter = IntentFilter(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE); addDataType("*/*")
+        }
+        val result = Instrumentation.ActivityResult(Activity.RESULT_OK, Intent().setData(uri("roundtrip.ombak")))
+        val monitor = Instrumentation.ActivityMonitor(filter, result, true)
+        val entered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        instrumentation.addMonitor(monitor)
+        data.backupExportPhase = { phase ->
+            if (phase == BackupExportPhase.VALIDATION) runBlocking {
+                entered.complete(Unit)
+                withTimeout(15_000) { release.await() }
+            }
+        }
+        try {
+            compose.onNodeWithText("Kopia zapasowa").performScrollTo().performClick()
+            compose.waitUntil(10_000) { entered.isCompleted }
+            compose.activityRule.scenario.recreate()
+            compose.onNodeWithText("Start").assertIsEnabled()
+            assertTrue(data.backupWorking.value)
+            assertEquals(0, monitor.hits)
+            release.complete(Unit)
+            compose.waitUntil(10_000) { !data.backupWorking.value && data.backupNotice.value == "Kopia zapasowa została zapisana." }
+            compose.activityRule.scenario.recreate()
+            compose.waitForIdle()
+            assertEquals(1, monitor.hits)
+            assertNull(data.backupDocumentRequest.value)
+            val copy = instrumentation.targetContext.contentResolver.openInputStream(uri("roundtrip.ombak"))!!.use(BackupArchive::read)
+            assertEquals(91, ConfigCodec.decode(copy.settings).tempo.bpm)
+        } finally {
+            release.complete(Unit)
+            data.backupExportPhase = {}
+            instrumentation.removeMonitor(monitor)
+        }
+    }
+
     @Test fun backupAndStartAreDisabledDuringOperationAndPlaybackReservation() {
         val entered = CompletableDeferred<Unit>(); val release = CompletableDeferred<Unit>()
         data.operation { entered.complete(Unit); release.await() }

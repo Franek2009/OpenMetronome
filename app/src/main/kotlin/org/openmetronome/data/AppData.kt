@@ -137,9 +137,9 @@ class AppData private constructor(
     val exporting = MutableStateFlow(false)
     val exportNotice = MutableStateFlow<String?>(null)
     val backupWorking = MutableStateFlow(false)
-    private val backupDelivering = MutableStateFlow(false)
-    internal val backupLiveReserved: Boolean get() = backupWorking.value && !backupDelivering.value
-    internal val backupReservation = combine(backupWorking, backupDelivering) { working, delivering -> working && !delivering }
+    private val backupSnapshotDetached = MutableStateFlow(false)
+    internal val backupLiveReserved: Boolean get() = backupWorking.value && !backupSnapshotDetached.value
+    internal val backupReservation = combine(backupWorking, backupSnapshotDetached) { working, detached -> working && !detached }
     private val pendingBackupDocument = MutableStateFlow<Int?>(null)
     internal val backupDocumentRequest = pendingBackupDocument.asStateFlow()
     private var backupDocumentResult: CompletableDeferred<(() -> OutputStream)?>? = null
@@ -472,7 +472,9 @@ class AppData private constructor(
         }
     }
 
-    private class BackupDelivery(val staging: BackupStaging, val openOutput: suspend () -> OutputStream?)
+    private class PreparedBackup(
+        val staging: BackupStaging, val limits: BackupStreamLimits, val openOutput: suspend () -> OutputStream?,
+    )
 
     private fun backup(action: suspend () -> Unit) =
         startBackup("Nie udało się przywrócić kopii. Bieżące dane pozostają bez zmian.") {
@@ -480,7 +482,7 @@ class AppData private constructor(
             null
         }
 
-    private fun startBackup(failureNotice: String, prepare: suspend () -> BackupDelivery?) {
+    private fun startBackup(failureNotice: String, prepare: suspend () -> PreparedBackup?) {
         synchronized(admission) {
             if (recoveryRequired.value) {
                 backupNotice.value = BACKUP_RECOVERY_NOTICE
@@ -499,9 +501,9 @@ class AppData private constructor(
                     ready.await()
                     check(!settingsWriteFailed)
                     retrySessionWrites()
-                    val delivery = prepare()
-                    if (delivery != null) {
-                        launchDelivery(delivery, failureNotice)
+                    val prepared = prepare()
+                    if (prepared != null) {
+                        validateAndDeliver(prepared, failureNotice)
                         handedOff = true
                     }
                 } catch (_: BackupRecoveryException) {
@@ -524,17 +526,19 @@ class AppData private constructor(
         backupDocumentResult = null
         pendingBackupDocument.value = null
         backupWorking.value = false
-        backupDelivering.value = false
+        backupSnapshotDetached.value = false
     }
 
-    private fun launchDelivery(delivery: BackupDelivery, failureNotice: String) {
-        synchronized(admission) { backupDelivering.value = true }
+    private fun validateAndDeliver(prepared: PreparedBackup, failureNotice: String) {
+        synchronized(admission) { backupSnapshotDetached.value = true }
         val job = scope.launch(start = CoroutineStart.LAZY) {
             try {
                 val owner = currentCoroutineContext()
+                backupExportPhase(BackupExportPhase.VALIDATION)
+                StreamingBackupValidator(prepared.limits, owner::ensureActive).validate(prepared.staging.archive, prepared.staging.index)
                 backupExportPhase(BackupExportPhase.DELIVERY)
-                delivery.openOutput()?.let { output ->
-                    delivery.staging.deliver(output, owner::ensureActive)
+                prepared.openOutput()?.let { output ->
+                    prepared.staging.deliver(output, owner::ensureActive)
                     backupNotice.value = "Kopia zapasowa została zapisana."
                 }
             } catch (cancelled: CancellationException) {
@@ -545,7 +549,7 @@ class AppData private constructor(
             }
         }
         job.invokeOnCompletion {
-            try { delivery.staging.close() } finally { finishBackup() }
+            try { prepared.staging.close() } finally { finishBackup() }
         }
         job.start()
     }
@@ -611,9 +615,7 @@ class AppData private constructor(
                             settings.preferencesSnapshot(), ::backupSample, backupExportPhase)
                 }
             }
-            backupExportPhase(BackupExportPhase.VALIDATION)
-            StreamingBackupValidator(limits, owner::ensureActive).validate(staging.archive, staging.index)
-            BackupDelivery(staging, openOutput)
+            PreparedBackup(staging, limits, openOutput)
         } catch (error: Throwable) {
             staging.close()
             throw error

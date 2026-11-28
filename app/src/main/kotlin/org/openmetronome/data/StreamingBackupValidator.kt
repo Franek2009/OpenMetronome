@@ -13,6 +13,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.util.UUID
 import java.util.zip.CRC32
+import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import org.openmetronome.data.BackupArchive.readMusicActivity
 import org.openmetronome.data.BackupArchive.readString
@@ -151,7 +152,12 @@ internal class StreamingBackupValidator(private val limits: BackupStreamLimits, 
         return id.takeIf { runCatching { UUID.fromString(it).toString() == it }.getOrDefault(false) }
     }
 
-    private data class CentralEntry(val method: Int, val crc: Long, val compressedSize: Long, val size: Long)
+    private data class CentralEntry(
+        val localOffset: Long, val flags: Int, val method: Int, val crc: Long, val compressedSize: Long, val size: Long,
+    ) {
+        fun matchesPayload(header: ByteBuffer, offset: Int) = header.zipUInt(offset) == crc &&
+            header.zipUInt(offset + 4) == compressedSize && header.zipUInt(offset + 8) == size
+    }
 
     private fun centralEntries(file: File): Map<String, CentralEntry> = RandomAccessFile(file, "r").use { input ->
         require(input.length() in 22..limits.compressed)
@@ -170,26 +176,63 @@ internal class StreamingBackupValidator(private val limits: BackupStreamLimits, 
         val directoryEnd = input.length() - tail.size + end
         require(size >= 0 && offset >= 0 && size + offset == directoryEnd)
         val header = ByteBuffer.allocate(46).order(ByteOrder.LITTLE_ENDIAN)
-        fun unsignedShort(i: Int) = header.getShort(i).toInt() and 65535
-        fun unsignedInt(i: Int) = header.getInt(i).toLong() and 0xffffffffL
         val names = linkedMapOf<String, CentralEntry>()
         input.seek(offset)
         repeat(count) {
             checkActive()
             require(input.filePointer + header.capacity() <= directoryEnd)
             input.readFully(header.array())
-            require(header.getInt(0) == 0x02014b50 && unsignedShort(34) == 0 && unsignedInt(42) < offset)
-            val nameLength = unsignedShort(28)
-            val next = input.filePointer + nameLength + unsignedShort(30) + unsignedShort(32)
+            require(header.getInt(0) == 0x02014b50 && header.zipUShort(34) == 0 && header.zipUInt(42) < offset)
+            val nameLength = header.zipUShort(28)
+            val next = input.filePointer + nameLength + header.zipUShort(30) + header.zipUShort(32)
             require(next <= directoryEnd && nameLength in 1..48)
             val name = ByteArray(nameLength).also(input::readFully).toString(Charsets.UTF_8)
             require(name == BackupArchive.METADATA || sampleId(name) != null)
-            val entry = CentralEntry(unsignedShort(10), unsignedInt(16), unsignedInt(20), unsignedInt(24))
+            val entry = CentralEntry(header.zipUInt(42), header.zipUShort(8), header.zipUShort(10),
+                header.zipUInt(16), header.zipUInt(20), header.zipUInt(24))
             require(names.put(name, entry) == null) { "Duplicate backup ZIP entry" }
             input.seek(next)
         }
         require(input.filePointer == directoryEnd && BackupArchive.METADATA in names)
+        verifyLocalRecords(input, offset, names)
         names
+    }
+
+    private fun verifyLocalRecords(input: RandomAccessFile, directoryOffset: Long, names: Map<String, CentralEntry>) {
+        val records = names.entries.sortedBy { it.value.localOffset }
+        require(records.first().value.localOffset == 0L) { "Backup ZIP must begin with its first local header" }
+        val local = ByteBuffer.allocate(30).order(ByteOrder.LITTLE_ENDIAN)
+        val descriptor = ByteBuffer.allocate(16).order(ByteOrder.LITTLE_ENDIAN)
+        records.forEachIndexed { index, (name, entry) ->
+            checkActive()
+            val end = records.getOrNull(index + 1)?.value?.localOffset ?: directoryOffset
+            require(entry.localOffset + local.capacity() <= end) { "Overlapping ZIP local headers" }
+            input.seek(entry.localOffset)
+            input.readFully(local.array())
+            require(local.getInt(0) == 0x04034b50 && local.zipUShort(6) == entry.flags &&
+                local.zipUShort(8) == entry.method) { "ZIP local header differs from its central record" }
+            val nameLength = local.zipUShort(26)
+            val dataEnd = input.filePointer + nameLength + local.zipUShort(28) + entry.compressedSize
+            require(nameLength == name.length && dataEnd <= end) { "ZIP local record crosses the next boundary" }
+            require(ByteArray(nameLength).also(input::readFully).toString(Charsets.UTF_8) == name) {
+                "ZIP local entry name differs from its central record"
+            }
+            val descriptorSize = end - dataEnd
+            if (entry.flags and 0x08 == 0) {
+                require(descriptorSize == 0L && entry.matchesPayload(local, 14)) { "Inconsistent ZIP local metadata or entry extent" }
+            } else {
+                require(entry.method == ZipEntry.DEFLATED && (descriptorSize == 12L || descriptorSize == 16L)) {
+                    "Invalid ZIP data descriptor extent"
+                }
+                require(local.zipUInt(14) == 0L && local.zipUInt(18) == 0L && local.zipUInt(22) == 0L ||
+                    entry.matchesPayload(local, 14)) { "Inconsistent ZIP local metadata with data descriptor" }
+                input.seek(dataEnd)
+                input.readFully(descriptor.array(), 0, descriptorSize.toInt())
+                val fieldsOffset = if (descriptorSize == 16L) 4 else 0
+                require((fieldsOffset == 0 || descriptor.getInt(0) == 0x08074b50) &&
+                    entry.matchesPayload(descriptor, fieldsOffset)) { "ZIP data descriptor differs from its central record" }
+            }
+        }
     }
 
     private class EntryStream(source: InputStream, private val limit: Long, private val checkActive: () -> Unit) :
@@ -265,3 +308,6 @@ internal class StreamingBackupValidator(private val limits: BackupStreamLimits, 
         }
     }
 }
+
+private fun ByteBuffer.zipUShort(offset: Int) = getShort(offset).toInt() and 65535
+private fun ByteBuffer.zipUInt(offset: Int) = getInt(offset).toLong() and 0xffffffffL

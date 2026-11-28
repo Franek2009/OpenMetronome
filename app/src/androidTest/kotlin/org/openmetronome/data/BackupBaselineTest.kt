@@ -134,7 +134,9 @@ class BackupBaselineTest {
                         }
                             awaitRelease(data, start, result)
                         } finally { data.backupExportPhase = {} }
-                        if (phases.has("DELIVERY")) result.put("reservationMs", phases.getDouble("DELIVERY"))
+                        if (phases.has("VALIDATION")) {
+                            result.put("reservationMs", phases.getDouble("VALIDATION"))
+                        }
                         result.put("openedDestination", opened)
                         result.put("outcome", if (opened && data.backupNotice.value == "Kopia zapasowa została zapisana.") "saved"
                             else if (!opened && isOverBudget(data)) "limit-refusal" else "unexpected-failure")

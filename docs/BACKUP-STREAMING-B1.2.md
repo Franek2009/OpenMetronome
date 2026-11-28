@@ -13,16 +13,22 @@ Pomiar odniesienia można odtworzyć również z commita `af80607`.
   bajty przed kompresją oraz bajty gotowego ZIP-a. Limity publiczne pozostają
   odpowiednio 16 i 17 MiB, a limity liczby elementów pozostają bez zmian.
   Przy odmowie dane pozostają w bazie. Zapis sesji nie wykonuje tej kontroli.
-- Gotowy prywatny ZIP przechodzi pełną walidację przed wywołaniem SAF. Wybór
-  dokumentu i zapis z pliku do dostawcy przebiegają już po zwolnieniu rezerwacji
-  danych. Anulowanie wyboru usuwa kopię roboczą. Błąd dostawcy może zostawić
-  niepełny plik docelowy i jest zgłaszany jako błąd eksportu.
+- Zakończenie zapisu prywatnego ZIP-a zwalnia rezerwację żywych danych.
+  Walidacja, oczekiwanie na dokument i zapis do dostawcy nadal zajmują jedno
+  miejsce na operację backupu. SAF otwiera się dopiero po pomyślnej walidacji.
+  Kopia zawiera stan z chwili przygotowania. Błąd i anulowanie sprzątają pliki
+  robocze. Błąd dostawcy może zostawić niepełny dokument docelowy.
 - Import najpierw kopiuje strumień źródłowy do ograniczonego pliku roboczego.
   Walidator odczytuje katalog ZIP, CRC i ograniczone strumienie wpisów. Przetwarza
   metadane rekord po rekordzie. Indeks tymczasowy SQLite sprawdza unikalność
   oraz referencje, m.in. dziennych wierszy i notatek. Stare odwołania w historii
   do usuniętych sampli oraz osierocone kotwice grupowania zachowują dotychczasową
   semantykę. Publiczny import nadal odtwarza dniówki oraz normalizuje `checkpointAt`.
+- Katalog centralny wskazuje rzeczywiste lokalne nagłówki. Walidator porównuje
+  nazwy, flagi, metodę, rozmiary i CRC oraz sprawdza, czy zakresy rekordów
+  wypełniają cały obszar do katalogu centralnego bez przerw i nakładania.
+  Dla DEFLATE sprawdza też 32-bitowy data descriptor z sygnaturą lub bez niej.
+  [Specyfikacja ZIP](https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT)
 - Po strumieniowej walidacji import przekazuje lokalny plik istniejącemu
   odczytowi i mechanizmowi restore. Ten etap nadal materializuje migawki w RAM.
   `RestoreJournal`, stosowanie danych i dokładny rollback zachowują istniejący
@@ -50,9 +56,10 @@ produkcyjnego importu ani mechanizmu odzyskiwania.
 
 ## Wyniki
 
-### Eksport 10 tys. odtworzeń z prostego profilu
+### Eksport 10 tys. odtworzeń z prostego profilu przed audytem
 
-Czasy w sekundach. Rezerwacja i restore podają pary B1.1 / B1.2. Próba
+Czasy w sekundach. Rezerwacja i restore podają pary B1.1 / B1.2
+z commita `9fd6486`, który zwalniał rezerwację po walidacji. Próba
 docelowa mierzy od otwarcia pliku do jego zamknięcia. W czterech udanych
 eksportach B1.2 Start był już dostępny przy otwieraniu celu. Restore zachował
 dane i bajty sampli, a rezerwacja pozostała aktywna na granicy `PREPARED`.
@@ -131,3 +138,34 @@ zakończeniu próby ze Statystykami. Eksperyment kończy się na walidacji.
   na stary zmaterializowany odczyt i miejsce na obie migawki oraz WAL.
   Kodowanie z walidacją gęstej próbki 100 tys. trwało 214–245 s. W połączeniu
   z kosztem Statystyk to argument za pozostawieniem limitów publicznych.
+
+### Rezerwacja po audycie
+
+Powtórzony pomiar obejmuje wyłącznie prosty profil 10 tys. odtworzeń.
+Czas od przyjęcia operacji do wejścia w fazę walidacji przybliża długość
+rezerwacji żywych danych. Walidator startuje już po zamknięciu transakcji
+Room, zwolnieniu blokady sampli i oddaniu kolejki zapisów. Ostatnia kolumna
+pokazuje wcześniejszą granicę rezerwacji przeliczoną z tej samej próby.
+Dzięki temu porównanie nie zależy od różnicy warunków między przebiegami.
+Wszystkie cztery próby zaliczyły eksport i ponowne przywrócenie danych.
+
+| API | Ekran | Rezerwacja (s) | Walidacja poza rezerwacją (s) | Początek dostarczenia (s) |
+| --- | --- | ---: | ---: | ---: |
+| 26 | bez UI | 3.539 | 3.108 | 6.647 |
+| 26 | Statystyki | 4.488 | 3.306 | 7.794 |
+| 35 | bez UI | 5.785 | 3.700 | 9.485 |
+| 35 | Statystyki | 5.660 | 3.195 | 8.856 |
+
+### Weryfikacja poprawek po audycie
+
+- Na kodzie `9fd6486` pięć prób RED wykazało akceptację niepoprawnego ZIP-a.
+  Przypadki obejmowały adres w danych skompresowanych, podwójne wskazanie
+  lokalnego nagłówka, zakres nachodzący na deskryptor, niezgodność flag oraz
+  dodatkowe bajty przed katalogiem centralnym. Szósta próba potwierdziła,
+  że zatrzymana walidacja wciąż blokowała dostęp do żywych danych.
+- Po poprawkach API 26 i 35 zaliczyły po 39/39 celowanych prób w każdym
+  wariancie PROD i DEV. Zestaw objął obie formy data descriptora, wpis
+  STORED, odczyt kopii v1/v2/v3, dostępność Start i zapis presetu podczas
+  zatrzymanej walidacji, blokadę kolejnej kopii oraz zachowanie danych
+  migawki. Testy objęły również brak SAF i sprzątanie po błędzie lub
+  anulowaniu oraz jednokrotne otwarcie selektora po odtworzeniu Activity.
