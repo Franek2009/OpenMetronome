@@ -76,13 +76,40 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
     suspend fun restorePreferences(payload: String?) {
         if (payload == null) return // Old archives have no new display/statistics choices.
         val value = AppPreferencesCodec.decode(payload)
-        store.edit {
-            it[awakeKey] = value.display.keepFullscreenAwake; it[motionKey] = value.display.reduceMotion
-            it[sessionThresholdKey] = value.statistics.minimumSessionSeconds; it[dayThresholdKey] = value.statistics.activeDayMinutes
-            it.putMusicStatistics(value.musicStatistics)
-            if (value.groupingGap != null) it[groupingGapKey] = value.groupingGap.name else it.remove(groupingGapKey)
-        }
+        store.edit { it.putBackupPreferences(value) }
     }
+
+    private fun MutablePreferences.putBackupPreferences(value: AppPreferences) {
+        this[awakeKey] = value.display.keepFullscreenAwake
+        this[motionKey] = value.display.reduceMotion
+        this[sessionThresholdKey] = value.statistics.minimumSessionSeconds
+        this[dayThresholdKey] = value.statistics.activeDayMinutes
+        putMusicStatistics(value.musicStatistics)
+        if (value.groupingGap != null) this[groupingGapKey] = value.groupingGap.name else remove(groupingGapKey)
+    }
+
+    internal suspend fun writeRestorePreferences(target: File, header: RestoreArchiveHeader? = null) {
+        val original = store.data.first()
+        val preferences = if (header == null) original else original.toMutablePreferences().apply {
+            this[key] = ConfigCodec.encode(ConfigCodec.decode(header.settings))
+            AppPreferencesCodec.forRestore(header.preferences, preferencesSnapshot())?.let {
+                putBackupPreferences(AppPreferencesCodec.decode(it))
+            }
+        }
+        target.outputStream().use { PreferencesFileSerializer.writeTo(preferences, it) }
+    }
+
+    internal suspend fun readRestorePreferences(source: File): Preferences {
+        require(source.length() <= 256 * 1024)
+        return source.inputStream().use { PreferencesFileSerializer.readFrom(it) }
+    }
+
+    internal suspend fun applyRestorePreferences(preferences: Preferences) {
+        store.updateData { preferences }
+    }
+
+    internal fun restoreConfig(preferences: Preferences): MetronomeConfig =
+        preferences[key]?.let(ConfigCodec::decode) ?: MetronomeConfig()
 }
 
 /** Process-scoped repositories; service and UI share storage, never an audio worker. */
@@ -97,6 +124,7 @@ class AppData private constructor(
     val storageReady = MutableStateFlow(false)
     val playbackBusy = MutableStateFlow(false)
     internal var restoreCheckpoint: (RestoreCheckpoint) -> Unit = initialCheckpoint
+    internal var restoreReserveAllocator: (File, Long) -> Unit = ::allocateRestoreReserve
     val recoveryRequired = MutableStateFlow(false)
     internal var backupFault: (BackupStage) -> Unit = {}
     private var settingsWriteFailed = false
@@ -170,6 +198,7 @@ class AppData private constructor(
     private val journalRoot = File(contextDirectory, if (isolatedTestStorage && testDirectory == null)
         "restore-journal-${UUID.randomUUID()}" else "restore-journal")
     private val restoreJournal = RestoreJournal(journalRoot, ::syncDirectory)
+    private val diskJournal = DiskRestoreJournal(restoreJournal, ::syncDirectory)
     private val backupStagingRoot = File(contextDirectory, if (isolatedTestStorage && testDirectory == null)
         "backup-staging-${UUID.randomUUID()}" else "backup-staging")
     val dao = database.practice()
@@ -554,26 +583,6 @@ class AppData private constructor(
         job.start()
     }
 
-    private suspend fun snapshot(access: CustomSampleRepository.BackupAccess, full: Boolean = true): BackupSnapshot {
-        val historyBytes = dao.backupSessionBytes()
-        require(historyBytes <= BackupArchive.MAX_ARCHIVE_BYTES) { "Backup history exceeds archive limit" }
-        if (full) {
-            val size = musicDao.backupSize()
-            require(size.activities <= BackupArchive.MAX_MUSIC_ACTIVITIES && size.intervals <= BackupArchive.MAX_MUSIC_INTERVALS) {
-                "Too many music records for backup"
-            }
-            val activityBytes = size.activityBytes + 16 * size.intervals
-            val grouping = groupingDao.backupSize()
-            require(grouping.records <= BackupArchive.MAX_GROUPING_CORRECTIONS) { "Too many grouping corrections for backup" }
-            require(activityBytes + grouping.bytes <= BackupArchive.MAX_ARCHIVE_BYTES - historyBytes) { "Backup data exceeds archive limit" }
-        }
-        val records = dao.allSamples()
-        return BackupSnapshot(ConfigCodec.encode(settings.load()), dao.allPresets(), dao.sessionsForExport(),
-            dao.allPracticeDays(), records, access.files(records), settings.preferencesSnapshot(),
-            if (full) musicDao.all().map(StoredMusicActivity::toDomain) else emptyList(),
-            if (full) groupingDao.corrections().map(GroupingCorrectionRow::toDomain) else emptyList())
-    }
-
     fun exportBackup(openOutput: () -> OutputStream) = exportBackupVersion(3) { openOutput() }
     fun exportLegacyBackup(openOutput: () -> OutputStream) = exportBackupVersion(1) { openOutput() }
     fun exportV2Backup(openOutput: () -> OutputStream) = exportBackupVersion(2) { openOutput() }
@@ -622,79 +631,118 @@ class AppData private constructor(
         }
     }
 
-    fun importBackup(openInput: () -> InputStream, applied: (MetronomeConfig) -> Unit) = backup {
-        val limits = BackupStreamLimits()
+    fun importBackup(openInput: () -> InputStream, applied: (MetronomeConfig) -> Unit) =
+        importBackup(openInput, applied, BackupStreamLimits())
+
+    internal fun importBackup(openInput: () -> InputStream, applied: (MetronomeConfig) -> Unit,
+        limits: BackupStreamLimits) = backup {
         val owner = currentCoroutineContext()
-        val archive = BackupStaging.create(backupStagingRoot).use { staging ->
-            staging.stageInput(openInput(), limits.compressed, owner::ensureActive)
-            StreamingBackupValidator(limits, owner::ensureActive).validate(staging.archive, staging.index)
-            // B1.3 will consume a prepared, disk-backed snapshot. Existing restore still needs these rows.
-            staging.archive.inputStream().use(BackupArchive::read)
-        }
-        val config = ConfigCodec.decode(archive.settings)
-        samples.backup {
-            val previous = database.withTransaction { snapshot(this) }
-            val incoming = archive.copy(preferences = AppPreferencesCodec.forRestore(archive.preferences, previous.preferences))
-            val oldConfig = ConfigCodec.decode(previous.settings)
-            var journalPrepared = false
-            var newDataApplied = false
-            try {
-                restoreJournal.prepare(previous, incoming)
-                journalPrepared = true
+        if (restoreJournal.active.exists()) throw BackupRecoveryException(IllegalStateException("Unfinished restore"))
+        var appliedStores = false
+        try {
+            diskJournal.begin()
+            val before = diskJournal.preparingBefore()
+            val preparedAfter = diskJournal.preparingAfter()
+            val header = BackupStaging.create(backupStagingRoot).use { staging ->
+                staging.stageInput(openInput(), limits.compressed, owner::ensureActive)
+                lateinit var decoded: RestoreArchiveHeader
+                preparedAfter.create { decoded = StreamingBackupValidator(limits, owner::ensureActive).validate(staging.archive, staging.index, it) }
+                decoded
+            }
+            samples.backup {
+                database.withTransaction {
+                    before.create { it.captureRows(database.openHelper.writableDatabase, owner::ensureActive) }
+                }
+                before.sampleRecords().forEach { record ->
+                    owner.ensureActive()
+                    val wav = backupSample(record.id)
+                    File(before.samples, "${record.id}.wav").outputStream().use { it.write(wav) }
+                }
+                settings.writeRestorePreferences(before.preferences)
+                settings.writeRestorePreferences(preparedAfter.preferences, header)
+                val oldPreferences = settings.readRestorePreferences(before.preferences)
+                val newPreferences = settings.readRestorePreferences(preparedAfter.preferences)
+                val oldConfig = settings.restoreConfig(oldPreferences)
+                val config = settings.restoreConfig(newPreferences)
+                val sqlite = database.openHelper.writableDatabase
+                val liveBytes = sqlite.path?.takeUnless { it == ":memory:" }?.let {
+                    File(it).length() + File("$it-wal").length() + File("$it-journal").length()
+                } ?: 0
+                diskJournal.seal(restoreSpace(liveBytes, preparedAfter), restoreSpace(liveBytes, before),
+                    restoreReserveAllocator) {
+                    owner.ensureActive()
+                    restoreCheckpoint(it)
+                }
                 restoreCheckpoint(RestoreCheckpoint.PREPARED)
-                replace(incoming, backupFault, restoreJournal.active, restoreCheckpoint) {
-                    withContext(NonCancellable) {
-                        try {
-                            database.withTransaction {
-                                replaceRows(incoming)
-                                backupFault(BackupStage.DATABASE)
-                                restoreCheckpoint(RestoreCheckpoint.DATABASE_CHANGED)
-                                backupFault(BackupStage.SETTINGS)
-                                settings.save(config)
-                                settings.restorePreferences(incoming.preferences)
-                                restoreCheckpoint(RestoreCheckpoint.SETTINGS_WRITTEN)
-                                applyConfiguration(config, applied)
-                            }
-                            restoreCheckpoint(RestoreCheckpoint.DATABASE_COMMITTED)
-                        } catch (error: Exception) {
-                            try {
-                                backupFault(BackupStage.ROLLBACK_SETTINGS)
-                                settings.save(oldConfig)
-                                settings.restorePreferences(previous.preferences)
-                                applyConfiguration(oldConfig, applied)
-                            } catch (rollback: Exception) {
-                                error.addSuppressed(rollback)
-                                throw BackupRecoveryException(error)
-                            }
-                            throw error
+                val after = diskJournal.after
+                replace(after.sampleRecords(), after::wav, backupFault, File(restoreJournal.active, "work"),
+                    restoreCheckpoint, diskJournal::releaseReserve) {
+                    var commitMayHaveRun = false
+                    try {
+                        database.withTransaction {
+                            after.applyRows(database.openHelper.writableDatabase)
+                            backupFault(BackupStage.DATABASE)
+                            restoreCheckpoint(RestoreCheckpoint.DATABASE_CHANGED)
+                            backupFault(BackupStage.SETTINGS)
+                            settings.applyRestorePreferences(newPreferences)
+                            restoreCheckpoint(RestoreCheckpoint.SETTINGS_WRITTEN)
+                            applyConfiguration(config, applied)
+                            commitMayHaveRun = true
                         }
+                        appliedStores = true
+                        restoreCheckpoint(RestoreCheckpoint.DATABASE_COMMITTED)
+                    } catch (error: Exception) {
+                        if (commitMayHaveRun) throw BackupRecoveryException(error)
+                        try {
+                            diskJournal.releaseReserve()
+                            backupFault(BackupStage.ROLLBACK_SETTINGS)
+                            settings.applyRestorePreferences(oldPreferences)
+                            applyConfiguration(oldConfig, applied)
+                        } catch (rollback: Exception) {
+                            error.addSuppressed(rollback)
+                            throw BackupRecoveryException(error)
+                        }
+                        throw error
                     }
                 }
-                newDataApplied = true
                 withContext(NonCancellable) {
                     syncStores()
                     restoreCheckpoint(RestoreCheckpoint.STORES_SYNCED)
-                    restoreJournal.markCommitted()
+                    diskJournal.markCommitted()
                     restoreCheckpoint(RestoreCheckpoint.COMMITTED)
                     restoreJournal.finish()
                     restoreCheckpoint(RestoreCheckpoint.JOURNAL_RETIRED)
                 }
-            } catch (error: Exception) {
-                if (error is BackupRecoveryException || newDataApplied || (!journalPrepared && restoreJournal.active.exists()))
-                    throw BackupRecoveryException(error)
-                try {
-                    // Runtime rollback already restored the previous stores. Durably retire
-                    // the undo journal only after that state has reached storage as well.
-                    if (journalPrepared) syncStores()
-                    restoreJournal.finish()
-                } catch (rollback: Exception) {
-                    error.addSuppressed(rollback)
-                    throw BackupRecoveryException(error)
-                }
-                throw error
             }
+            backupNotice.value = "Kopia została przywrócona: ${header.sessions} sesji, ${header.presets} presetów."
+        } catch (error: Exception) {
+            if (error is BackupRecoveryException || appliedStores) throw BackupRecoveryException(error)
+            withContext(NonCancellable) {
+                try {
+                    diskJournal.discardPreparation()
+                    if (diskJournal.readyExists) {
+                        diskJournal.releaseReserve()
+                        syncStores()
+                    }
+                    restoreJournal.finish()
+                } catch (cleanup: Exception) {
+                    error.addSuppressed(cleanup)
+                    if (diskJournal.readyExists) throw BackupRecoveryException(error)
+                }
+            }
+            throw error
         }
-        backupNotice.value = "Kopia została przywrócona: ${archive.sessions.size} sesji, ${archive.presets.size} presetów."
+    }
+
+    private fun restoreSpace(live: Long, snapshot: RestoreDiskSnapshot): Long =
+        Math.addExact(Math.multiplyExact(Math.addExact(live, snapshot.sizeOnDisk()), 3), 4L * 1024 * 1024)
+
+    private fun allocateRestoreReserve(file: File, length: Long) {
+        java.io.FileOutputStream(file).use {
+            android.system.Os.posix_fallocate(it.fd, 0, length)
+            val stat = android.system.Os.fstat(it.fd)
+            check(stat.st_size == length && stat.st_blocks >= (length - 1) / 512 + 1)
+        }
     }
 
     private suspend fun replaceRows(snapshot: BackupSnapshot) {
@@ -707,6 +755,30 @@ class AppData private constructor(
     }
 
     private suspend fun recoverRestore() {
+        diskJournal.discardPreparation()
+        if (diskJournal.usesDiskSnapshots()) {
+            val pending = diskJournal.pending()
+            val snapshot = pending.snapshot
+            val prefs = settings.readRestorePreferences(snapshot.preferences)
+            diskJournal.releaseReserve()
+            restoreCheckpoint(RestoreCheckpoint.RECOVERY_RESERVE_RELEASED)
+            samples.backup {
+                replace(snapshot.sampleRecords(), snapshot::wav, {}, File(restoreJournal.active, "work"), { stage ->
+                    if (stage == RestoreCheckpoint.NEW_FILES_MOVED) restoreCheckpoint(RestoreCheckpoint.RECOVERY_FILES_MOVED)
+                }, {}) {
+                    database.withTransaction {
+                        snapshot.applyRows(database.openHelper.writableDatabase)
+                        settings.applyRestorePreferences(prefs)
+                        restoreCheckpoint(RestoreCheckpoint.RECOVERY_DATABASE_CHANGED)
+                    }
+                }
+                syncStores()
+                restoreCheckpoint(RestoreCheckpoint.RECOVERY_STORES_SYNCED)
+                restoreJournal.finish()
+            }
+            indicateRecovery(pending.committed)
+            return
+        }
         val pending = restoreJournal.pending() ?: return
         samples.backup {
             replace(pending.snapshot, workDirectory = restoreJournal.active, checkpoint = { stage ->
@@ -723,7 +795,11 @@ class AppData private constructor(
             restoreCheckpoint(RestoreCheckpoint.RECOVERY_STORES_SYNCED)
             restoreJournal.finish()
         }
-        backupNotice.value = if (pending.committed) "Dokończono zatwierdzone przywracanie kopii po przerwaniu aplikacji."
+        indicateRecovery(pending.committed)
+    }
+
+    private fun indicateRecovery(committed: Boolean) {
+        backupNotice.value = if (committed) "Dokończono zatwierdzone przywracanie kopii po przerwaniu aplikacji."
             else "Cofnięto przerwane przywracanie kopii. Zachowano poprzednie dane."
     }
 

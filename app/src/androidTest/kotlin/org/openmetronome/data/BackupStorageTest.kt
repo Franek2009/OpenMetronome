@@ -126,8 +126,12 @@ class BackupStorageTest {
             imported(data, sample("B", 137))
             assertTrue(data.recoveryRequired.value)
             assertTrue(data.backupNotice.value!!.contains("Dane mogą być niepełne"))
-            val recovery = File(dir, "restore-journal/active/before.ombak")
-            same(a, recovery.inputStream().use(BackupArchive::read))
+            val recovery = DiskRestoreJournal(RestoreJournal(File(dir, "restore-journal")), {}).pending()
+            assertFalse(recovery.committed)
+            val prefs = data.settings.readRestorePreferences(recovery.snapshot.preferences)
+            assertEquals(91, data.settings.restoreConfig(prefs).tempo.bpm)
+            assertEquals(a.samples, recovery.snapshot.sampleRecords())
+            assertArrayEquals(a.sampleFiles.values.single(), recovery.snapshot.wav(a.samples.single().id))
             assertFalse(data.reservePlayback())
             data.exportBackup { throw AssertionError("Recovery must block export") }
             assertTrue(data.backupNotice.value!!.contains("Dane mogą być niepełne"))
@@ -143,7 +147,7 @@ class BackupStorageTest {
             assertTrue(data.recoveryRequired.value)
             val saved = File(dir, "restore-journal/active").walkTopDown().single { it.isDirectory && it.name == "old" }
             assertArrayEquals(a.sampleFiles.values.single(), File(saved, "${a.samples.single().id}.wav").readBytes())
-            assertTrue(File(dir, "restore-journal/active/before.ombak").exists())
+            assertTrue(File(dir, "restore-journal/active/before/records.db").isFile)
         }
     }
 
@@ -436,7 +440,7 @@ class BackupStorageTest {
             val a = sample("A", 91); imported(data, a)
             data.backupFault = { if (it == BackupStage.SETTINGS || it == BackupStage.ROLLBACK_SETTINGS) throw IOException("injected") }
             imported(data, sample("B", 137)); data.closeTestStorage()
-            val archive = File(dir, "restore-journal/active/before.ombak")
+            val archive = File(dir, "restore-journal/active/before/records.db")
             archive.writeText("corrupt")
             val reopened = AppData(context, dir)
             try {
@@ -449,5 +453,118 @@ class BackupStorageTest {
             } finally { reopened.closeTestStorage() }
         }
     }
+
+    @Test fun legacyJournalRemainsReplayableInAppData(): Unit = runBlocking {
+        fixture { data, dir ->
+            val before = sample("A", 91)
+            val after = sample("B", 137)
+            imported(data, after)
+            data.closeTestStorage()
+            RestoreJournal(File(dir, "restore-journal")).prepare(before, after)
+            val reopened = AppData(context, dir)
+            try {
+                reopened.ready.await()
+                same(before, exported(reopened))
+            } finally { reopened.closeTestStorage() }
+        }
+    }
+
+    @Test fun corruptV2ManifestAndMarkersKeepBothSnapshotsAndBlockStartup(): Unit = runBlocking {
+        for (name in listOf("manifest", "ready", "committed", "missing-ready")) fixture { data, dir ->
+            imported(data, sample("A", 91))
+            data.restoreCheckpoint = { if (it == RestoreCheckpoint.COMMITTED) throw IOException("keep journal") }
+            val after = sample("B", 137)
+            imported(data, after)
+            assertTrue(data.recoveryRequired.value)
+            data.closeTestStorage()
+            val journal = File(dir, "restore-journal/active")
+            val target = File(journal, name.removePrefix("missing-"))
+            assertTrue(target.isFile)
+            if (name == "missing-ready") assertTrue(target.delete()) else target.writeText("corrupt $name")
+            val blocked = AppData(context, dir)
+            try {
+                assertTrue(runCatching { blocked.ready.await() }.isFailure)
+                assertTrue(blocked.recoveryRequired.value)
+                assertFalse(blocked.storageReady.value)
+                if (name == "missing-ready") assertFalse(target.exists())
+                else assertEquals("corrupt $name", target.readText())
+                assertTrue(File(journal, "before/records.db").isFile)
+                assertTrue(File(journal, "after/records.db").isFile)
+                assertEquals(after.presets, blocked.dao.allPresets())
+            } finally { blocked.closeTestStorage() }
+        }
+    }
+
+    @Test fun restoreCanReplaceHistoryAboveThePublicCapacityAndUndoExactly(): Unit = runBlocking {
+        fixture { data, dir ->
+            val before = sample("A", 91)
+            imported(data, before)
+            val opaque = ConfigCodec.encode(MetronomeConfig()) + "\nunused=" + "x".repeat(490_000)
+            val sessions = List(36) { index ->
+                PracticeSession("large-$index", 0, 111L + index, 20_000, true, false, "UTC", opaque)
+            }
+            val days = sessions.map { PracticeDay(it.id, "1970-01-01", 777) }
+            data.dao.insertSessions(sessions)
+            data.dao.insertPracticeDays(days)
+            assertTrue(data.dao.backupSessionBytes() > BackupArchive.MAX_ARCHIVE_BYTES)
+            data.backupFault = { if (it == BackupStage.SETTINGS || it == BackupStage.ROLLBACK_SETTINGS) throw enospc() }
+            imported(data, sample("B", 137))
+            assertTrue(data.recoveryRequired.value)
+            assertFalse(File(dir, "restore-journal/active/rollback-reserve").exists())
+            data.closeTestStorage()
+
+            val blocked = AppData(context, dir) { if (it == RestoreCheckpoint.RECOVERY_RESERVE_RELEASED) throw enospc() }
+            try {
+                assertTrue(runCatching { blocked.ready.await() }.exceptionOrNull() is IOException)
+                assertTrue(blocked.recoveryRequired.value)
+                assertTrue(File(dir, "restore-journal/active/ready").isFile)
+            } finally { blocked.closeTestStorage() }
+            val recovered = AppData(context, dir)
+            try {
+                recovered.ready.await()
+                assertEquals(sessions, recovered.dao.sessionsForExport().filter { it.id.startsWith("large-") }.sortedBy { it.id.removePrefix("large-").toInt() })
+                assertEquals(days, recovered.dao.allPracticeDays().filter { it.sessionId.startsWith("large-") }.sortedBy { it.sessionId.removePrefix("large-").toInt() })
+                assertEquals(91, recovered.settings.load().tempo.bpm)
+                assertArrayEquals(before.sampleFiles.values.single(), File(dir, "samples/${before.samples.single().id}.wav").readBytes())
+                val after = sample("B", 137)
+                imported(recovered, after)
+                same(after, exported(recovered))
+            } finally { recovered.closeTestStorage() }
+        }
+    }
+
+    @Test fun failureToAllocateRollbackReserveLeavesLiveDataAvailable(): Unit = runBlocking {
+        fixture { data, dir ->
+            val before = sample("A", 91)
+            imported(data, before)
+            data.restoreReserveAllocator = { file, _ ->
+                file.writeText("partial escrow")
+                throw enospc()
+            }
+            imported(data, sample("B", 137))
+            assertFalse(data.recoveryRequired.value)
+            assertFalse(File(dir, "restore-journal/active").exists())
+            same(before, exported(data))
+        }
+    }
+
+    @Test fun cancellationBeforeReadyDiscardsPreparationAndReleasesStorage(): Unit = runBlocking {
+        fixture { data, dir ->
+            val before = sample("A", 91)
+            imported(data, before)
+            data.restoreCheckpoint = {
+                if (it == RestoreCheckpoint.RESERVE_DURABLE) throw CancellationException("cancel preparation")
+            }
+            imported(data, sample("B", 137))
+            assertFalse(data.recoveryRequired.value)
+            assertTrue(data.backupNotice.value.orEmpty().contains("anulowana"))
+            val journal = File(dir, "restore-journal")
+            assertFalse(File(journal, "active").exists())
+            assertFalse(File(journal, "preparing-v2").exists())
+            same(before, exported(data))
+        }
+    }
+
+    private fun enospc() = IOException("test ENOSPC", android.system.ErrnoException("write", android.system.OsConstants.ENOSPC))
 
 }

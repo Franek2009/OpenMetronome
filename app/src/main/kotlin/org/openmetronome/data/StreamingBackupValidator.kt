@@ -19,14 +19,29 @@ import org.openmetronome.data.BackupArchive.readMusicActivity
 import org.openmetronome.data.BackupArchive.readString
 import org.openmetronome.domain.audio.SamplePcm
 import org.openmetronome.domain.model.MusicActivityDetails
+import org.openmetronome.domain.model.MusicActivity
+
+internal interface RestoreArchiveSink {
+    fun preset(value: Preset)
+    fun session(value: PracticeSession)
+    fun day(value: PracticeDay)
+    fun sample(value: CustomSampleRecord)
+    fun wav(id: String, bytes: ByteArray)
+    fun activity(value: MusicActivity)
+    fun note(id: String, note: String)
+    fun correction(value: GroupingCorrection)
+}
+
+internal data class RestoreArchiveHeader(val settings: String, val preferences: String?, val sessions: Int, val presets: Int)
 
 /** Validation does not open the live database or extract names from the archive to paths. */
 internal class StreamingBackupValidator(private val limits: BackupStreamLimits, private val checkActive: () -> Unit) {
-    fun validate(file: File, index: File) {
+    fun validate(file: File, index: File, restore: RestoreArchiveSink? = null): RestoreArchiveHeader {
         val central = centralEntries(file)
 
-        ValidationKeys(index).use { keys ->
+        return ValidationKeys(index).use { keys ->
             var remaining = limits.expanded
+            var header: RestoreArchiveHeader? = null
             val seen = hashSetOf<String>()
             ZipInputStream(file.inputStream().buffered()).use { zip ->
                 while (true) {
@@ -38,8 +53,12 @@ internal class StreamingBackupValidator(private val limits: BackupStreamLimits, 
                         minOf(remaining, (44 + SamplePcm.MAX_FRAMES * 2).toLong())
                     require(expected.size <= max) { "Backup expanded byte limit exceeded" }
                     val checked = EntryStream(zip, expected.size, checkActive)
-                    if (entry.name == BackupArchive.METADATA) validateMetadata(checked, keys)
-                    else SamplePcm.decodeCanonical(checked.readBytes())
+                    if (entry.name == BackupArchive.METADATA) header = validateMetadata(checked, keys, restore)
+                    else {
+                        val wav = checked.readBytes()
+                        SamplePcm.decodeCanonical(wav)
+                        restore?.wav(requireNotNull(sampleId(entry.name)), wav)
+                    }
                     require(checked.read() == -1 && checked.count == expected.size && checked.crc.value == expected.crc &&
                         entry.compressedSize == expected.compressedSize) {
                         "Backup ZIP entry length or CRC differs"
@@ -52,10 +71,11 @@ internal class StreamingBackupValidator(private val limits: BackupStreamLimits, 
             val samples = seen.mapNotNull(::sampleId).toSet()
             require(samples == keys.samples())
             keys.verifySampleReferences()
+            checkNotNull(header)
         }
     }
 
-    private fun validateMetadata(source: InputStream, keys: ValidationKeys) {
+    private fun validateMetadata(source: InputStream, keys: ValidationKeys, restore: RestoreArchiveSink?): RestoreArchiveHeader {
         val peek = PushbackInputStream(source.buffered(), 1)
         val input = DataInputStream(peek)
         fun hasMore(): Boolean {
@@ -70,29 +90,46 @@ internal class StreamingBackupValidator(private val limits: BackupStreamLimits, 
         }
         val version = input.readInt()
         require(version in 1..BackupArchive.VERSION)
-        referencedSample(input.readString())
-        repeat(count()) {
+        val settings = input.readString()
+        referencedSample(settings)
+        val presets = count()
+        repeat(presets) {
             checkActive()
-            keys.insert("presets", input.readString())
-            require(input.readString().let { it.isNotBlank() && it.length <= 120 })
-            referencedSample(input.readString())
-            input.readLong(); input.readLong()
+            val id = input.readString()
+            keys.insert("presets", id)
+            val name = input.readString()
+            require(name.isNotBlank() && name.length <= 120)
+            val config = input.readString()
+            referencedSample(config)
+            val created = input.readLong()
+            val updated = input.readLong()
+            restore?.preset(Preset(id, name, config, created, updated))
         }
         var daysRemaining = limits.items
-        repeat(count()) {
+        val sessions = count()
+        repeat(sessions) {
             checkActive()
             val id = input.readString()
             val start = input.readLong()
             val checkpoint = input.readLong()
             val duration = input.readLong()
-            input.readBoolean(); input.readBoolean()
+            val finished = input.readBoolean()
+            val interrupted = input.readBoolean()
             require(checkpoint >= start && duration >= 0)
-            val zone = ZoneId.of(input.readString())
-            ConfigCodec.decode(input.readString())
-            if (version >= 2 && input.readBoolean()) SessionTimelineCodec.decode(input.readString(), duration)
+            val storedZone = input.readString()
+            val zone = ZoneId.of(storedZone)
+            val config = input.readString()
+            ConfigCodec.decode(config)
+            val timeline = if (version >= 2 && input.readBoolean()) input.readString() else null
+            timeline?.let { SessionTimelineCodec.decode(it, duration) }
             keys.insert("sessions", id)
+            restore?.session(PracticeSession(id, start, Math.addExact(start, duration), duration, finished,
+                interrupted, storedZone, config, timeline))
             // Validate the public normalization without retaining derived day rows.
-            daysRemaining -= PracticeTimeline.visitDays(id, start, duration, zone, daysRemaining) { checkActive() }
+            daysRemaining -= PracticeTimeline.visitDays(id, start, duration, zone, daysRemaining) {
+                checkActive()
+                restore?.day(it)
+            }
         }
         repeat(count()) {
             checkActive()
@@ -105,11 +142,14 @@ internal class StreamingBackupValidator(private val limits: BackupStreamLimits, 
         repeat(count(32)) {
             val id = input.readString()
             require(UUID.fromString(id).toString() == id)
-            require(input.readString().let { it.isNotBlank() && it.length <= 80 })
-            input.readLong()
+            val name = input.readString()
+            require(name.isNotBlank() && name.length <= 80)
+            val created = input.readLong()
             keys.insert("samples", id)
+            restore?.sample(CustomSampleRecord(id, name, created))
         }
-        if (version >= 2 && input.readBoolean()) AppPreferencesCodec.decode(input.readString())
+        val preferences = if (version >= 2 && input.readBoolean())
+            input.readString().also(AppPreferencesCodec::decode) else null
         if (version >= 3) {
             val activities = count(limits.activities)
             var remaining = limits.intervals
@@ -118,15 +158,18 @@ internal class StreamingBackupValidator(private val limits: BackupStreamLimits, 
                 val value = input.readMusicActivity(remaining)
                 remaining -= value.details.intervals.size
                 keys.insert("activities", value.id)
+                restore?.activity(value)
             }
             if (hasMore()) {
                 val notes = count(activities)
                 require(notes > 0 || hasMore())
                 repeat(notes) {
                     checkActive()
-                    keys.insert("notes", input.readString(36))
+                    val id = input.readString(36)
+                    keys.insert("notes", id)
                     val note = input.readString(MusicActivityDetails.MAX_NOTE_LENGTH * 3)
                     require(note.isNotBlank() && note.length <= MusicActivityDetails.MAX_NOTE_LENGTH)
+                    restore?.note(id, note)
                 }
             }
             if (hasMore()) {
@@ -140,10 +183,12 @@ internal class StreamingBackupValidator(private val limits: BackupStreamLimits, 
                         if (input.readBoolean()) input.readString(36) else null,
                         if (input.readBoolean()) input.readLong() else null)
                     keys.correction(value.id, value.sequenceNumber)
+                    restore?.correction(value)
                 }
             }
         }
         require(!hasMore()) { "Unexpected backup metadata after final section" }
+        return RestoreArchiveHeader(settings, preferences, sessions, presets)
     }
 
     private fun sampleId(name: String): String? {

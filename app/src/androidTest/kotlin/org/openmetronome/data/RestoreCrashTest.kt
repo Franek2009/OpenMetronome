@@ -86,7 +86,7 @@ class RestoreCrashTest {
 
     @Test fun actualProcessDeathAtEveryRestoreBoundaryRecoversWholeOldOrCommittedNewState(): Unit = runBlocking {
         val before = archive(91); val after = archive(137)
-        for (stage in listOf(RestoreCheckpoint.PREPARED, RestoreCheckpoint.OLD_FILES_MOVED,
+        for (stage in listOf(RestoreCheckpoint.RESERVE_DURABLE, RestoreCheckpoint.PREPARED, RestoreCheckpoint.OLD_FILES_MOVED,
             RestoreCheckpoint.NEW_FILES_MOVED, RestoreCheckpoint.DATABASE_CHANGED,
             RestoreCheckpoint.SETTINGS_WRITTEN, RestoreCheckpoint.DATABASE_COMMITTED,
             RestoreCheckpoint.STORES_SYNCED, RestoreCheckpoint.COMMITTED, RestoreCheckpoint.JOURNAL_RETIRED)) {
@@ -105,7 +105,7 @@ class RestoreCrashTest {
 
     @Test fun recoveryCanItselfBeKilledAndRepeatedWithoutMixingStores(): Unit = runBlocking {
         val before = archive(91); val after = archive(137)
-        for (stage in listOf(RestoreCheckpoint.RECOVERY_FILES_MOVED,
+        for (stage in listOf(RestoreCheckpoint.RECOVERY_RESERVE_RELEASED, RestoreCheckpoint.RECOVERY_FILES_MOVED,
             RestoreCheckpoint.RECOVERY_DATABASE_CHANGED, RestoreCheckpoint.RECOVERY_STORES_SYNCED)) {
             val fixture = UUID.randomUUID().toString()
             try {

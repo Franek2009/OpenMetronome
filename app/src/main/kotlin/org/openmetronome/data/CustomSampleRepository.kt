@@ -135,20 +135,33 @@ class CustomSampleRepository(private val db: PracticeDatabase, private val direc
             }
         }
 
-        fun files(records: List<CustomSampleRecord>): Map<String, ByteArray> =
-            records.associate { record -> record.id to file(record.id).readBytes() }
-
         suspend fun replace(
             snapshot: BackupSnapshot,
             fault: (BackupStage) -> Unit = {},
             workDirectory: File? = null,
             checkpoint: (RestoreCheckpoint) -> Unit = {},
             replaceData: suspend () -> Unit,
+        ) = replace(snapshot.samples, { requireNotNull(snapshot.sampleFiles[it]) }, fault, workDirectory?.let { File(it, "work") },
+            checkpoint, {}, replaceData)
+
+        suspend fun replace(
+            records: List<CustomSampleRecord>,
+            wav: (String) -> ByteArray,
+            fault: (BackupStage) -> Unit,
+            workDirectory: File?,
+            checkpoint: (RestoreCheckpoint) -> Unit,
+            beforeRollback: () -> Unit,
+            replaceData: suspend () -> Unit,
         ) {
-            val prepared = snapshot.samples.associate { record ->
-                record.id to SamplePcm.decodeCanonical(requireNotNull(snapshot.sampleFiles[record.id]))
+            val prepared = records.associate { record ->
+                record.id to SamplePcm.decodeCanonical(wav(record.id))
             }
-            val work = workDirectory?.let { File(it, "work-${UUID.randomUUID()}").also { folder -> check(folder.mkdirs()) } }
+            val work = workDirectory?.also {
+                // A verified durable snapshot remains the source of truth after interruption.
+                check(!Files.isSymbolicLink(it.toPath()))
+                check(!it.exists() || it.deleteRecursively())
+                check(it.mkdir())
+            }
             val staging = if (work != null) File(work, "staged") else File(directory.parentFile, "sample-restore-${UUID.randomUUID()}")
             val rollback = if (work != null) File(work, "old") else File(directory.parentFile, "sample-rollback-${UUID.randomUUID()}")
             var movedOld = false
@@ -156,9 +169,9 @@ class CustomSampleRepository(private val db: PracticeDatabase, private val direc
             var keepRecovery = false
             try {
                 check(staging.mkdirs())
-                snapshot.samples.forEach { record ->
+                records.forEach { record ->
                     java.io.FileOutputStream(File(staging, "${record.id}.wav")).use {
-                        it.write(requireNotNull(snapshot.sampleFiles[record.id])); it.fd.sync()
+                        it.write(wav(record.id)); it.fd.sync()
                     }
                 }
                 withContext(NonCancellable) {
@@ -175,10 +188,11 @@ class CustomSampleRepository(private val db: PracticeDatabase, private val direc
                         replaceData()
                         synchronized(gate) {
                             bank = prepared
-                            mutableItems.value = snapshot.samples.map { CustomSampleItem(it.id, it.name, true) }
+                            mutableItems.value = records.map { CustomSampleItem(it.id, it.name, true) }
                         }
                     } catch (error: Exception) {
                         try {
+                            beforeRollback()
                             fault(BackupStage.ROLLBACK_FILES)
                             if (installedNew) {
                                 // Move aside, never delete the only remaining recovery copy.
