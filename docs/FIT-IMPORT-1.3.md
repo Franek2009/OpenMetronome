@@ -1,10 +1,14 @@
 # Garmin FIT — etap A
 
-Etap A dodaje czytnik JVM/Kotlin i rekonstrukcję czasu. Punkt wejścia
+Etap A jest na main po audycie i scaleniu
+[PR #49](https://github.com/Franek2009/OpenMetronome/pull/49).
+[Pełne CI zatwierdzonego commita](https://github.com/Franek2009/OpenMetronome/actions/runs/46131104425)
+zakończyło się wynikiem 7/7, w tym ciche testy PROD i DEV oraz aktualizacje
+na API 26 i 35. Punkt wejścia
 `FitActivityReader.read` przyjmuje strumień należący do wywołującego, opcjonalny
 budżet współdzielony przez kolejne pliki oraz funkcję sprawdzającą anulowanie.
-Kod aplikacji nie wywołuje jeszcze czytnika. Etap B obejmie zapis i kopie,
-a etap C wybór plików, podgląd i integrację.
+Zapis i kopie należą do etapu B, a wybór plików, podgląd i integracja do etapu C.
+Etap B wymaga uzgodnienia pojemności kopii, migracji i deduplikacji.
 
 ## Obsługiwany format
 

@@ -18,9 +18,11 @@ jest wydaniem stabilnym. Obejmuje poprawki widgetów i edycji presetów;
   przeszedł pełne CI 7/7 na zatwierdzonym commicie.
   Interfejs przeszedł automatyczne testy i audyt zrzutów w PR #46; nie oznacza
   to zakończenia odbioru fizycznego ani gotowości całego wydania 1.3.
-  Eksperyment z plikami FIT z Garmin Forerunner 55 potwierdził
-  odczyt na komputerze i rekonstrukcję przedziałów. Importer i automatyczna
-  synchronizacja pozostają do zaprojektowania i weryfikacji.
+  [Etap A Garmin FIT](FIT-IMPORT-1.3.md) jest na main. Czytnik Kotlin
+  odtwarza przedziały timera z lokalnych plików Activity. PR #49 przeszedł
+  audyt i pełne CI 7/7. Przed etapem B uzgodnimy pojemność kopii, migrację
+  i trwałą deduplikację. Wybór plików, podgląd i integracja należą do etapu C.
+  Automatyczna synchronizacja pozostaje osobnym tematem.
 - **1.4:** rozważana opcjonalna synchronizacja local-first, z możliwością
   samodzielnego hostowania serwera i pełną pracą offline. Architektura nie jest
   jeszcze zatwierdzona.
