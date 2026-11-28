@@ -28,14 +28,14 @@ data class BackupSnapshot(
 
 /** Versioned, private backup format. Parsing is bounded and validates all data before import. */
 object BackupArchive {
-    private const val VERSION = 3
-    private const val METADATA = "openmetronome.dat"
+    internal const val VERSION = 3
+    internal const val METADATA = "openmetronome.dat"
     internal const val MAX_ARCHIVE_BYTES = 16 * 1024 * 1024
     internal const val MAX_MUSIC_ACTIVITIES = 10_000
     internal const val MAX_MUSIC_INTERVALS = 65_536
-    private const val MAX_ITEMS = 100_000
+    internal const val MAX_ITEMS = 100_000
     internal const val MAX_GROUPING_CORRECTIONS = 100_000
-    private const val GROUPING_SECTION = 0x47525031 // GRP1
+    internal const val GROUPING_SECTION = 0x47525031 // GRP1
 
     fun write(snapshot: BackupSnapshot, output: OutputStream) {
         writeStored(normalize(snapshot), output)
@@ -50,17 +50,20 @@ object BackupArchive {
     /** Compatibility export deliberately omits configuration timelines and newer optional settings. */
     fun writeLegacy(snapshot: BackupSnapshot, output: OutputStream) {
         val configs = listOf(snapshot.settings) + snapshot.presets.map { it.config } + snapshot.sessions.map { it.config }
-        val legacyMeters = setOf(org.openmetronome.domain.model.TimeSignature.TWO_FOUR,
-            org.openmetronome.domain.model.TimeSignature.THREE_FOUR, org.openmetronome.domain.model.TimeSignature.FOUR_FOUR,
-            org.openmetronome.domain.model.TimeSignature.SIX_EIGHT)
-        val configurations = configs.map(ConfigCodec::decode)
-        require(configurations.all { it.timeSignature in legacyMeters }) { "New meters require backup v2" }
-        require(configurations.none { it.sound.clickSound in org.openmetronome.domain.model.ClickSound.sampled }) {
-            "Sampled sounds require backup v2"
-        }
+        configs.forEach(::requireLegacyConfig)
         writeStored(normalize(snapshot.copy(sessions = snapshot.sessions.map { it.copy(timeline = null) }, preferences = null,
             musicActivities = emptyList(), groupingCorrections = emptyList())), output, 1)
     }
+
+    internal fun requireLegacyConfig(encoded: String) {
+        val config = ConfigCodec.decode(encoded)
+        require(config.timeSignature in legacyMeters) { "New meters require backup v2" }
+        require(config.sound.clickSound !in org.openmetronome.domain.model.ClickSound.sampled) { "Sampled sounds require backup v2" }
+    }
+
+    private val legacyMeters = setOf(org.openmetronome.domain.model.TimeSignature.TWO_FOUR,
+        org.openmetronome.domain.model.TimeSignature.THREE_FOUR, org.openmetronome.domain.model.TimeSignature.FOUR_FOUR,
+        org.openmetronome.domain.model.TimeSignature.SIX_EIGHT)
 
     internal fun writeStored(snapshot: BackupSnapshot, output: OutputStream, version: Int = VERSION) {
         require(version in 1..VERSION)
@@ -252,7 +255,7 @@ object BackupArchive {
         return corrections
     }
 
-    private fun DataOutputStream.writeMusicActivity(activity: MusicActivity) {
+    internal fun DataOutputStream.writeMusicActivity(activity: MusicActivity) {
         val details = activity.details
         writeString(activity.id)
         writeString(details.kind.name)
@@ -293,7 +296,7 @@ object BackupArchive {
         }
     }
 
-    private fun DataInputStream.readMusicActivity(remainingIntervals: Int): MusicActivity {
+    internal fun DataInputStream.readMusicActivity(remainingIntervals: Int): MusicActivity {
         val id = readString()
         val kind = MusicActivityKind.valueOf(readString())
         val source = MusicActivitySource.valueOf(readString())
@@ -332,11 +335,11 @@ object BackupArchive {
         return snapshot.copy(sessions = sessions, days = days)
     }
 
-    private fun DataOutputStream.writeString(value: String) {
+    internal fun DataOutputStream.writeString(value: String) {
         val bytes = value.toByteArray(Charsets.UTF_8); require(bytes.size <= 1_000_000)
         writeInt(bytes.size); write(bytes)
     }
-    private fun DataInputStream.readString(limit: Int = 1_000_000): String {
+    internal fun DataInputStream.readString(limit: Int = 1_000_000): String {
         val size = readInt(); require(size in 0..limit)
         return String(ByteArray(size).also(::readFully), Charsets.UTF_8)
     }

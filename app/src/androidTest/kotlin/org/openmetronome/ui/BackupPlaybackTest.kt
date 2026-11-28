@@ -67,7 +67,7 @@ class BackupPlaybackTest {
         assertEquals(1L, data.dao.total().first().sessions)
         assertTrue(data.dao.sessionsForExport().single().finished)
         val output = ByteArrayOutputStream()
-        data.exportBackup { output }; data.awaitWrites()
+        data.exportBackup { output }; data.awaitBackup()
         assertTrue(output.size() > 0)
     }
 }

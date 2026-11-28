@@ -56,7 +56,7 @@ fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, widgetStatistics:
     val state by model.state.collectAsStateWithLifecycle()
     val error by data.error.collectAsStateWithLifecycle()
     val sampleWorking by data.sampleWorking.collectAsStateWithLifecycle()
-    val backupWorking by data.backupWorking.collectAsStateWithLifecycle()
+    val backupReserved by data.backupReservation.collectAsStateWithLifecycle(data.backupLiveReserved)
     val recoveryRequired by data.recoveryRequired.collectAsStateWithLifecycle()
     val storageReady by data.storageReady.collectAsStateWithLifecycle()
     val historyExporting by data.exporting.collectAsStateWithLifecycle()
@@ -102,13 +102,25 @@ fun OpenMetronomeApp(model: MetronomeViewModel, data: AppData, widgetStatistics:
         }
         onDispose { if (fullscreen) bars?.show(WindowInsetsCompat.Type.systemBars()) }
     }
-    val canStart = storageReady && !sampleWorking && !backupWorking && !recoveryRequired && !historyExporting
+    val context = LocalContext.current
+    val request by data.backupDocumentRequest.collectAsStateWithLifecycle()
+    val backupExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
+        val resolver = context.contentResolver
+        data.completeBackupDocument(uri?.let { { checkNotNull(resolver.openOutputStream(it, "wt")) } })
+    }
+    LaunchedEffect(request) {
+        if (request != null) data.takeBackupDocumentRequest()?.let { version ->
+            val suffix = if (version == 3) "" else "-v$version"
+            try { backupExport.launch("OpenMetronome$suffix-${LocalDate.now()}.ombak") }
+            catch (error: RuntimeException) { data.completeBackupDocument { throw error } }
+        }
+    }
+    val canStart = storageReady && !sampleWorking && !backupReserved && !recoveryRequired && !historyExporting
     if (fullscreen) {
         FullscreenPractice(state, model::start, model::stop, { fullscreen = false }, canStart, display.reduceMotion)
         return
     }
     BackHandler(enabled = page != "Metronom" && report == null) { page = "Metronom" }
-    val context = LocalContext.current
     val diagnosticsTitle = stringResource(R.string.diagnostics_title)
     Scaffold(modifier = Modifier.imePadding(), bottomBar = { PlaybackControls(state, model::start, model::stop, startEnabled = canStart) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
@@ -258,18 +270,7 @@ private fun StatisticsScreen(data: AppData, model: MetronomeViewModel,
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         if (uri != null) data.exportCsv { checkNotNull(resolver.openOutputStream(uri, "wt")) { "Cannot open document" } }
     }
-    var backupVersion by rememberSaveable { mutableIntStateOf(3) }
     var legacyWarning by rememberSaveable { mutableIntStateOf(0) }
-    val backupExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
-        if (uri != null) {
-            val output = { checkNotNull(resolver.openOutputStream(uri, "wt")) }
-            when (backupVersion) {
-                1 -> data.exportLegacyBackup(output)
-                2 -> data.exportV2Backup(output)
-                else -> data.exportBackup(output)
-            }
-        }
-    }
     var pendingImportPath by rememberSaveable { mutableStateOf<String?>(null) }
     val backupImport = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> pendingImportPath = uri?.toString() }
     var historyRetry by remember { mutableIntStateOf(0) }
@@ -423,7 +424,7 @@ private fun StatisticsScreen(data: AppData, model: MetronomeViewModel,
             OutlinedButton({ export.launch("OpenMetronome-sesje-${LocalDate.now()}.csv") }, enabled = !exporting && !backupWorking) {
                 Text(if (exporting) "Zapisywanie…" else "Eksportuj CSV")
             }
-            OutlinedButton({ backupVersion = 3; backupExport.launch("OpenMetronome-${LocalDate.now()}.ombak") }, enabled = backupEnabled) {
+            OutlinedButton({ data.prepareBackupDocument(3) }, enabled = backupEnabled) {
                 Text(if (backupWorking) "Przetwarzanie…" else "Kopia zapasowa")
             }
             OutlinedButton({ backupImport.launch(arrayOf("application/octet-stream", "application/zip", "*/*")) }, enabled = backupEnabled) {
@@ -446,8 +447,7 @@ private fun StatisticsScreen(data: AppData, model: MetronomeViewModel,
             },
             confirmButton = { TextButton({
                 legacyWarning = 0
-                backupVersion = version
-                backupExport.launch("OpenMetronome-v$version-${LocalDate.now()}.ombak")
+                data.prepareBackupDocument(version)
             }) { Text("Eksportuj v$version z pominięciami") } },
             dismissButton = { TextButton({ legacyWarning = 0 }) { Text("Anuluj") } })
     }

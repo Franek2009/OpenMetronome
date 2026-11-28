@@ -66,7 +66,7 @@ class PlaybackClient(context: Context) : MetronomePort {
         }
     }
     override fun start() {
-        if (closed || mutableState.value.keepsScreenOn || data.backupWorking.value || data.recoveryRequired.value) return
+        if (closed || mutableState.value.keepsScreenOn || data.backupLiveReserved || data.recoveryRequired.value) return
         waitingForEngine = true
         mutableState.update { it.copy(audio = AudioEngineState(PlaybackStatus.STARTING)) }
         pendingStart = controller == null

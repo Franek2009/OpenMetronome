@@ -36,7 +36,7 @@ class SessionRetryTest {
             val storedActivity = reopened.musicActivities.first().single()
             assertEquals(activity, storedActivity.details)
             val output = ByteArrayOutputStream()
-            reopened.exportBackup { output }; reopened.awaitWrites()
+            reopened.exportBackup { output }; reopened.awaitBackup()
             val snapshot = BackupArchive.read(output.toByteArray().inputStream())
             assertEquals(session, snapshot.sessions.single())
             assertEquals(storedActivity, snapshot.musicActivities.single())
@@ -61,7 +61,7 @@ class SessionRetryTest {
             assertFalse(backupOpened); assertFalse(csvOpened)
             data.sessionCheckpoint = original
             val output = ByteArrayOutputStream()
-            data.exportBackup { output }; data.awaitWrites()
+            data.exportBackup { output }; data.awaitBackup()
             assertFalse(data.sessionWriteFailed.value)
             val restored = BackupArchive.read(output.toByteArray().inputStream())
             assertEquals(1000L, restored.sessions.single().durationMs)

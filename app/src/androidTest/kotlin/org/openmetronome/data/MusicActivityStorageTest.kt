@@ -114,9 +114,9 @@ class MusicActivityStorageTest {
                 val v2 = ByteArrayOutputStream()
                 val v3 = ByteArrayOutputStream()
                 data.exportV2Backup { v2 }
-                data.awaitWrites()
+                data.awaitBackup()
                 data.exportBackup { v3 }
-                data.awaitWrites()
+                data.awaitBackup()
                 val size = data.database.musicActivities().backupSize()
                 assertEquals(1L, size.activities)
                 assertEquals(1L, size.intervals)

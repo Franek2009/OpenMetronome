@@ -124,7 +124,7 @@ class PracticeGroupingStorageTest {
             assertEquals(2, data.practiceGrouping(now).groups.size)
             assertNotNull(data.database.grouping().corrections().single().deletedAt)
             val backup = ByteArrayOutputStream()
-            data.exportBackup { backup }; data.awaitWrites()
+            data.exportBackup { backup }; data.awaitBackup()
             val archive = BackupArchive.read(backup.toByteArray().inputStream())
             assertEquals(PracticeGroupingGap.MINUTES_5, AppPreferencesCodec.decode(archive.preferences!!).groupingGap)
             assertNotNull(archive.groupingCorrections.single().deletedAt)

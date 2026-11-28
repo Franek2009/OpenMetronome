@@ -62,7 +62,7 @@ class WidgetSystemHostTest {
             val activity = runBlocking { data.musicActivities.first().single() }
             val backup = java.io.ByteArrayOutputStream()
             data.exportBackup { backup }
-            runBlocking { data.awaitWrites() }
+            runBlocking { data.awaitBackup() }
             assertTrue(backup.size() > 0)
             data.editMusicActivity(activity.id, MusicActivityDetails.manual(MusicActivityKind.LESSON, now - 900_000, now - 300_000, zone))
             runBlocking { data.awaitWrites() }

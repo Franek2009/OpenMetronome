@@ -8,6 +8,8 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isSelected
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.room.withTransaction
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -109,7 +111,14 @@ class BackupBaselineTest {
                     measure(dir, "$mode-export", ::add) { gauge, result ->
                         val start = now()
                         var opened = false
-                        data.exportBackup {
+                        val phases = JSONObject()
+                        result.put("stageStartsMs", phases)
+                        data.backupExportPhase = { phase ->
+                            phases.put(phase.name, ms(now() - start))
+                            gauge.capture()
+                        }
+                        try {
+                            data.exportBackup {
                             opened = true
                             result.put("prepareThroughValidationMs", ms(now() - start))
                             result.put("startBlockedAtDestination", playbackBlocked(data))
@@ -123,13 +132,15 @@ class BackupBaselineTest {
                                 }
                             }
                         }
-                        awaitRelease(data, start, result)
+                            awaitRelease(data, start, result)
+                        } finally { data.backupExportPhase = {} }
+                        if (phases.has("DELIVERY")) result.put("reservationMs", phases.getDouble("DELIVERY"))
                         result.put("openedDestination", opened)
                         result.put("outcome", if (opened && data.backupNotice.value == "Kopia zapasowa została zapisana.") "saved"
                             else if (!opened && isOverBudget(data)) "limit-refusal" else "unexpected-failure")
                         result.put("notice", data.backupNotice.value)
                         assertNotEquals("unexpected-failure", result.getString("outcome"))
-                        if (opened) assertTrue(result.getBoolean("startBlockedAtDestination"))
+                        if (opened) assertFalse(result.getBoolean("startBlockedAtDestination"))
                     }
                     if (archive.isFile) {
                         measure(dir, "$mode-validate-archive", ::add) { _, result ->
@@ -199,6 +210,35 @@ class BackupBaselineTest {
                 } finally {
                     activity?.close()
                     app.backupBaselineData = null
+                }
+            }
+            if (args.getString("backupExperiment") == "true") {
+                // Test-only envelope. The application still applies production limits.
+                val limits = BackupStreamLimits(expanded = 256L * 1024 * 1024,
+                    items = 150_000, activities = 30_000, intervals = 120_000, corrections = 100_000)
+                val owner = currentCoroutineContext()
+                BackupStaging.create(File(dir, "backup-staging")).use { stage ->
+                    measure(dir, "experiment-export", ::add) { gauge, result ->
+                        val start = now()
+                        val phases = JSONObject()
+                        result.put("stageStartsMs", phases).put("expandedLimit", limits.expanded)
+                            .put("itemLimit", limits.items).put("activityLimit", limits.activities)
+                            .put("intervalLimit", limits.intervals)
+                        data.samples.backup {
+                            data.database.withTransaction {
+                                StreamingBackupWriter(data.database.openHelper.writableDatabase, limits, owner::ensureActive)
+                                    .write(stage.archive, 3, ConfigCodec.encode(data.settings.load()),
+                                        data.settings.preferencesSnapshot(), ::backupSample) {
+                                        phases.put(it.name, ms(now() - start))
+                                        gauge.capture()
+                                    }
+                            }
+                        }
+                        result.put("archiveBytes", stage.archive.length())
+                        phases.put("VALIDATION", ms(now() - start))
+                        StreamingBackupValidator(limits, owner::ensureActive).validate(stage.archive, stage.index)
+                        result.put("outcome", "validated")
+                    }
                 }
             }
             val next = playback(count, ConfigCodec.encode(config), emptyList())
@@ -360,7 +400,7 @@ class BackupBaselineTest {
     }
 
     private data class Reading(val heap: Long, val pss: Long, val db: Long, val wal: Long,
-        val archive: Long, val temporary: Long)
+        val archive: Long, val temporary: Long, val staging: Long)
 
     private class Gauge(private val dir: File) {
         private var first: Reading? = null
@@ -373,12 +413,14 @@ class BackupBaselineTest {
             val reading = Reading(runtime.totalMemory() - runtime.freeMemory(), Debug.getPss() * 1024,
                 File(dir, "practice.db").length(), File(dir, "practice.db-wal").length(),
                 File(dir, "export.ombak").length(),
-                File(dir, "restore-journal").walkTopDown().filter { it.isFile }.sumOf { it.length() })
+                File(dir, "restore-journal").walkTopDown().filter { it.isFile }.sumOf { it.length() },
+                File(dir, "backup-staging").walkTopDown().filter { it.isFile }.sumOf { it.length() })
             if (first == null) first = reading
             last = reading
             max = max?.let { previous ->
                 Reading(maxOf(previous.heap, reading.heap), maxOf(previous.pss, reading.pss), maxOf(previous.db, reading.db),
-                    maxOf(previous.wal, reading.wal), maxOf(previous.archive, reading.archive), maxOf(previous.temporary, reading.temporary))
+                    maxOf(previous.wal, reading.wal), maxOf(previous.archive, reading.archive), maxOf(previous.temporary, reading.temporary),
+                    maxOf(previous.staging, reading.staging))
             } ?: reading
             samples++
         }
@@ -386,7 +428,7 @@ class BackupBaselineTest {
         fun result() = JSONObject().put("first", fields(first!!)).put("last", fields(last!!))
             .put("peak", fields(max!!)).put("samples", samples)
         private fun fields(r: Reading) = JSONObject().put("heapBytes", r.heap).put("pssBytes", r.pss)
-            .put("dbBytes", r.db).put("walBytes", r.wal).put("archiveBytes", r.archive).put("restoreWorkBytes", r.temporary)
+            .put("dbBytes", r.db).put("walBytes", r.wal).put("archiveBytes", r.archive).put("restoreWorkBytes", r.temporary).put("validationStagingBytes", r.staging)
     }
 
     companion object {

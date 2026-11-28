@@ -30,7 +30,7 @@ for count in "${counts[@]}"; do
         "${adb_cmd[@]}" shell input keyevent KEYCODE_WAKEUP
         "${adb_cmd[@]}" shell wm dismiss-keyguard
         "${adb_cmd[@]}" shell am instrument -w -r -e allowAudio false -e allowHaptics false \
-            -e backupBaseline true -e count "$count" -e profile "$profile" -e class "$class" \
+            -e backupBaseline true -e backupExperiment "${BACKUP_BASELINE_EXPERIMENT:-false}" -e count "$count" -e profile "$profile" -e class "$class" \
             "$pkg.test/org.openmetronome.OpenMetronomeTestRunner" | tee "$out/$count-$profile.log"
         "${adb_cmd[@]}" exec-out run-as "$pkg" cat "cache/$file" > "$out/$file"
         python3 - "$out/$file" "$out/$count-$profile.log" <<'PY'
