@@ -8,7 +8,10 @@ na API 26 i 35. Punkt wejścia
 `FitActivityReader.read` przyjmuje strumień należący do wywołującego, opcjonalny
 budżet współdzielony przez kolejne pliki oraz funkcję sprawdzającą anulowanie.
 Zapis i kopie należą do etapu B, a wybór plików, podgląd i integracja do etapu C.
-Etap B wymaga uzgodnienia pojemności kopii, migracji i deduplikacji.
+Etapy B1.1 i B1.2 zakończono. Obejmują [pomiar bazowy](BACKUP-BASELINE-B1.1.md)
+oraz [strumieniowy eksport i walidację kopii](BACKUP-STREAMING-B1.2.md).
+Przed B1.3 uzgodnimy trwałość migawek, dziennik i odzyskiwanie przy braku
+miejsca. Migracja Room i trwała deduplikacja FIT należą do B2.
 
 ## Obsługiwany format
 

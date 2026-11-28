@@ -2,6 +2,11 @@
 
 Pomiar odniesienia można odtworzyć również z commita `af80607`.
 
+[PR #50](https://github.com/Franek2009/OpenMetronome/pull/50) scalono w
+`4df30c0` po końcowym audycie. Zatwierdzony HEAD `cca40d8` zaliczył
+7/7 zadań CI oraz 598/598 testów emulatorowych bez pominięć.
+[Przebieg CI PR](https://github.com/Franek2009/OpenMetronome/actions/runs/46143269450)
+
 ## Przepływ danych
 
 - Eksport zachowuje publiczny format v3 oraz dotychczasowe częściowe eksporty

@@ -20,9 +20,13 @@ jest wydaniem stabilnym. Obejmuje poprawki widgetów i edycji presetów;
   to zakończenia odbioru fizycznego ani gotowości całego wydania 1.3.
   [Etap A Garmin FIT](FIT-IMPORT-1.3.md) jest na main. Czytnik Kotlin
   odtwarza przedziały timera z lokalnych plików Activity. PR #49 przeszedł
-  audyt i pełne CI 7/7. Przed etapem B uzgodnimy pojemność kopii, migrację
-  i trwałą deduplikację. Wybór plików, podgląd i integracja należą do etapu C.
-  Automatyczna synchronizacja pozostaje osobnym tematem.
+  audyt i pełne CI 7/7. B1.1 dostarczył [pomiary bazowe](BACKUP-BASELINE-B1.1.md),
+  a B1.2 wprowadził [strumieniowy eksport i walidację](BACKUP-STREAMING-B1.2.md)
+  w publicznym formacie v3. [PR #50](https://github.com/Franek2009/OpenMetronome/pull/50)
+  jest scalony po audycie i CI 7/7 na zatwierdzonym HEAD.
+  Przed B1.3 uzgodnimy nowy dziennik, trwałość migawek i odzyskiwanie przy ENOSPC.
+  Migracja Room i deduplikacja FIT należą do B2. Wybór plików, podgląd
+  i integracja należą do etapu C. Automatyczna synchronizacja pozostaje osobnym tematem.
 - **1.4:** rozważana opcjonalna synchronizacja local-first, z możliwością
   samodzielnego hostowania serwera i pełną pracą offline. Architektura nie jest
   jeszcze zatwierdzona.
