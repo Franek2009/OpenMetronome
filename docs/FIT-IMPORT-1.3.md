@@ -35,15 +35,26 @@ a etap C wybór plików, podgląd i integrację.
 i [zdarzenia timera w plikach Activity](https://developer.garmin.com/fit/articles/cookbook/encoding_activity_files.html).
 Czytnik nie używa kodu ani zależności Garmin SDK.
 
+Kompresja czasu dotyczy nagłówków rekordów lokalnych 0–3, których definicja
+nie zawiera osobnego pola timestamp. Pierwszy taki rekord wymaga wcześniejszego
+pełnego znacznika. Kolejne używają pięciu najmłodszych bitów sekund z uwzględnieniem
+przejścia przez granicę 32 s. Z tych bitów nie da się rozpoznać pominiętego
+pełnego obrotu. Przy przerwie co najmniej 32 s potrzebne jest nowe pełne
+odniesienie. Czytnik nie rekonstruuje dodatkowych obrotów na podstawie
+podsumowania ani nie przestawia rekordów przed rozwinięciem timestampów.
+[Opis nagłówka skompresowanego](https://developer.garmin.com/fit/articles/fit-protocol/fit_protocol.html#compressed-timestamp-header)
+
 ## Rekonstrukcja czasu i wyniki
 
 Start i zdarzenia są w UTC. Raportowane `total_elapsed_time` i
 `total_timer_time` są zachowywane w milisekundach. Zdarzenia timera sortujemy
 według czasu i zachowujemy kolejność pliku przy tej samej sekundzie. W znanej
 grupie timera obsługujemy `start`, `stop` i `stop_all`. Na wspólnej granicy
-zamknięcie należy do poprzedniej sesji, a start do następnej. Identyczne
-powtórzenie krawędzi w tej samej sekundzie jest pomijane. Sprzeczne powtórzenia
-i nieznane zdarzenia timera powodują przejście do podsumowania.
+zamknięcie należy do poprzedniej sesji, a następujący po nim start do kolejnej.
+Jeśli w tej samej sekundzie po starcie występuje zamknięcie, obie sesje
+zachowują tylko podsumowania. Powtórzenie tej samej krawędzi w tej samej
+sekundzie jest pomijane. Sprzeczne powtórzenia i nieznane zdarzenia timera
+powodują przejście do podsumowania.
 
 Przedział ma rozdzielczość 1 s. Dopuszczamy różnicę między raportowanym timerem
 a sumą przedziałów do 1 s na przedział. Okno sesji jest wyznaczane przez
@@ -67,8 +78,10 @@ z wiarygodnymi sumami nie może zwiększać statystyk do uzupełnienia przedzia�
 Budżet wynosi 20 plików, 8 MiB na plik, 32 MiB na partię i 100 wiadomości
 `Session`. Plik ma limit 500 000 rekordów (definicje i dane) i 16 384
 potencjalnych zdarzeń timera. Jeden wpis mieści do 4 096 przedziałów.
-Bufor odczytu ma 8 KiB. Rozliczane są faktycznie odczytane bajty, także przy
-błędzie, oraz maksymalnie jeden bajt kontroli nadmiaru przy limicie.
+Bufor odczytu ma 8 KiB. Rozliczane są faktycznie pobrane bajty, także przy
+błędzie. Na granicy limitu bieżący plik może sprawdzić EOF jednym odczytem.
+Jeśli odczyt pobierze dodatkowy bajt, plik przekracza limit. Po wyczerpaniu
+budżetu partii kolejne strumienie są odrzucane przed pierwszym odczytem.
 Anulowanie jest sprawdzane podczas odczytu i rekonstrukcji. Przerwanie
 zablokowanego wywołania dostawcy dokumentów będzie częścią integracji SAF.
 

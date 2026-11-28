@@ -24,18 +24,19 @@ internal data class FitReadLimits(
 /** A batch belongs to one sequential import. Invalid files still consume the bytes read. */
 internal class FitReadBudget(val limits: FitReadLimits = FitReadLimits()) {
     private var files = 0
-    private var bytes = 0
+    private var bytes = 0L
     private var sessions = 0
-    val remainingBytes: Int get() = limits.batchBytes - bytes
+    val remainingBytes: Int get() = (limits.batchBytes - bytes).coerceAtLeast(0).toInt()
 
     fun startFile() {
+        if (remainingBytes == 0) fitFailure(FitFailureKind.LIMIT, "FIT batch byte limit exceeded")
         if (files >= limits.files) fitFailure(FitFailureKind.LIMIT, "Too many FIT files")
         files++
     }
 
     fun consumeBytes(count: Int) {
-        if (count > remainingBytes) fitFailure(FitFailureKind.LIMIT, "FIT batch byte limit exceeded")
         bytes += count
+        if (bytes > limits.batchBytes) fitFailure(FitFailureKind.LIMIT, "FIT batch byte limit exceeded")
     }
 
     fun consumeSession() {

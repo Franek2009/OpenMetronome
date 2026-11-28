@@ -159,6 +159,11 @@ internal object FitActivityReader {
             checkCancelled: () -> Unit): FitSession {
             val summary = candidate.summary
             val endLimit = minOf(nextStart ?: Long.MAX_VALUE, summary.endAt + QUANTUM_MS)
+            val sharedStart = previousEnd != null && previousEnd + QUANTUM_MS >= summary.startAt
+            if ((sharedStart && ambiguousBoundary(summary.startAt)) ||
+                (nextStart != null && nextStart == endLimit && ambiguousBoundary(nextStart))) {
+                return candidate.incomplete(FitSessionProblem.AMBIGUOUS_TIMER)
+            }
             val intervals = mutableListOf<MusicActivityInterval>()
             var start: Long? = null
             var last: TimerEvent? = null
@@ -170,7 +175,7 @@ internal object FitActivityReader {
                 if (event.at > endLimit) break
                 val stopping = event.action == TimerAction.STOP || event.action == TimerAction.STOP_ALL
                 // At a shared boundary, stop belongs to the older session and start to the newer.
-                if (event.at == summary.startAt && previousEnd != null && previousEnd + QUANTUM_MS >= event.at && stopping) continue
+                if (sharedStart && event.at == summary.startAt && stopping) continue
                 if (event.at == nextStart && event.action == TimerAction.START) continue
                 // Outside the summary window only a closing edge within the timestamp quantum is usable.
                 if (event.at > summary.endAt && !stopping) {
@@ -210,6 +215,19 @@ internal object FitActivityReader {
             // Neither that marker nor the reported sums are changed.
             val end = maxOf(summary.endAt, intervals.last().endAt)
             return FitSession.Complete(candidate.ordinal, summary.copy(endAt = end), intervals)
+        }
+
+        private fun ambiguousBoundary(at: Long): Boolean {
+            var sawStart = false
+            var index = lowerBound(at)
+            while (index < events.size && events[index].at == at) {
+                when (events[index++].action) {
+                    TimerAction.START -> sawStart = true
+                    TimerAction.STOP, TimerAction.STOP_ALL -> if (sawStart) return true
+                    TimerAction.UNKNOWN -> return true
+                }
+            }
+            return false
         }
 
         private fun lowerBound(at: Long): Int {

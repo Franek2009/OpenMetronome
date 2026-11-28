@@ -52,6 +52,11 @@ class FitActivityReaderTest {
         val developer = payload.indexOf(0x61.toByte()) + 6 + 2 * 3 + 1
         fails(FitFailureKind.CORRUPT, container(payload.copyOf().apply { this[developer + 1] = 0 }))
         fails(FitFailureKind.UNSUPPORTED, container(payload, protocol = 0x10))
+
+        val withFullTimestamp = body(fixture("continuous"))
+        val firstEvent = withFullTimestamp.indexOf(0x41.toByte()) + 6 + 3 * 3
+        withFullTimestamp[firstEvent + 7] = 0xA0.toByte()
+        fails(FitFailureKind.UNSUPPORTED, container(withFullTimestamp))
     }
 
     @Test fun usesWireOrdinalsAndAssignsSharedBoundaryToBothSessionsByEdgeType() {
@@ -67,6 +72,23 @@ class FitActivityReaderTest {
         val invalid = read(container(body)).sessions
         assertEquals(FitSession.Invalid(0, FitSessionProblem.MISSING_SUMMARY), invalid[0])
         assertEquals(1, invalid[1].ordinal)
+    }
+
+    @Test fun startBeforeStopAtSharedBoundaryCannotEstablishEitherSession() {
+        val payload = body(fixture("multiple-reordered"))
+        val boundaryStop = eventRecord(60, 1)
+        val boundaryStart = eventRecord(60, 0)
+        val stopAt = payload.indices.first { payload.copyOfRange(it, minOf(it + boundaryStop.size, payload.size))
+            .contentEquals(boundaryStop) }
+        boundaryStart.copyInto(payload, stopAt)
+        boundaryStop.copyInto(payload, stopAt + boundaryStart.size)
+
+        val sessions = read(container(payload)).sessions
+        assertEquals(listOf(0, 1), sessions.map { it.ordinal })
+        assertTrue(sessions.all {
+            it is FitSession.SummaryOnly && it.reason == FitSessionProblem.AMBIGUOUS_TIMER &&
+                it.summary.reportedTimerMs == 60_000L
+        })
     }
 
     @Test fun missingOrAmbiguousTimerEdgesProduceSummaryWithoutInventingIntervals() {
@@ -195,6 +217,58 @@ class FitActivityReaderTest {
                     // A recomputed CRC does not make an invalid record safe.
                 }
             }
+        }
+    }
+
+    @Test fun batchOverrunChargesFetchedBytesAndPreventsAnyFurtherReads() {
+        val raw = fixture("continuous")
+        val budget = FitReadBudget(FitReadLimits(batchBytes = raw.size + 48))
+        read(raw, budget)
+        assertEquals(48, budget.remainingBytes)
+
+        val overrun = CountingStream(ByteArray(64))
+        assertEquals(FitFailureKind.LIMIT, assertThrows(FitReadException::class.java) {
+            FitActivityReader.read(overrun, budget)
+        }.kind)
+        assertEquals(49, overrun.bytesRead)
+
+        val subsequent = listOf(CountingStream(raw), CountingStream(ByteArray(64)))
+        val errors = subsequent.map { stream ->
+            assertThrows(FitReadException::class.java) { FitActivityReader.read(stream, budget) }.kind
+        }
+        assertEquals(listOf(FitFailureKind.LIMIT, FitFailureKind.LIMIT), errors)
+        assertEquals(listOf(0, 0), subsequent.map { it.readCalls })
+        assertEquals(0, budget.remainingBytes)
+    }
+
+    @Test fun batchLimitAllowsExactEofProbeOnlyForTheCurrentFile() {
+        val raw = fixture("continuous")
+        val budget = FitReadBudget(FitReadLimits(fileBytes = raw.size, batchBytes = raw.size * 2))
+        read(raw, budget)
+        val last = CountingStream(raw)
+        assertEquals(sha256(raw), FitActivityReader.read(last, budget).sha256)
+        assertEquals(raw.size, last.bytesRead)
+        assertEquals(listOf(1), last.eofReadSizes)
+
+        val next = CountingStream(raw)
+        assertEquals(FitFailureKind.LIMIT, assertThrows(FitReadException::class.java) {
+            FitActivityReader.read(next, budget)
+        }.kind)
+        assertEquals(0, next.readCalls)
+    }
+
+    private class CountingStream(bytes: ByteArray) : ByteArrayInputStream(bytes) {
+        var readCalls = 0
+            private set
+        var bytesRead = 0
+            private set
+        val eofReadSizes = mutableListOf<Int>()
+
+        override fun read(bytes: ByteArray, offset: Int, length: Int): Int {
+            readCalls++
+            val count = super.read(bytes, offset, length)
+            if (count < 0) eofReadSizes += length else bytesRead += count
+            return count
         }
     }
 
