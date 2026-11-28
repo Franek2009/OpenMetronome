@@ -25,7 +25,7 @@ for quiet_scale in window_animation_scale transition_animation_scale animator_du
     "${quiet_adb[@]}" shell settings put global "$quiet_scale" 0
 done
 "${quiet_adb[@]}" shell am instrument -w -r -e allowAudio false -e allowHaptics false -e captureUi true \
-    -e notAnnotation org.openmetronome.DevPerformanceQualification \
+    -e notAnnotation org.openmetronome.DevPerformanceQualification,org.openmetronome.data.BackupBaselineQualification \
     "$quiet_package.test/org.openmetronome.OpenMetronomeTestRunner" | tee "$quiet_report/instrumentation.log"
 awk -f scripts/instrumentation-summary.awk "$quiet_report/instrumentation.log" | tee "$quiet_report/summary.txt"
 printf '%s\n' 'DEV performance qualification: NOT RUN in release regression; capture disabled in beta.' > "$quiet_report/qualification-scope.txt"

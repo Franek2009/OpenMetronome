@@ -16,7 +16,9 @@ class OpenMetronomeTestRunner : AndroidJUnitRunner() {
 class TestApplication : OpenMetronomeApplication() {
     // Only instrumentation can install this memory-only engine; release has no such hook.
     internal var simulatedEngine: AudioEngine? = null
-    override val data: AppData by lazy { AppData(this, isolatedTestStorage = true) }
+    private val isolatedData by lazy { AppData(this, isolatedTestStorage = true) }
+    @Volatile internal var backupBaselineData: AppData? = null
+    override val data: AppData get() = backupBaselineData ?: isolatedData
 
     override fun createAudioEngine(context: Context): AudioEngine {
         simulatedEngine?.let { return it }
