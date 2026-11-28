@@ -197,6 +197,21 @@ class BackupStorageTest {
         data.awaitWrites()
     }
 
+    @Test fun abandonedDocumentRequestReleasesItsStagingAndIsNotReplayed(): Unit = runBlocking {
+        fixture { data, dir ->
+            data.prepareBackupDocument(3)
+            assertEquals(3, withTimeout(10_000) { data.backupDocumentRequest.first { it != null } })
+            assertEquals(3, data.takeBackupDocumentRequest())
+            assertNull(data.takeBackupDocumentRequest())
+            assertFalse(data.backupLiveReserved)
+            assertTrue(File(dir, "backup-staging").walk().any { it.name == "archive.ombak" })
+            data.completeBackupDocument(null)
+            awaitBackup(data)
+            assertTrue(File(dir, "backup-staging").listFiles().orEmpty().isEmpty())
+            assertNull(data.backupNotice.value)
+        }
+    }
+
     @Test fun slowDestinationReleasesLiveReservationAndPreservesThePreparedSnapshot(): Unit = runBlocking {
         fixture { data, dir ->
             val entered = java.util.concurrent.CountDownLatch(1)

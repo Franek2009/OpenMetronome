@@ -95,6 +95,19 @@ odtworzenia po próbach powiódł się w obu przypadkach.
 | 35 | 100 tys. / prosty | Odmowa | 60.595 | 0.134 / 0.313 | 0.173 / 0.641 | 95.71 | 0.64 | 17.902 |
 | 35 | 100 tys. / gęsty | Odmowa | 52.845 | 0.256 / 0.383 | 0.308 / 0.833 | 204.73 | 0.73 | 15.771 |
 
+### Próby ponad limitem w obwiedni testowej
+
+Czasy w sekundach. Sterta i PSS podają pierwszą próbkę i szczyt procesu
+podczas kodowania i walidacji. Pierwsza próbka obejmuje stan procesu po
+zakończeniu próby ze Statystykami. Eksperyment kończy się na walidacji.
+
+| API | Dane | Przygotowanie | Kodowanie | Walidacja | ZIP MiB | Katalog roboczy MiB | Sterta MiB | PSS MiB |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 26 | 50 tys. / prosty | 2.148 | 41.650 | 36.690 | 1.37 | 6.35 | 72.52 / 74.55 | 146.97 / 151.43 |
+| 26 | 100 tys. / gęsty | 5.670 | 77.695 | 166.841 | 3.79 | 15.06 | 81.83 / 124.72 | 260.78 / 305.10 |
+| 35 | 50 tys. / prosty | 2.302 | 45.199 | 24.787 | 1.37 | 6.39 | 57.36 / 77.81 | 237.94 / 250.92 |
+| 35 | 100 tys. / gęsty | 6.682 | 91.936 | 122.551 | 3.79 | 15.07 | 70.96 / 139.59 | 251.85 / 364.28 |
+
 ### Wnioski
 
 - W zestawie 12 scenariuszy cztery eksporty i restore zakończyły się pełnym
@@ -106,7 +119,9 @@ odtworzenia po próbach powiódł się w obu przypadkach.
   odczytu, walidacji i dyskowego indeksu. Kopiowanie do celu pozostaje poza
   rezerwacją, choć przygotowanie sprawdzonej kopii może trwać dłużej niż B1.1.
   Czas uruchomienia Statystyk i ponownego odczytu żywej bazy pozostaje osobnym
-  zadaniem. Nie należy przypisywać tego kosztu buforom enkodera.
+  zadaniem. Przy odmowie kopii gęstego profilu 100 tys. otwarte Statystyki
+  podniosły obserwowany PSS z 60 do 258 MiB na API 26 i ze 105 do 317 MiB na
+  API 35. Eksport obu prób odmówił w fazie przygotowania.
 - Czasy pochodzą z pojedynczych prób na emulatorach debug. Obraz API 35
   pracował w trybie emulacji programowej. Macierz zebrała pomiary bezpośredniej
   dostawy do pliku przed ostatnim uszczelnieniem odczytu katalogu ZIP i bramki
@@ -114,3 +129,5 @@ odtworzenia po próbach powiódł się w obu przypadkach.
 - Pełny round-trip 100 tys. odtworzeń i docelowe limity wymagają B1.3. W tej
   części nadal obowiązują ograniczenia migawek restore, w tym pamięć potrzebna
   na stary zmaterializowany odczyt i miejsce na obie migawki oraz WAL.
+  Kodowanie z walidacją gęstej próbki 100 tys. trwało 214–245 s. W połączeniu
+  z kosztem Statystyk to argument za pozostawieniem limitów publicznych.

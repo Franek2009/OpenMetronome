@@ -521,6 +521,8 @@ class AppData private constructor(
     }
 
     private fun finishBackup() = synchronized(admission) {
+        backupDocumentResult = null
+        pendingBackupDocument.value = null
         backupWorking.value = false
         backupDelivering.value = false
     }
@@ -572,14 +574,15 @@ class AppData private constructor(
     fun exportLegacyBackup(openOutput: () -> OutputStream) = exportBackupVersion(1) { openOutput() }
     fun exportV2Backup(openOutput: () -> OutputStream) = exportBackupVersion(2) { openOutput() }
 
-    internal fun prepareBackupDocument(version: Int) = exportBackupVersion(version) {
+    internal fun prepareBackupDocument(version: Int): Unit = synchronized(admission) {
+        if (backupWorking.value) return@synchronized
         val result = CompletableDeferred<(() -> OutputStream)?>()
-        synchronized(admission) {
-            backupDocumentResult = result
-            pendingBackupDocument.value = version
+        backupDocumentResult = result
+        exportBackupVersion(version) {
+            synchronized(admission) { if (!result.isCompleted) pendingBackupDocument.value = version }
+            result.await()?.invoke()
         }
-        try { result.await()?.invoke() }
-        finally { synchronized(admission) { backupDocumentResult = null; pendingBackupDocument.value = null } }
+        if (!backupWorking.value) backupDocumentResult = null
     }
 
     internal fun takeBackupDocumentRequest(): Int? = synchronized(admission) {
@@ -587,7 +590,9 @@ class AppData private constructor(
     }
 
     internal fun completeBackupDocument(openOutput: (() -> OutputStream)?) {
-        synchronized(admission) { backupDocumentResult?.complete(openOutput) }
+        synchronized(admission) {
+            if (backupDocumentResult?.complete(openOutput) == true) pendingBackupDocument.value = null
+        }
     }
 
     internal suspend fun awaitBackup() { backupWorking.first { !it } }

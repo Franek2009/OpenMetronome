@@ -119,4 +119,9 @@ class MainActivity : ComponentActivity() {
         Log.i("OpenMetronomeAudio", "Activity.onStop changingConfigurations=$isChangingConfigurations")
         super.onStop()
     }
+
+    override fun onDestroy() {
+        if (isFinishing) (application as OpenMetronomeApplication).data.completeBackupDocument(null)
+        super.onDestroy()
+    }
 }

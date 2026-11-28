@@ -198,6 +198,10 @@ class BackupUiTest {
             flags = flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or
                 android.accessibilityservice.AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
         }
+        // Local preparation is asynchronous. Advance Compose until its launcher has opened DocumentsUI.
+        compose.waitUntil(15000) {
+            systemNode { it.packageName?.toString()?.endsWith(".documentsui") == true } != null
+        }
         fun inSystemList(node: android.view.accessibility.AccessibilityNodeInfo): Boolean {
             var parent = node.parent
             while (parent != null) {
