@@ -134,11 +134,11 @@ class MusicStatisticsStorageTest {
             val legacy = ByteArrayOutputStream()
             val v2 = ByteArrayOutputStream()
             data.exportBackup { full }
-            data.awaitWrites()
+            data.awaitBackup()
             data.exportLegacyBackup { legacy }
-            data.awaitWrites()
+            data.awaitBackup()
             data.exportV2Backup { v2 }
-            data.awaitWrites()
+            data.awaitBackup()
             data.saveMusicStatisticsPreferences(changed)
             data.awaitWrites()
             for (archive in listOf(legacy, v2)) {

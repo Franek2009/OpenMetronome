@@ -118,6 +118,23 @@ class CustomSampleRepository(private val db: PracticeDatabase, private val direc
     }
 
     internal inner class BackupAccess {
+        fun backupSample(id: String): ByteArray {
+            // Read one bounded canonical WAV, including a byte to detect excess.
+            val limit = 44 + SamplePcm.MAX_FRAMES * 2
+            return file(id).inputStream().use { input ->
+                val buffer = ByteArray(limit + 1)
+                var read = 0
+                while (read < buffer.size) {
+                    val count = input.read(buffer, read, buffer.size - read)
+                    if (count < 0) break
+                    check(count > 0)
+                    read += count
+                }
+                require(read <= limit) { "Backup WAV exceeds canonical size" }
+                buffer.copyOf(read)
+            }
+        }
+
         fun files(records: List<CustomSampleRecord>): Map<String, ByteArray> =
             records.associate { record -> record.id to file(record.id).readBytes() }
 

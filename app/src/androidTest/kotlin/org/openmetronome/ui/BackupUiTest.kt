@@ -54,7 +54,7 @@ class BackupUiTest {
             else Instrumentation.ActivityResult(Activity.RESULT_OK, Intent().setData(uri(name)))
         val monitor = Instrumentation.ActivityMonitor(filter, result, true)
         instrumentation.addMonitor(monitor)
-        try { click(); compose.waitForIdle(); assertEquals(1, monitor.hits) }
+        try { click(); compose.waitUntil(10000) { monitor.hits == 1 } }
         finally { instrumentation.removeMonitor(monitor) }
     }
     private fun importResult(name: String?) = launchResult(Intent.ACTION_OPEN_DOCUMENT, name) {
@@ -92,10 +92,66 @@ class BackupUiTest {
 
     @Test fun exportWritesContentUriAndCancellationDoesNotOpenDocument() {
         launchResult(Intent.ACTION_CREATE_DOCUMENT, null) { compose.onNodeWithText("Kopia zapasowa").performScrollTo().performClick() }
+        compose.waitUntil(10000) { !data.backupWorking.value }
         launchResult(Intent.ACTION_CREATE_DOCUMENT, "roundtrip.ombak") { compose.onNodeWithText("Kopia zapasowa").performScrollTo().performClick() }
         compose.waitUntil(10000) { !data.backupWorking.value && data.backupNotice.value == "Kopia zapasowa została zapisana." }
         val copy = instrumentation.targetContext.contentResolver.openInputStream(uri("roundtrip.ombak"))!!.use(BackupArchive::read)
         assertEquals(91, ConfigCodec.decode(copy.settings).tempo.bpm)
+    }
+
+    @Test fun failedLocalValidationDoesNotLaunchDocumentPicker() {
+        val filter = IntentFilter(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE); addDataType("*/*")
+        }
+        val monitor = Instrumentation.ActivityMonitor(filter, Instrumentation.ActivityResult(Activity.RESULT_CANCELED, null), true)
+        instrumentation.addMonitor(monitor)
+        data.backupExportPhase = { if (it == BackupExportPhase.VALIDATION) throw java.io.IOException("local validation") }
+        try {
+            compose.onNodeWithText("Kopia zapasowa").performScrollTo().performClick()
+            compose.waitUntil(10000) { !data.backupWorking.value && data.backupNotice.value?.contains("Nie udało się zapisać") == true }
+            assertEquals(0, monitor.hits)
+            compose.onNodeWithText("Start").assertIsEnabled()
+        } finally {
+            data.backupExportPhase = {}
+            instrumentation.removeMonitor(monitor)
+        }
+    }
+
+    @Test fun recreatedActivityOpensExactlyOneDocumentAfterValidation() {
+        val filter = IntentFilter(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE); addDataType("*/*")
+        }
+        val result = Instrumentation.ActivityResult(Activity.RESULT_OK, Intent().setData(uri("roundtrip.ombak")))
+        val monitor = Instrumentation.ActivityMonitor(filter, result, true)
+        val entered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        instrumentation.addMonitor(monitor)
+        data.backupExportPhase = { phase ->
+            if (phase == BackupExportPhase.VALIDATION) runBlocking {
+                entered.complete(Unit)
+                withTimeout(15_000) { release.await() }
+            }
+        }
+        try {
+            compose.onNodeWithText("Kopia zapasowa").performScrollTo().performClick()
+            compose.waitUntil(10_000) { entered.isCompleted }
+            compose.activityRule.scenario.recreate()
+            compose.onNodeWithText("Start").assertIsEnabled()
+            assertTrue(data.backupWorking.value)
+            assertEquals(0, monitor.hits)
+            release.complete(Unit)
+            compose.waitUntil(10_000) { !data.backupWorking.value && data.backupNotice.value == "Kopia zapasowa została zapisana." }
+            compose.activityRule.scenario.recreate()
+            compose.waitForIdle()
+            assertEquals(1, monitor.hits)
+            assertNull(data.backupDocumentRequest.value)
+            val copy = instrumentation.targetContext.contentResolver.openInputStream(uri("roundtrip.ombak"))!!.use(BackupArchive::read)
+            assertEquals(91, ConfigCodec.decode(copy.settings).tempo.bpm)
+        } finally {
+            release.complete(Unit)
+            data.backupExportPhase = {}
+            instrumentation.removeMonitor(monitor)
+        }
     }
 
     @Test fun backupAndStartAreDisabledDuringOperationAndPlaybackReservation() {
@@ -106,7 +162,7 @@ class BackupUiTest {
             data.exportBackup { ByteArrayOutputStream() }
             compose.onNodeWithText("Przetwarzanie…").performScrollTo().assertIsNotEnabled()
             compose.onNodeWithText("Start").assertIsNotEnabled()
-        } finally { release.complete(Unit); runBlocking { data.awaitWrites() } }
+        } finally { release.complete(Unit); runBlocking { withTimeout(10000) { data.awaitBackup() } } }
         assertTrue(data.reservePlayback())
         try { compose.onNodeWithText("Przywróć kopię").performScrollTo().assertIsNotEnabled() }
         finally { data.playbackFinished() }
@@ -178,6 +234,10 @@ class BackupUiTest {
         automation.serviceInfo = automation.serviceInfo.apply {
             flags = flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or
                 android.accessibilityservice.AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+        }
+        // Local preparation is asynchronous. Advance Compose until its launcher has opened DocumentsUI.
+        compose.waitUntil(15000) {
+            systemNode { it.packageName?.toString()?.endsWith(".documentsui") == true } != null
         }
         fun inSystemList(node: android.view.accessibility.AccessibilityNodeInfo): Boolean {
             var parent = node.parent

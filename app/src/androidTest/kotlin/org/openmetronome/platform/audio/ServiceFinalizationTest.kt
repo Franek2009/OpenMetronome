@@ -37,7 +37,7 @@ class ServiceFinalizationTest {
             until { !data.playbackBusy.value }
             assertTrue(data.reservePlayback()); data.playbackFinished()
             val bytes = ByteArrayOutputStream()
-            data.exportBackup { bytes }; data.awaitWrites()
+            data.exportBackup { bytes }; data.awaitBackup()
             assertTrue(bytes.size() > 0)
             // Stay bound beyond Android's foreground timeout; no delayed process crash is allowed.
             delay(12000)

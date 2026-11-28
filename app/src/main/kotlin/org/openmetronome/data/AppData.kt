@@ -105,15 +105,15 @@ class AppData private constructor(
 
     /** Synchronous admission keeps Start/config edits ordered against backup reservation. */
     fun editConfiguration(action: () -> Unit) = synchronized(admission) {
-        if ((storageReady.value && !backupWorking.value && !recoveryRequired.value) || applyingBackup.get() == true) action()
+        if ((storageReady.value && !backupLiveReserved && !recoveryRequired.value) || applyingBackup.get() == true) action()
     }
     fun reservePlayback(): Boolean = synchronized(admission) {
-        if (!storageReady.value || backupWorking.value || exporting.value || recoveryRequired.value || sampleWorking.value || playbackBusy.value) false
+        if (!storageReady.value || backupLiveReserved || exporting.value || recoveryRequired.value || sampleWorking.value || playbackBusy.value) false
         else { playbackBusy.value = true; true }
     }
     fun playbackFinished() = synchronized(admission) { playbackBusy.value = false }
     private fun submit(action: suspend () -> Unit): Boolean = synchronized(admission) {
-        if (!storageReady.value || backupWorking.value || recoveryRequired.value) false else actions.trySend(action).isSuccess
+        if (!storageReady.value || backupLiveReserved || recoveryRequired.value) false else actions.trySend(action).isSuccess
     }
     internal suspend fun awaitWrites() {
         ready.await()
@@ -137,6 +137,13 @@ class AppData private constructor(
     val exporting = MutableStateFlow(false)
     val exportNotice = MutableStateFlow<String?>(null)
     val backupWorking = MutableStateFlow(false)
+    private val backupSnapshotDetached = MutableStateFlow(false)
+    internal val backupLiveReserved: Boolean get() = backupWorking.value && !backupSnapshotDetached.value
+    internal val backupReservation = combine(backupWorking, backupSnapshotDetached) { working, detached -> working && !detached }
+    private val pendingBackupDocument = MutableStateFlow<Int?>(null)
+    internal val backupDocumentRequest = pendingBackupDocument.asStateFlow()
+    private var backupDocumentResult: CompletableDeferred<(() -> OutputStream)?>? = null
+    internal var backupExportPhase: (BackupExportPhase) -> Unit = {}
     val backupNotice = MutableStateFlow<String?>(null)
     val sampleWorking = MutableStateFlow(false)
     val sampleNotice = MutableStateFlow<String?>(null)
@@ -163,6 +170,8 @@ class AppData private constructor(
     private val journalRoot = File(contextDirectory, if (isolatedTestStorage && testDirectory == null)
         "restore-journal-${UUID.randomUUID()}" else "restore-journal")
     private val restoreJournal = RestoreJournal(journalRoot, ::syncDirectory)
+    private val backupStagingRoot = File(contextDirectory, if (isolatedTestStorage && testDirectory == null)
+        "backup-staging-${UUID.randomUUID()}" else "backup-staging")
     val dao = database.practice()
     private val musicDao = database.musicActivities()
     private val groupingDao = database.grouping()
@@ -256,10 +265,10 @@ class AppData private constructor(
     private fun musicStatisticsAttempt(now: Flow<Instant>, defaults: MusicStatisticsPreferences): Flow<MusicStatisticsState> = flow {
         emit(MusicStatisticsState.Loading)
         ready.await()
-        emitAll(combine(backupWorking, recoveryRequired) { busy, recovery ->
+        emitAll(combine(backupReservation, recoveryRequired) { reserved, recovery ->
             when {
                 recovery -> MusicStatisticsState.Unavailable
-                busy -> MusicStatisticsState.Loading
+                reserved -> MusicStatisticsState.Loading
                 else -> null
             }
         }.distinctUntilChanged().flatMapLatest { blocked ->
@@ -302,7 +311,7 @@ class AppData private constructor(
     @OptIn(ExperimentalCoroutinesApi::class)
     fun observePracticeGrouping(): Flow<Result<PracticeGroupingSummary>> = flow {
         ready.await()
-        val storageAvailability = combine(backupWorking, recoveryRequired) { backup, recovery -> backup to recovery }
+        val storageAvailability = combine(backupReservation, recoveryRequired) { reserved, recovery -> reserved to recovery }
         emitAll(combine(dao.statisticsSessions(), groupingDao.observeCorrections(), settings.groupingGap,
             storageAvailability) { _, _, gap, _ -> gap }.flatMapLatest { gap ->
             flow {
@@ -343,7 +352,7 @@ class AppData private constructor(
     private suspend fun <T> readGrouping(at: Instant, read: PracticeGrouping.() -> T): T {
         awaitWrites()
         return database.withTransaction {
-            check(!backupWorking.value && !recoveryRequired.value)
+            check(!backupLiveReserved && !recoveryRequired.value)
             groupingProjection(at).read()
         }
     }
@@ -360,6 +369,7 @@ class AppData private constructor(
         }
         scope.launch {
             try {
+                BackupStaging.cleanInterrupted(backupStagingRoot)
                 samples.load()
                 recoverRestore()
                 try { retrySessionWrites(recovering = true) }
@@ -406,7 +416,7 @@ class AppData private constructor(
 
     private fun sampleOperation(action: suspend () -> Unit) {
         synchronized(admission) {
-            if (!storageReady.value || backupWorking.value || recoveryRequired.value || !sampleWorking.compareAndSet(false, true)) return
+            if (!storageReady.value || backupLiveReserved || recoveryRequired.value || !sampleWorking.compareAndSet(false, true)) return
             sampleNotice.value = null
             actions.trySend {
                 try { ready.await(); action() }
@@ -462,7 +472,17 @@ class AppData private constructor(
         }
     }
 
-    private fun backup(failureNotice: String = "Nie udało się przywrócić kopii. Bieżące dane pozostają bez zmian.", action: suspend () -> Unit) {
+    private class PreparedBackup(
+        val staging: BackupStaging, val limits: BackupStreamLimits, val openOutput: suspend () -> OutputStream?,
+    )
+
+    private fun backup(action: suspend () -> Unit) =
+        startBackup("Nie udało się przywrócić kopii. Bieżące dane pozostają bez zmian.") {
+            action()
+            null
+        }
+
+    private fun startBackup(failureNotice: String, prepare: suspend () -> PreparedBackup?) {
         synchronized(admission) {
             if (recoveryRequired.value) {
                 backupNotice.value = BACKUP_RECOVERY_NOTICE
@@ -476,20 +496,62 @@ class AppData private constructor(
             backupWorking.value = true
             backupNotice.value = null
             actions.trySend {
-                try { ready.await(); check(!settingsWriteFailed); retrySessionWrites(); action() }
-                catch (_: BackupRecoveryException) {
+                var handedOff = false
+                try {
+                    ready.await()
+                    check(!settingsWriteFailed)
+                    retrySessionWrites()
+                    val prepared = prepare()
+                    if (prepared != null) {
+                        validateAndDeliver(prepared, failureNotice)
+                        handedOff = true
+                    }
+                } catch (_: BackupRecoveryException) {
                     recoveryRequired.value = true
                     backupNotice.value = BACKUP_RECOVERY_NOTICE
-                    error.value = backupNotice.value
-                }
-                catch (cancelled: CancellationException) {
+                    error.value = BACKUP_RECOVERY_NOTICE
+                } catch (cancelled: CancellationException) {
                     backupNotice.value = "Operacja kopii zapasowej została anulowana."
                     throw cancelled
+                } catch (_: Exception) {
+                    backupNotice.value = failureNotice
+                } finally {
+                    if (!handedOff) finishBackup()
                 }
-                catch (_: Exception) { backupNotice.value = failureNotice }
-                finally { backupWorking.value = false }
             }
         }
+    }
+
+    private fun finishBackup() = synchronized(admission) {
+        backupDocumentResult = null
+        pendingBackupDocument.value = null
+        backupWorking.value = false
+        backupSnapshotDetached.value = false
+    }
+
+    private fun validateAndDeliver(prepared: PreparedBackup, failureNotice: String) {
+        synchronized(admission) { backupSnapshotDetached.value = true }
+        val job = scope.launch(start = CoroutineStart.LAZY) {
+            try {
+                val owner = currentCoroutineContext()
+                backupExportPhase(BackupExportPhase.VALIDATION)
+                StreamingBackupValidator(prepared.limits, owner::ensureActive).validate(prepared.staging.archive, prepared.staging.index)
+                backupExportPhase(BackupExportPhase.DELIVERY)
+                prepared.openOutput()?.let { output ->
+                    prepared.staging.deliver(output, owner::ensureActive)
+                    backupNotice.value = "Kopia zapasowa została zapisana."
+                }
+            } catch (cancelled: CancellationException) {
+                backupNotice.value = "Operacja kopii zapasowej została anulowana."
+                throw cancelled
+            } catch (_: Exception) {
+                backupNotice.value = failureNotice
+            }
+        }
+        job.invokeOnCompletion {
+            try { prepared.staging.close() } finally { finishBackup() }
+        }
+        job.start()
     }
 
     private suspend fun snapshot(access: CustomSampleRepository.BackupAccess, full: Boolean = true): BackupSnapshot {
@@ -512,32 +574,63 @@ class AppData private constructor(
             if (full) groupingDao.corrections().map(GroupingCorrectionRow::toDomain) else emptyList())
     }
 
-    fun exportBackup(openOutput: () -> OutputStream) = exportBackupVersion(3, openOutput)
-    fun exportLegacyBackup(openOutput: () -> OutputStream) = exportBackupVersion(1, openOutput)
-    fun exportV2Backup(openOutput: () -> OutputStream) = exportBackupVersion(2, openOutput)
-    private fun exportBackupVersion(version: Int, openOutput: () -> OutputStream) = backup("Nie udało się zapisać kopii zapasowej. Plik może być niepełny; dane aplikacji nie zostały zmienione.") {
+    fun exportBackup(openOutput: () -> OutputStream) = exportBackupVersion(3) { openOutput() }
+    fun exportLegacyBackup(openOutput: () -> OutputStream) = exportBackupVersion(1) { openOutput() }
+    fun exportV2Backup(openOutput: () -> OutputStream) = exportBackupVersion(2) { openOutput() }
+
+    internal fun prepareBackupDocument(version: Int): Unit = synchronized(admission) {
+        if (backupWorking.value) return@synchronized
+        val result = CompletableDeferred<(() -> OutputStream)?>()
+        backupDocumentResult = result
+        exportBackupVersion(version) {
+            synchronized(admission) { if (!result.isCompleted) pendingBackupDocument.value = version }
+            result.await()?.invoke()
+        }
+        if (!backupWorking.value) backupDocumentResult = null
+    }
+
+    internal fun takeBackupDocumentRequest(): Int? = synchronized(admission) {
+        pendingBackupDocument.value.also { pendingBackupDocument.value = null }
+    }
+
+    internal fun completeBackupDocument(openOutput: (() -> OutputStream)?) {
+        synchronized(admission) {
+            if (backupDocumentResult?.complete(openOutput) == true) pendingBackupDocument.value = null
+        }
+    }
+
+    internal suspend fun awaitBackup() { backupWorking.first { !it } }
+
+    private fun exportBackupVersion(version: Int, openOutput: suspend () -> OutputStream?) = startBackup(
+        "Nie udało się zapisać kopii zapasowej. Plik może być niepełny; dane aplikacji nie zostały zmienione."
+    ) {
+        val staging = BackupStaging.create(backupStagingRoot)
         try {
+            val owner = currentCoroutineContext()
+            val limits = BackupStreamLimits()
             samples.backup {
-                val snapshot = database.withTransaction { snapshot(this, full = version >= 3) }
-                // Prepare and validate before touching the user's destination document.
-                val bytes = java.io.ByteArrayOutputStream().also {
-                    when (version) {
-                        1 -> BackupArchive.writeLegacy(snapshot, it)
-                        2 -> BackupArchive.writeV2(snapshot, it)
-                        else -> BackupArchive.write(snapshot, it)
-                    }
+                database.withTransaction {
+                    StreamingBackupWriter(database.openHelper.writableDatabase, limits, owner::ensureActive)
+                        .write(staging.archive, version, ConfigCodec.encode(settings.load()),
+                            settings.preferencesSnapshot(), ::backupSample, backupExportPhase)
                 }
-                openOutput().use(bytes::writeTo)
             }
-            backupNotice.value = "Kopia zapasowa została zapisana."
-        } catch (cancelled: CancellationException) { throw cancelled }
-        catch (_: Exception) {
-            backupNotice.value = "Nie udało się zapisać kopii zapasowej. Plik może być niepełny; dane aplikacji nie zostały zmienione."
+            PreparedBackup(staging, limits, openOutput)
+        } catch (error: Throwable) {
+            staging.close()
+            throw error
         }
     }
 
     fun importBackup(openInput: () -> InputStream, applied: (MetronomeConfig) -> Unit) = backup {
-        val archive = openInput().use(BackupArchive::read)
+        val limits = BackupStreamLimits()
+        val owner = currentCoroutineContext()
+        val archive = BackupStaging.create(backupStagingRoot).use { staging ->
+            staging.stageInput(openInput(), limits.compressed, owner::ensureActive)
+            StreamingBackupValidator(limits, owner::ensureActive).validate(staging.archive, staging.index)
+            // B1.3 will consume a prepared, disk-backed snapshot. Existing restore still needs these rows.
+            staging.archive.inputStream().use(BackupArchive::read)
+        }
         val config = ConfigCodec.decode(archive.settings)
         samples.backup {
             val previous = database.withTransaction { snapshot(this) }

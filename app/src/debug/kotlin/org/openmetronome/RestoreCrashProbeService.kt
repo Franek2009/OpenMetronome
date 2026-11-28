@@ -53,7 +53,8 @@ class RestoreCrashProbeService : Service() {
                         check(data.backupNotice.value?.startsWith("Kopia została przywrócona") == true) { data.backupNotice.value.orEmpty() }
                     }
                     val output = ByteArrayOutputStream()
-                    data.exportBackup { output }; data.awaitWrites()
+                    data.exportBackup { output }
+                    withTimeout(15000) { data.awaitBackup() }
                     check(data.backupNotice.value == "Kopia zapasowa została zapisana.") { data.backupNotice.value.orEmpty() }
                     result.putByteArray("archive", output.toByteArray())
                     result.putInt("pid", Process.myPid())

@@ -74,7 +74,7 @@ class BackupStorageTest {
     }
     private suspend fun exported(data: AppData): BackupSnapshot {
         val output = ByteArrayOutputStream()
-        data.exportBackup { output }; data.awaitWrites()
+        data.exportBackup { output }; awaitBackup(data)
         assertEquals("Kopia zapasowa została zapisana.", data.backupNotice.value)
         return BackupArchive.read(ByteArrayInputStream(output.toByteArray()))
     }
@@ -156,7 +156,7 @@ class BackupStorageTest {
             same(a, exported(data))
             data.exportBackup { object : OutputStream() {
                 override fun write(value: Int) { throw IOException("full") }
-            } }; data.awaitWrites()
+            } }; awaitBackup(data)
             assertTrue(data.backupNotice.value!!.contains("Plik może być niepełny"))
             same(a, exported(data))
         }
@@ -179,7 +179,7 @@ class BackupStorageTest {
             data.savePreset("Rejected", MetronomeConfig())
             data.exportBackup { secondOpened = true; ByteArrayOutputStream() }
             } finally { release.complete(Unit) }
-            data.awaitWrites()
+            awaitBackup(data)
             assertFalse(secondOpened)
             val restored = BackupArchive.read(ByteArrayInputStream(output.toByteArray()))
             assertEquals(83, ConfigCodec.decode(restored.settings).tempo.bpm)
@@ -192,6 +192,168 @@ class BackupStorageTest {
             finally { lease.close() }
         }
     }
+    private suspend fun awaitBackup(data: AppData) {
+        withTimeout(10_000) { data.backupWorking.first { !it } }
+        data.awaitWrites()
+    }
+
+    @Test fun abandonedDocumentRequestReleasesItsStagingAndIsNotReplayed(): Unit = runBlocking {
+        fixture { data, dir ->
+            data.prepareBackupDocument(3)
+            assertEquals(3, withTimeout(10_000) { data.backupDocumentRequest.first { it != null } })
+            assertEquals(3, data.takeBackupDocumentRequest())
+            assertNull(data.takeBackupDocumentRequest())
+            assertFalse(data.backupLiveReserved)
+            assertTrue(File(dir, "backup-staging").walk().any { it.name == "archive.ombak" })
+            data.completeBackupDocument(null)
+            awaitBackup(data)
+            assertTrue(File(dir, "backup-staging").listFiles().orEmpty().isEmpty())
+            assertNull(data.backupNotice.value)
+        }
+    }
+
+    @Test fun slowDestinationReleasesLiveReservationAndPreservesThePreparedSnapshot(): Unit = runBlocking {
+        fixture { data, dir ->
+            val entered = java.util.concurrent.CountDownLatch(1)
+            val release = java.util.concurrent.CountDownLatch(1)
+            val output = ByteArrayOutputStream()
+            data.savePreset("Before", MetronomeConfig())
+            data.exportBackup {
+                entered.countDown()
+                check(release.await(10, java.util.concurrent.TimeUnit.SECONDS))
+                output
+            }
+            try {
+                assertTrue(entered.await(10, java.util.concurrent.TimeUnit.SECONDS))
+                assertTrue(data.backupWorking.value)
+                assertFalse(data.backupLiveReserved)
+                assertTrue(data.reservePlayback())
+                data.playbackFinished()
+                data.savePreset("During delivery", MetronomeConfig(tempo = Tempo(90)))
+                withTimeout(5_000) { data.awaitWrites() }
+                assertEquals(2, data.dao.allPresets().size)
+            } finally { release.countDown() }
+            awaitBackup(data)
+            assertEquals(listOf("Before"), BackupArchive.read(output.toByteArray().inputStream()).presets.map { it.name })
+            assertTrue(File(dir, "backup-staging").listFiles().orEmpty().isEmpty())
+        }
+    }
+
+    @Test fun slowValidationReleasesLiveReservationAndBlocksAnotherBackup(): Unit = runBlocking {
+        fixture { data, dir ->
+            val entered = CompletableDeferred<Unit>()
+            val release = CompletableDeferred<Unit>()
+            data.backupExportPhase = { phase ->
+                if (phase == BackupExportPhase.VALIDATION) runBlocking {
+                    entered.complete(Unit)
+                    withTimeout(15_000) { release.await() }
+                }
+            }
+            val output = ByteArrayOutputStream()
+            data.savePreset("Before validation", MetronomeConfig())
+            data.exportBackup { output }
+            try {
+                withTimeout(10_000) { entered.await() }
+                assertTrue(data.backupWorking.value)
+                assertFalse(data.backupLiveReserved)
+                assertTrue(data.reservePlayback())
+                data.playbackFinished()
+                data.savePreset("During validation", MetronomeConfig(tempo = Tempo(90)))
+                withTimeout(5_000) { data.awaitWrites() }
+                assertEquals(2, data.dao.allPresets().size)
+                data.prepareBackupDocument(3)
+                var importOpened = false
+                data.importBackup({ importOpened = true; ByteArrayInputStream(byteArrayOf()) }, {})
+                withTimeout(5_000) { data.awaitWrites() }
+                assertFalse(importOpened)
+                assertNull(data.takeBackupDocumentRequest())
+                assertTrue(data.backupWorking.value)
+                assertEquals(0, output.size())
+            } finally { release.complete(Unit) }
+            awaitBackup(data)
+            assertEquals(listOf("Before validation"), BackupArchive.read(output.toByteArray().inputStream()).presets.map { it.name })
+            assertFalse(data.backupLiveReserved)
+            assertTrue(File(dir, "backup-staging").listFiles().orEmpty().isEmpty())
+        }
+    }
+
+    @Test fun failedOrCancelledValidationCleansStagingBeforeAnyDocumentRequest(): Unit = runBlocking {
+        fixture { data, dir ->
+            for (cancelled in listOf(false, true)) {
+                data.backupExportPhase = { phase ->
+                    if (phase == BackupExportPhase.VALIDATION) {
+                        if (cancelled) throw CancellationException("validation cancelled")
+                        File(dir, "backup-staging").walk().single { it.name == "archive.ombak" }.writeBytes(byteArrayOf(1, 2))
+                    }
+                }
+                data.prepareBackupDocument(3)
+                awaitBackup(data)
+                assertNull(data.takeBackupDocumentRequest())
+                assertFalse(data.backupLiveReserved)
+                assertTrue(File(dir, "backup-staging").listFiles().orEmpty().isEmpty())
+                assertTrue(data.reservePlayback())
+                data.playbackFinished()
+                val expectedNotice = if (cancelled) "anulowana" else "Nie udało się zapisać"
+                assertTrue(data.backupNotice.value.orEmpty().contains(expectedNotice))
+            }
+        }
+    }
+
+    @Test fun stagingFailureAndInterruptedDeliveryDiscardPrivateFiles(): Unit = runBlocking {
+        fixture { data, dir ->
+            val staging = File(dir, "backup-staging")
+            data.backupExportPhase = {
+                if (it == BackupExportPhase.ENCODING) {
+                    throw IOException("test ENOSPC", android.system.ErrnoException("write", android.system.OsConstants.ENOSPC))
+                }
+            }
+            var opened = false
+            data.exportBackup { opened = true; ByteArrayOutputStream() }
+            awaitBackup(data)
+            assertFalse(opened)
+            assertTrue(data.backupNotice.value!!.contains("Plik może być niepełny"))
+            assertTrue(staging.listFiles().orEmpty().isEmpty())
+
+            data.backupExportPhase = {}
+            var partial = 0
+            data.exportBackup {
+                object : OutputStream() {
+                    override fun write(value: Int) {
+                        if (++partial > 8) throw IOException("test interrupted destination")
+                    }
+                }
+            }
+            awaitBackup(data)
+            assertTrue(partial > 8)
+            assertTrue(data.backupNotice.value!!.contains("Plik może być niepełny"))
+            assertTrue(staging.listFiles().orEmpty().isEmpty())
+
+            data.exportBackup { throw CancellationException("test cancelled destination") }
+            awaitBackup(data)
+            assertTrue(data.backupNotice.value!!.contains("anulowana"))
+            assertTrue(staging.listFiles().orEmpty().isEmpty())
+            assertTrue(data.reservePlayback())
+            data.playbackFinished()
+        }
+    }
+
+    @Test fun restartSweepsOnlyOwnedStagingFiles(): Unit = runBlocking {
+        fixture { data, dir ->
+            val root = File(dir, "backup-staging")
+            val stale = BackupStaging.create(root)
+            stale.archive.writeText("interrupted copy")
+            stale.index.writeText("interrupted validation")
+            val other = File(root, "not-owned.txt").also { it.writeText("keep") }
+            data.closeTestStorage()
+            val reopened = AppData(context, dir)
+            try {
+                reopened.ready.await()
+                assertFalse(stale.archive.exists()); assertFalse(stale.index.exists())
+                assertEquals("keep", other.readText())
+            } finally { reopened.closeTestStorage() }
+        }
+    }
+
     @Test fun cancelledOperationDoesNotKillWriterQueueOrChangeData(): Unit = runBlocking {
         fixture { data, _ ->
             val a = sample("A", 91); imported(data, a)
